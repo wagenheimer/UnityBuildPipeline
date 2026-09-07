@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,7 +6,6 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public static class LegacyGameConfigMigrator
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config", priority = 20)]
         [MenuItem("Tools/Build Pipeline/Migrate or Create Project Config", priority = 20)]
         public static void MigrateOrCreate()
         {

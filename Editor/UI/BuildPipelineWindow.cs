@@ -10,20 +10,19 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public class BuildPipelineWindow : EditorWindow
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Window", priority = 1)]
-        [MenuItem("Tools/Build Pipeline/Open Build Window", priority = 1)]
-        [MenuItem("Window/Build Pipeline", false, 20)]
+        [MenuItem("Tools/Build Pipeline/Open Build Window", priority = 0)]
         public static void ShowWindow()
         {
-            var win = GetWindow<BuildPipelineWindow>("Build Pipeline");
-            win.minSize = new Vector2(680, 520);
+            var win = GetWindow<BuildPipelineWindow>(false, "Build Pipeline", true);
+            win.minSize = new Vector2(720, 540);
             win.Show();
+            win.Focus();
         }
 
         private ProjectBuildConfig _config;
         private VisualElement _root;
         private VisualElement _contentContainer;
-        private int _selectedTab = 0; // 0 = Quick Build, 1 = Matrix, 2 = CLI, 3 = Settings
+        private int _selectedTab = 0; // 0 = Quick Build, 1 = Matrix, 2 = Keystore & Vault, 3 = CLI, 4 = Settings
 
         private bool[] _selectedPublishers;
         private bool[] _selectedLanguages;
@@ -121,19 +120,19 @@ namespace Wagenheimer.BuildPipeline.Editor
             tabRow.style.flexDirection = FlexDirection.Row;
             tabRow.style.marginBottom = 10;
 
-            string[] tabNames = { "Quick Build", "Matrix Batch Builder", "CLI & Automation", "Project Config" };
+            string[] tabNames = { "⚡ Quick Build", "🏭 Matrix Batch Builder", "🔐 Keystore & Vault", "💻 CLI & Automation", "⚙️ Project Config" };
             for (var i = 0; i < tabNames.Length; i++)
             {
                 var tabIndex = i;
                 var tabBtn = new Button(() =>
                 {
                     _selectedTab = tabIndex;
-                    RebuildContent();
+                    RebuildUI();
                 })
                 { text = tabNames[i] };
                 tabBtn.style.flexGrow = 1;
                 tabBtn.style.height = 28;
-                tabBtn.style.fontSize = 12;
+                tabBtn.style.fontSize = 11;
                 if (_selectedTab == tabIndex)
                 {
                     tabBtn.style.backgroundColor = new Color(0.2f, 0.45f, 0.7f);
@@ -255,9 +254,12 @@ namespace Wagenheimer.BuildPipeline.Editor
                     BuildMatrixTab();
                     break;
                 case 2:
-                    BuildCliTab();
+                    BuildKeystoreVaultTab();
                     break;
                 case 3:
+                    BuildCliTab();
+                    break;
+                case 4:
                     BuildConfigTab();
                     break;
             }
@@ -610,6 +612,236 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.ClearProgressBar();
                 EditorUtility.DisplayDialog("Matrix Complete", $"Generated {count} builds.", "OK");
             }
+        }
+        #region Keystore & Vault Tab
+        private void BuildKeystoreVaultTab()
+        {
+            var container = new VisualElement();
+
+            // Header Banner
+            var banner = new VisualElement();
+            banner.style.backgroundColor = new Color(0.12f, 0.16f, 0.22f);
+            banner.style.paddingTop = 10;
+            banner.style.paddingBottom = 10;
+            banner.style.paddingLeft = 14;
+            banner.style.paddingRight = 14;
+            banner.style.marginBottom = 14;
+            banner.style.borderTopLeftRadius = 6;
+            banner.style.borderTopRightRadius = 6;
+            banner.style.borderBottomLeftRadius = 6;
+            banner.style.borderBottomRightRadius = 6;
+            banner.style.borderLeftWidth = 4;
+            banner.style.borderLeftColor = new Color(0.2f, 0.7f, 1f);
+
+            var bannerTitle = new Label("🔐 Android Keystore & Central Vault Management");
+            bannerTitle.style.fontSize = 14;
+            bannerTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            bannerTitle.style.color = new Color(0.3f, 0.8f, 1f);
+            banner.Add(bannerTitle);
+
+            var bannerDesc = new Label(
+                "Gerencie e valide as credenciais de assinatura para builds Android (.apk e .aab). " +
+                "O modo padrão recomendado é o Keystore Vault Centralizado (as chaves e senhas ficam na nuvem segura e nunca vão para o Git).");
+            bannerDesc.style.fontSize = 11;
+            bannerDesc.style.color = new Color(0.75f, 0.8f, 0.85f);
+            bannerDesc.style.whiteSpace = WhiteSpace.Normal;
+            bannerDesc.style.marginTop = 4;
+            banner.Add(bannerDesc);
+
+            container.Add(banner);
+
+            // Card 1: Remote Keystore Vault
+            var vaultCard = new VisualElement();
+            vaultCard.style.backgroundColor = new Color(0.16f, 0.18f, 0.2f);
+            vaultCard.style.paddingTop = 12;
+            vaultCard.style.paddingBottom = 12;
+            vaultCard.style.paddingLeft = 14;
+            vaultCard.style.paddingRight = 14;
+            vaultCard.style.marginBottom = 12;
+            vaultCard.style.borderTopLeftRadius = 6;
+            vaultCard.style.borderTopRightRadius = 6;
+            vaultCard.style.borderBottomLeftRadius = 6;
+            vaultCard.style.borderBottomRightRadius = 6;
+
+            var vaultTitleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center, marginBottom = 8 } };
+            var vaultTitle = new Label("🌐 Central Keystore Vault (wagenheimer.com)");
+            vaultTitle.style.fontSize = 13;
+            vaultTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            vaultTitle.style.color = new Color(0.4f, 0.85f, 0.5f);
+            vaultTitleRow.Add(vaultTitle);
+
+            var openWebBtn = new Button(() => Application.OpenURL("https://wagenheimer.com/admin/keystores"))
+            {
+                text = "Abrir Portal Web ↗"
+            };
+            openWebBtn.style.height = 24;
+            openWebBtn.style.fontSize = 10;
+            vaultTitleRow.Add(openWebBtn);
+            vaultCard.Add(vaultTitleRow);
+
+            var currentToken = KeystoreVaultClient.GetEffectiveToken(_config);
+            var hasToken = !string.IsNullOrEmpty(currentToken);
+
+            var vaultStatus = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 8 } };
+            var tokenBadge = new Label(hasToken ? "● Token Ativo" : "○ Sem Token")
+            {
+                style = {
+                    fontSize = 11,
+                    color = hasToken ? new Color(0.3f, 0.9f, 0.4f) : new Color(0.9f, 0.6f, 0.2f),
+                    unityFontStyleAndWeight = FontStyle.Bold
+                }
+            };
+            vaultStatus.Add(tokenBadge);
+
+            var vaultUrlText = !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
+            var vaultUrlLabel = new Label($"  |  Endpoint: {vaultUrlText}");
+            vaultUrlLabel.style.fontSize = 11;
+            vaultUrlLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            vaultStatus.Add(vaultUrlLabel);
+
+            var profileIdText = !string.IsNullOrEmpty(_config.vaultProfileId) ? _config.vaultProfileId : "(auto por bundle id)";
+            var profileIdLabel = new Label($"  |  Perfil: {profileIdText}");
+            profileIdLabel.style.fontSize = 11;
+            profileIdLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            vaultStatus.Add(profileIdLabel);
+            vaultCard.Add(vaultStatus);
+
+            var testVaultBtn = new Button(async () =>
+            {
+                EditorUtility.DisplayProgressBar("Vault Connection", "Consultando servidor de credenciais...", 0.5f);
+                try
+                {
+                    var effectiveUrl = !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
+                    var token = KeystoreVaultClient.GetEffectiveToken(_config);
+
+                    var result = await KeystoreVaultClient.FetchCredentialsAsync(
+                        effectiveUrl,
+                        _config.vaultProfileId,
+                        PlayerSettings.applicationIdentifier,
+                        token);
+
+                    EditorUtility.ClearProgressBar();
+                    if (result.Success && result.Credentials != null)
+                    {
+                        EditorUtility.DisplayDialog("Sucesso - Conexão com Vault",
+                            $"✅ Conexão com o Vault estabelecida com sucesso!\n\n" +
+                            $"Perfil ID: {result.Credentials.ProfileId}\n" +
+                            $"Arquivo: {result.Credentials.KeystoreFileName}\n" +
+                            $"Key Alias: {result.Credentials.KeyAliasName}\n" +
+                            $"Status: Autenticado e pronto para builds headless!", "OK");
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("Aviso - Vault",
+                            $"Não foi possível obter as credenciais do Vault:\n\n{result.Message}\n\n" +
+                            $"Dica: Verifique se o perfil '{_config.vaultProfileId}' está cadastrado no portal wagenheimer.com/admin/keystores e se o Token está correto.", "OK");
+                    }
+                }
+                finally
+                {
+                    EditorUtility.ClearProgressBar();
+                }
+            })
+            {
+                text = "⚡ Testar Conexão com o Vault Remoto"
+            };
+            testVaultBtn.style.height = 30;
+            testVaultBtn.style.backgroundColor = new Color(0.15f, 0.45f, 0.65f);
+            testVaultBtn.style.color = Color.white;
+            testVaultBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+            vaultCard.Add(testVaultBtn);
+
+            container.Add(vaultCard);
+
+            // Card 2: Local Keystore File
+            var localCard = new VisualElement();
+            localCard.style.backgroundColor = new Color(0.18f, 0.18f, 0.18f);
+            localCard.style.paddingTop = 12;
+            localCard.style.paddingBottom = 12;
+            localCard.style.paddingLeft = 14;
+            localCard.style.paddingRight = 14;
+            localCard.style.marginBottom = 12;
+            localCard.style.borderTopLeftRadius = 6;
+            localCard.style.borderTopRightRadius = 6;
+            localCard.style.borderBottomLeftRadius = 6;
+            localCard.style.borderBottomRightRadius = 6;
+
+            var localTitle = new Label("📁 Local Keystore File (Fallback / Offline)");
+            localTitle.style.fontSize = 13;
+            localTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            localTitle.style.color = new Color(0.9f, 0.75f, 0.3f);
+            localTitle.style.marginBottom = 8;
+            localCard.Add(localTitle);
+
+            var ksPath = _config.GetEffectiveKeystorePath();
+            var pathExists = !string.IsNullOrEmpty(ksPath) && File.Exists(ksPath);
+
+            var localInfo = new Label($"Arquivo: {(string.IsNullOrEmpty(ksPath) ? "(não configurado)" : ksPath)}\nAlias: {(!string.IsNullOrEmpty(_config.androidKeyAlias) ? _config.androidKeyAlias : "(vazio)")}");
+            localInfo.style.fontSize = 11;
+            localInfo.style.color = pathExists ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.7f, 0.7f, 0.7f);
+            localInfo.style.marginBottom = 8;
+            localCard.Add(localInfo);
+
+            var testLocalBtn = new Button(() =>
+            {
+                var val = KeystoreVaultClient.ValidateLocalKeystore(
+                    _config.GetEffectiveKeystorePath(),
+                    _config.androidKeyAlias,
+                    _config.GetEffectiveKeystorePassword(),
+                    _config.GetEffectiveKeyaliasPassword());
+
+                if (val.Success)
+                {
+                    EditorUtility.DisplayDialog("Validação do Keystore Local", $"✅ {val.Message}", "OK");
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Falha na Validação do Keystore Local", $"❌ {val.Message}", "OK");
+                }
+            })
+            {
+                text = "🔍 Testar & Validar Keystore Local (keytool.exe)"
+            };
+            testLocalBtn.style.height = 30;
+            testLocalBtn.style.backgroundColor = new Color(0.25f, 0.4f, 0.25f);
+            testLocalBtn.style.color = Color.white;
+            testLocalBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+            localCard.Add(testLocalBtn);
+
+            container.Add(localCard);
+
+            // Card 3: Security Best Practices
+            var infoCard = new VisualElement();
+            infoCard.style.backgroundColor = new Color(0.14f, 0.14f, 0.14f);
+            infoCard.style.paddingTop = 10;
+            infoCard.style.paddingBottom = 10;
+            infoCard.style.paddingLeft = 12;
+            infoCard.style.paddingRight = 12;
+            infoCard.style.borderTopLeftRadius = 4;
+            infoCard.style.borderTopRightRadius = 4;
+            infoCard.style.borderBottomLeftRadius = 4;
+            infoCard.style.borderBottomRightRadius = 4;
+
+            var tipTitle = new Label("💡 Boas Práticas de Segurança & CI/CD:");
+            tipTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            tipTitle.style.fontSize = 11;
+            tipTitle.style.marginBottom = 4;
+            tipTitle.style.color = new Color(0.8f, 0.8f, 0.8f);
+            infoCard.Add(tipTitle);
+
+            var tipText = new Label(
+                "• O Keystore Vault injeta credenciais em tempo de build diretamente nos PlayerSettings em memória.\n" +
+                "• Nenhuma senha ou arquivo binário sensível de keystore precisa ser comitado nos repositórios Git.\n" +
+                "• No CI/CD (GitHub Actions / Jenkins), defina a variável de ambiente VAULT_SECRET_TOKEN.\n" +
+                "• No Unity Editor, você pode configurar o token em Configurações do Projeto ou salvá-lo com segurança nos EditorPrefs locais da sua máquina.");
+            tipText.style.fontSize = 10;
+            tipText.style.color = new Color(0.65f, 0.65f, 0.65f);
+            tipText.style.whiteSpace = WhiteSpace.Normal;
+            infoCard.Add(tipText);
+
+            container.Add(infoCard);
+
+            _contentContainer.Add(container);
         }
         #endregion
 

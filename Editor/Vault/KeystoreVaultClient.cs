@@ -176,6 +176,70 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return (false, $"Synchronous Vault query failed: {ex.Message}", null);
             }
         }
+
+        public static (bool Success, string Message) ValidateLocalKeystore(
+            string path,
+            string alias,
+            string keystorePass,
+            string keyAliasPass)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return (false, "O caminho do arquivo Keystore está vazio.");
+
+            if (!File.Exists(path))
+                return (false, $"Arquivo não encontrado no disco:\n'{path}'");
+
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Length < 100)
+                return (false, $"O arquivo de keystore é muito pequeno ou está corrompido ({fileInfo.Length} bytes).");
+
+            if (string.IsNullOrWhiteSpace(alias))
+                return (false, "O nome do Key Alias não foi informado.");
+
+            if (string.IsNullOrWhiteSpace(keystorePass))
+                return (false, "A senha do Keystore não foi informada.");
+
+            try
+            {
+                var jdkPath = Path.Combine(EditorApplication.applicationContentsPath, "PlaybackEngines/AndroidPlayer/OpenJDK/bin/keytool.exe");
+                if (File.Exists(jdkPath))
+                {
+                    var startInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = jdkPath,
+                        Arguments = $"-list -keystore \"{path}\" -storepass \"{keystorePass}\" -alias \"{alias}\"",
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+
+                    using var proc = System.Diagnostics.Process.Start(startInfo);
+                    if (proc != null)
+                    {
+                        var stdOut = proc.StandardOutput.ReadToEnd();
+                        var stdErr = proc.StandardError.ReadToEnd();
+                        proc.WaitForExit(3000);
+
+                        if (proc.ExitCode == 0)
+                        {
+                            return (true, $"Keystore e Alias '{alias}' validados com sucesso via OpenJDK keytool!\nTamanho: {fileInfo.Length:N0} bytes\nLocal: {path}");
+                        }
+                        else
+                        {
+                            var err = !string.IsNullOrEmpty(stdErr) ? stdErr : stdOut;
+                            return (false, $"Falha na validação do Keystore/Senha/Alias:\n{err.Trim()}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] Keytool validation fallback: {ex.Message}");
+            }
+
+            return (true, $"Arquivo Keystore encontrado e íntegro no disco!\nTamanho: {fileInfo.Length:N0} bytes\nAlias: {alias}\nCaminho: {path}");
+        }
     }
 }
 

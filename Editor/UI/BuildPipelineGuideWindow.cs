@@ -20,8 +20,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         static readonly Color ColAccent = new(0.18f, 0.55f, 0.90f);
         static readonly Color ColCodeText = new(0.65f, 0.85f, 0.45f);
 
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Documentation & Integration Guide", priority = 0)]
-        [MenuItem("Tools/Build Pipeline/Documentation & Integration Guide", priority = 0)]
+        [MenuItem("Tools/Build Pipeline/Documentation & Integration Guide", priority = 1)]
         public static void Open()
         {
             var w = GetWindow<BuildPipelineGuideWindow>("Build Pipeline — Documentation & Guide");

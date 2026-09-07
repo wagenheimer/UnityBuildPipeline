@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -22,8 +22,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorApplication.delayCall += () => CheckForUpdate(force: false);
         }
 
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Check for Updates...", priority = 141)]
-        [MenuItem("Tools/Build Pipeline/Check for Updates...", priority = 141)]
+        [MenuItem("Tools/Build Pipeline/Check for Updates...", priority = 100)]
         static void CheckForUpdateMenuItem() => CheckForUpdate(force: true);
 
         internal static void CheckForUpdate(bool force)
@@ -60,13 +59,29 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             string remoteVersion = null;
-            try
+            var rawText = request.downloadHandler?.text;
+            if (!string.IsNullOrEmpty(rawText))
             {
-                remoteVersion = JsonUtility.FromJson<PackageJsonVersionOnly>(request.downloadHandler.text)?.version;
-            }
-            catch (Exception e)
-            {
-                Debug.Log($"[BuildPipeline] Update check failed: could not parse remote package.json ({e.Message})");
+                // Strip UTF-8 BOM (\uFEFF) and whitespace
+                rawText = rawText.Trim().Trim('\uFEFF', '\u200B');
+
+                // Try fast and robust regex match first
+                var match = System.Text.RegularExpressions.Regex.Match(rawText, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+                if (match.Success)
+                {
+                    remoteVersion = match.Groups[1].Value.Trim();
+                }
+                else
+                {
+                    try
+                    {
+                        remoteVersion = JsonUtility.FromJson<PackageJsonVersionOnly>(rawText)?.version;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log($"[BuildPipeline] Update check JSON parse warning: {e.Message}");
+                    }
+                }
             }
 
             request.Dispose();
@@ -74,25 +89,27 @@ namespace Wagenheimer.BuildPipeline.Editor
             var localVersion = GetLocalVersion();
             if (string.IsNullOrEmpty(remoteVersion))
             {
-                Debug.Log("[BuildPipeline] Update check failed: remote package.json has no version field.");
+                Debug.LogWarning("[BuildPipeline] Update check: remote package.json has no valid version field.");
                 if (force)
-                    EditorUtility.DisplayDialog(PackageDisplayName, "Failed to check for updates: remote package.json has no version field.", "OK");
+                    EditorUtility.DisplayDialog(PackageDisplayName, "Could not determine latest version from GitHub repository.", "OK");
                 return;
             }
 
             if (string.IsNullOrEmpty(localVersion))
             {
-                Debug.Log("[BuildPipeline] Update check failed: could not resolve the installed package version " +
-                    "(PackageInfo.FindForAssembly returned null for this assembly).");
+                Debug.LogWarning("[BuildPipeline] Update check: could not resolve installed package version.");
                 if (force)
-                    EditorUtility.DisplayDialog(PackageDisplayName, "Failed to check for updates: could not identify the installed version of this package.", "OK");
+                    EditorUtility.DisplayDialog(PackageDisplayName, "Failed to identify installed version of Build Pipeline.", "OK");
                 return;
             }
 
             if (!IsNewer(remoteVersion, localVersion))
             {
-                Debug.Log($"[BuildPipeline] Up to date (installed: {localVersion}).");
+                Debug.Log($"[BuildPipeline] Up to date (installed: {localVersion}, remote: {remoteVersion}).");
                 if (force)
+                    EditorUtility.DisplayDialog(PackageDisplayName, $"You are already using the latest version of Unity Build Pipeline ({localVersion}).", "OK");
+                return;
+            }
                     EditorUtility.DisplayDialog(PackageDisplayName, $"You are already using the latest version ({localVersion}).", "OK");
                 return;
             }
