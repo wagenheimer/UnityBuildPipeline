@@ -1,0 +1,17 @@
+﻿{
+  "name": "Wagenheimer.BuildPipeline.Runtime",
+  "rootNamespace": "Wagenheimer.BuildPipeline",
+  "references": [
+    "Unity.2D.Sprite",
+    "Unity.2D.Tilemap"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

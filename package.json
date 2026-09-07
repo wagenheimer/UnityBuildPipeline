@@ -1,0 +1,24 @@
+﻿{
+  "name": "com.wagenheimer.buildpipeline",
+  "version": "1.0.0",
+  "displayName": "Unity Build Pipeline",
+  "description": "Modular, multi-project build automation pipeline for Unity: multi-store/publisher management, language matrix builds, customizable pre/post processors (splash injection, 7-zip/zip archiving, cleanup), modern UI Toolkit window, and 100% headless Unity CLI automation.",
+  "unity": "2021.3",
+  "author": {
+    "name": "Cezar Wagenheimer",
+    "url": "https://github.com/wagenheimer"
+  },
+  "keywords": [
+    "build",
+    "pipeline",
+    "cli",
+    "headless",
+    "automation",
+    "ci-cd",
+    "publisher",
+    "matrix",
+    "editor-tools"
+  ],
+  "category": "Tools",
+  "dependencies": {}
+}
