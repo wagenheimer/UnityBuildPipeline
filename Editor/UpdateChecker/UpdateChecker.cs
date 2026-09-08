@@ -110,9 +110,6 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorUtility.DisplayDialog(PackageDisplayName, $"You are already using the latest version of Unity Build Pipeline ({localVersion}).", "OK");
                 return;
             }
-                    EditorUtility.DisplayDialog(PackageDisplayName, $"You are already using the latest version ({localVersion}).", "OK");
-                return;
-            }
 
             if (!force && EditorPrefs.GetString(PrefSkipVersion, "") == remoteVersion)
             {

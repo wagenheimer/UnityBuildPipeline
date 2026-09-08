@@ -613,6 +613,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.DisplayDialog("Matrix Complete", $"Generated {count} builds.", "OK");
             }
         }
+        #endregion
+
         #region Keystore & Vault Tab
         private void BuildKeystoreVaultTab()
         {
