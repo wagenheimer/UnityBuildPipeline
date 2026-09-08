@@ -1,16 +1,27 @@
 ﻿using System;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
-    public class ApplyPlayerSettingsStep : IPreBuildStep
+    public class ApplyPlayerSettingsStep : IPreBuildStep, IPostBuildStep
     {
         public int Order => 20;
 
+        private const string OrigAndroidBvc = "ApplyPlayerSettingsStep.OrigAndroidBundleVersionCode";
+        private const string OrigIosBuild = "ApplyPlayerSettingsStep.OrigIosBuildNumber";
+        private const string OrigMacBuild = "ApplyPlayerSettingsStep.OrigMacBuildNumber";
+
         public bool ExecutePreBuild(BuildContext context)
         {
+            // Snapshot dos números auto-incrementados abaixo — restaurados no post step para não
+            // deixar ProjectSettings/ sujo no CI (o build define o número real via -version/-manifest).
+            context.ExtraData[OrigAndroidBvc] = PlayerSettings.Android.bundleVersionCode;
+            context.ExtraData[OrigIosBuild] = PlayerSettings.iOS.buildNumber;
+            context.ExtraData[OrigMacBuild] = PlayerSettings.macOS.buildNumber;
+
             var targetGroup = context.Platform.ToBuildTargetGroup();
             PlayerSettings.productName = context.EffectiveGameName;
 
@@ -95,6 +106,19 @@ namespace Wagenheimer.BuildPipeline.Editor
                     break;
             }
 
+            return true;
+        }
+
+        public bool ExecutePostBuild(BuildContext context, BuildReport report)
+        {
+            // Reverte os incrementos de bundleVersionCode / buildNumber para CI não commitar ProjectSettings.
+            if (context.ExtraData.TryGetValue(OrigAndroidBvc, out var a) && a is int av)
+                PlayerSettings.Android.bundleVersionCode = av;
+            if (context.ExtraData.TryGetValue(OrigIosBuild, out var i) && i is string iv)
+                PlayerSettings.iOS.buildNumber = iv;
+            if (context.ExtraData.TryGetValue(OrigMacBuild, out var m) && m is string mv)
+                PlayerSettings.macOS.buildNumber = mv;
+            AssetDatabase.SaveAssets();
             return true;
         }
     }

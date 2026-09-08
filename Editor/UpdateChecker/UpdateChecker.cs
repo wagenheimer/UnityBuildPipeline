@@ -19,6 +19,12 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         static UpdateChecker()
         {
+            // Never phone home on CI / headless build agents.
+            if (Application.isBatchMode ||
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) ||
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BUILD_PIPELINE_NO_UPDATE_CHECK")))
+                return;
+
             EditorApplication.delayCall += () => CheckForUpdate(force: false);
         }
 

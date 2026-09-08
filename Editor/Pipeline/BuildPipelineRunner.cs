@@ -26,6 +26,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static readonly List<IPreBuildStep> PreSteps = new List<IPreBuildStep>
         {
             new SyncGameConfigStep(),
+            new ApplyScriptingDefinesStep(),
             new ApplyPlayerSettingsStep(),
             new SetupKeystoreStep(),
             new FilterScenesStep()
@@ -33,6 +34,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static readonly List<IPostBuildStep> PostSteps = new List<IPostBuildStep>
         {
+            new ApplyScriptingDefinesStep(),
+            new ApplyPlayerSettingsStep(),
             new CopyPublisherSplashStep(),
             new CleanupObsoleteFilesStep(),
             new ZipArchiveStep()
@@ -151,6 +154,14 @@ namespace Wagenheimer.BuildPipeline.Editor
             else
             {
                 context.LogError($"<color=#e74c3c>BUILD FAILED!</color> Result: {summary.result}, Errors: {summary.totalErrors}");
+
+                // On failure the normal post steps are skipped, but the cleanup steps that keep
+                // ProjectSettings pristine must still run (scripting defines + version-code restore).
+                foreach (var cleanup in new IPostBuildStep[] { new ApplyScriptingDefinesStep(), new ApplyPlayerSettingsStep() })
+                {
+                    try { cleanup.ExecutePostBuild(context, report); }
+                    catch (Exception ex) { context.LogError($"Exception in cleanup step {cleanup.GetType().Name} after failed build: {ex}"); }
+                }
             }
 
             return result;

@@ -57,9 +57,36 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (CommandLineArgs.Has("keystoreSource") && Enum.TryParse<KeystoreSource>(CommandLineArgs.Get("keystoreSource"), true, out var ks))
                 config.keystoreSource = ks;
 
+            // CI: keystore Android por args (o Forge injeta o keystore central). Passwords vêm das envs
+            // ANDROID_KEYSTORE_PASS / ANDROID_KEYALIAS_PASS já lidas por GetEffective*Password().
+            if (CommandLineArgs.Has("keystorePath"))
+            {
+                var ksPath = CommandLineArgs.Get("keystorePath");
+                config.keystoreSource = KeystoreSource.LocalDisk;
+                config.androidKeystorePath = ksPath;
+                config.androidKeystorePathMac = ksPath;
+                if (CommandLineArgs.Has("keystoreAlias"))
+                    config.androidKeyAlias = CommandLineArgs.Get("keystoreAlias");
+                Debug.Log($"[BuildCLI] Keystore Android via CLI: {ksPath} (alias: {config.androidKeyAlias})");
+            }
+
+            // Resolve profile: -buildProfile <id> takes precedence over -publisher <enum>
+            var buildProfileId = CommandLineArgs.Get("buildProfile", "");
+            PublisherProfile profileById = null;
+            if (!string.IsNullOrEmpty(buildProfileId))
+            {
+                profileById = config.publishers.FirstOrDefault(p =>
+                    string.Equals(p.EffectiveId, buildProfileId, StringComparison.OrdinalIgnoreCase));
+                if (profileById == null)
+                    Debug.LogWarning($"[BuildCLI] -buildProfile '{buildProfileId}' not found in ProjectBuildConfig; falling back to -publisher.");
+            }
+
             // Parse Publisher
             var pubStr = CommandLineArgs.Get("publisher", "Default");
-            if (!Enum.TryParse(pubStr, true, out Publisher publisher))
+            Publisher publisher;
+            if (profileById != null)
+                publisher = profileById.publisher;
+            else if (!Enum.TryParse(pubStr, true, out publisher))
                 publisher = Publisher.Default;
 
             // Parse Language
@@ -77,7 +104,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // Parse Platform
             var platStr = CommandLineArgs.Get("platform", "");
-            var profile = config.publishers.FirstOrDefault(p => p.publisher == publisher);
+            var profile = profileById ?? config.publishers.FirstOrDefault(p => p.publisher == publisher);
             var platform = PlatformType.Windows64;
             if (!string.IsNullOrEmpty(platStr) && Enum.TryParse(platStr, true, out PlatformType pt))
             {
@@ -87,6 +114,14 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 platform = profile.platform;
             }
+
+            // Extra scripting defines: profile defines + CLI -defines override (merged in the step)
+            var defines = new List<string>();
+            if (profile != null && profile.scriptingDefines != null)
+                defines.AddRange(profile.scriptingDefines);
+            var cliDefines = CommandLineArgs.Get("defines", "");
+            if (!string.IsNullOrEmpty(cliDefines))
+                defines.AddRange(cliDefines.Split(';', ','));
 
             // Version override if specified
             if (CommandLineArgs.Has("version") && config.gameConfig != null)
@@ -108,6 +143,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 PublisherProfile = profile,
                 Language = language,
                 Platform = platform,
+                ProfileId = profile != null ? profile.EffectiveId : (string.IsNullOrEmpty(buildProfileId) ? publisher.ToString() : buildProfileId),
+                ScriptingDefines = defines,
                 CheatMode = CommandLineArgs.GetBool("cheat", false),
                 DevelopmentBuild = CommandLineArgs.GetBool("development", false),
                 Demo = CommandLineArgs.GetBool("demo", profile != null && profile.isDemo),
@@ -119,6 +156,14 @@ namespace Wagenheimer.BuildPipeline.Editor
             };
 
             var result = BuildPipelineRunner.Execute(context);
+
+            var manifestPath = CommandLineArgs.Get("manifest", "");
+            if (!string.IsNullOrEmpty(manifestPath))
+            {
+                var manifest = new BuildManifest();
+                manifest.Add(BuildManifestEntry.From(context, result));
+                manifest.WriteTo(manifestPath);
+            }
 
             if (Application.isBatchMode)
             {
@@ -141,13 +186,31 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.keystoreSource = ks;
 
             var pubArg = CommandLineArgs.Get("matrixPublishers", "");
+            var profileArg = CommandLineArgs.Get("matrixProfiles", "");
             var langArg = CommandLineArgs.Get("matrixLanguages", "");
             var cheatOn = CommandLineArgs.GetBool("cheatOn", false);
             var cheatOff = CommandLineArgs.GetBool("cheatOff", true);
             var dev = CommandLineArgs.GetBool("development", false);
+            var manifestPath = CommandLineArgs.Get("manifest", "");
+            var manifest = new BuildManifest();
 
             var pubsToBuild = new List<PublisherProfile>();
-            if (!string.IsNullOrEmpty(pubArg))
+            if (!string.IsNullOrEmpty(profileArg))
+            {
+                // Preferred CI path: resolve by stable profile id.
+                var ids = profileArg.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var rawId in ids)
+                {
+                    var id = rawId.Trim();
+                    var prof = config.publishers.FirstOrDefault(p =>
+                        string.Equals(p.EffectiveId, id, StringComparison.OrdinalIgnoreCase));
+                    if (prof != null)
+                        pubsToBuild.Add(prof);
+                    else
+                        Debug.LogWarning($"[BuildCLI] matrixProfiles: id '{id}' not found in ProjectBuildConfig.");
+                }
+            }
+            else if (!string.IsNullOrEmpty(pubArg))
             {
                 var pubNames = pubArg.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var name in pubNames)
@@ -197,44 +260,46 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     if (cheatOff)
                     {
-                        var ctx = new BuildContext
-                        {
-                            Config = config,
-                            Publisher = pub.publisher,
-                            PublisherProfile = pub,
-                            Language = lang,
-                            Platform = pub.platform,
-                            CheatMode = false,
-                            DevelopmentBuild = dev,
-                            Demo = pub.isDemo
-                        };
-                        var res = BuildPipelineRunner.Execute(ctx);
-                        if (!res.Success) allSuccess = false;
+                        var res = RunMatrixEntry(config, pub, lang, dev, false, manifest);
+                        if (!res) allSuccess = false;
                     }
 
                     if (cheatOn)
                     {
-                        var ctx = new BuildContext
-                        {
-                            Config = config,
-                            Publisher = pub.publisher,
-                            PublisherProfile = pub,
-                            Language = lang,
-                            Platform = pub.platform,
-                            CheatMode = true,
-                            DevelopmentBuild = dev,
-                            Demo = pub.isDemo
-                        };
-                        var res = BuildPipelineRunner.Execute(ctx);
-                        if (!res.Success) allSuccess = false;
+                        var res = RunMatrixEntry(config, pub, lang, dev, true, manifest);
+                        if (!res) allSuccess = false;
                     }
                 }
             }
+
+            if (!string.IsNullOrEmpty(manifestPath))
+                manifest.WriteTo(manifestPath);
 
             if (Application.isBatchMode)
             {
                 EditorApplication.Exit(allSuccess ? 0 : 1);
             }
+        }
+
+        private static bool RunMatrixEntry(ProjectBuildConfig config, PublisherProfile pub, GameLanguage lang,
+            bool dev, bool cheat, BuildManifest manifest)
+        {
+            var ctx = new BuildContext
+            {
+                Config = config,
+                Publisher = pub.publisher,
+                PublisherProfile = pub,
+                Language = lang,
+                Platform = pub.platform,
+                ProfileId = pub.EffectiveId,
+                ScriptingDefines = pub.scriptingDefines != null ? new List<string>(pub.scriptingDefines) : new List<string>(),
+                CheatMode = cheat,
+                DevelopmentBuild = dev,
+                Demo = pub.isDemo
+            };
+            var res = BuildPipelineRunner.Execute(ctx);
+            manifest.Add(BuildManifestEntry.From(ctx, res));
+            return res.Success;
         }
     }
 }

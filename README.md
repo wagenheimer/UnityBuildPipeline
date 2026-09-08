@@ -88,15 +88,28 @@ You can run builds from PowerShell, Command Prompt, or CI/CD without opening the
   -logFile "build_matrix.log"
 ```
 
-### Automated PowerShell Script (`build.ps1`)
-A ready-to-use PowerShell script is provided inside `Tools/build.ps1`:
+### Automated Scripts (`build.ps1` / `build.sh`)
+Ready-to-use runners are provided inside `Tools/` — `build.ps1` for Windows, `build.sh` for
+macOS/Linux CI agents (both resolve the Editor from `ProjectSettings/ProjectVersion.txt`):
 ```powershell
-# Single build:
+# Windows — single build:
 ./build.ps1 -projectPath "k:\Games\Green Sauce Games\Storm-Tale2" -publisher "BigFish" -language "en"
 
-# Matrix build:
+# Windows — matrix build:
 ./build.ps1 -projectPath "k:\Games\Green Sauce Games\Storm-Tale2" -matrix -matrixPublishers "BigFish,Steam" -matrixLanguages "en,de"
 ```
+```bash
+# macOS/Linux CI — select a profile by stable id, emit a JSON manifest:
+./build.sh --project /Users/ci/work/Storm-Tale2 --build-profile stormtale-full-android --manifest out.json
+./build.sh --project . --matrix --matrix-profiles "st-free-android,st-full-android" --manifest out.json
+```
+
+### CI / headless output — `-manifest`
+Pass `-manifest <path>` to write a machine-readable JSON summary instead of scraping the log.
+`Build` writes one entry; `BuildMatrix` writes an array under `builds`. Each entry:
+`success`, `result`, `platform`, `profileId`, `defines`, `version`, `buildNumber`,
+`outputDirectory`, `artifactPath`, `xcodeProjectPath` (iOS only), `sizeBytes`, `errors`,
+`warnings`, `durationSeconds`, `errorMessage`.
 
 ---
 
@@ -104,14 +117,18 @@ A ready-to-use PowerShell script is provided inside `Tools/build.ps1`:
 
 | Flag | Values | Description |
 |---|---|---|
-| `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile. |
+| `-buildProfile` | Profile `id` (or publisher name) | **Preferred.** Selects a `PublisherProfile` by its stable `id`; overrides `-publisher`/`-platform`. |
+| `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile (used when `-buildProfile` is absent). |
 | `-language` | `en`, `de`, `fr`, `English`, `German`, etc. | Language code or name. |
-| `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64` | Target platform. |
+| `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
+| `-defines` | `"A;B;C"` | Extra scripting define symbols for this build, applied then restored. |
+| `-manifest` | Full path | Write a JSON result manifest (see above). |
 | `-cheat` | `true` / `false` | Enable or disable CheatMode. |
 | `-development` | `true` / `false` | Generate a Unity Development Build. |
 | `-demo` | `true` / `false` | Generate a Demo version. |
 | `-version` | `Major.Minor.Build` (e.g. `1.0.5`) | Override version numbers before building. |
-| `-matrixPublishers` | Comma-separated names | Publishers for matrix generation. |
+| `-matrixProfiles` | Comma-separated profile ids | **Preferred** selector for matrix generation. |
+| `-matrixPublishers` | Comma-separated names | Publishers for matrix generation (legacy). |
 | `-matrixLanguages` | Comma-separated codes/names | Languages for matrix generation. |
 | `-outputPath` | Full path | Custom output executable or directory. |
 | `-autoRun` | `true` / `false` | (Android) Install and run on connected device; opens Android Logcat. |

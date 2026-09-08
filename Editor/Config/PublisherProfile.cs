@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Wagenheimer.BuildPipeline;
@@ -8,6 +9,8 @@ namespace Wagenheimer.BuildPipeline.Editor
     [Serializable]
     public class PublisherProfile
     {
+        [Tooltip("Stable slug used by CI (-buildProfile <id>). If empty, the publisher enum name is used.")]
+        public string id = "";
         public Publisher publisher = Publisher.Default;
         public string displayName = "Default";
         public PlatformType platform = PlatformType.Windows64;
@@ -16,9 +19,14 @@ namespace Wagenheimer.BuildPipeline.Editor
         public bool isFullGame = true;
         public bool isDemo = false;
         public ScriptingImplementation scriptingBackend = ScriptingImplementation.IL2CPP;
+        [Tooltip("Extra scripting define symbols applied for this profile's build target, then restored afterwards (e.g. DEMO_FREE, NO_ADS).")]
+        public List<string> scriptingDefines = new List<string>();
         public string outputSubfolder = "Builds/Publishers/{Publisher}/";
         public bool zipAfterBuild = false;
         public string zipDestinationTemplate = @"E:\Documentos\Dropbox\Builds\{ProjectName}\{Publisher}\";
+
+        /// <summary>Effective CI id: explicit <see cref="id"/> when set, otherwise the publisher enum name.</summary>
+        public string EffectiveId => string.IsNullOrEmpty(id) ? publisher.ToString() : id;
 
         public PublisherProfile() { }
 

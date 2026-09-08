@@ -28,6 +28,17 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string ResolvedOutputDirectory { get; set; } = "";
         public List<string> ResolvedScenes { get; set; } = new List<string>();
 
+        /// <summary>
+        /// Profile id used for CI reporting (-buildProfile). Falls back to the publisher name.
+        /// </summary>
+        public string ProfileId { get; set; } = "";
+
+        /// <summary>
+        /// Extra scripting define symbols to apply for this build (profile defines + CLI -defines override),
+        /// applied by <see cref="ApplyScriptingDefinesStep"/> and restored afterwards.
+        /// </summary>
+        public List<string> ScriptingDefines { get; set; } = new List<string>();
+
         public BuildPlayerOptions PlayerOptions;
         public Dictionary<string, object> ExtraData { get; } = new Dictionary<string, object>();
 
@@ -125,6 +136,14 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var iosDir = Path.Combine(root, iosSub, $"{ProjectName} ({(PublisherProfile != null && PublisherProfile.isFullGame ? "Full" : "Free")})");
                     ResolvedOutputDirectory = iosDir;
                     ResolvedOutputFilePath = iosDir;
+                    break;
+
+                case PlatformType.WebGL:
+                    var webglFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{demoSuffix}{devSuffix}_WebGL";
+                    var webglSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/WebGL/";
+                    var webglDir = Path.Combine(root, webglSub, webglFolder);
+                    ResolvedOutputDirectory = webglDir;
+                    ResolvedOutputFilePath = webglDir; // WebGL builds into a directory
                     break;
             }
 

@@ -8,7 +8,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         macOS,
         Android,
         iOS,
-        Linux64
+        Linux64,
+        WebGL
     }
 
     public static class PlatformTypeExtensions
@@ -22,6 +23,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 PlatformType.Android => BuildTarget.Android,
                 PlatformType.iOS => BuildTarget.iOS,
                 PlatformType.Linux64 => BuildTarget.StandaloneLinux64,
+                PlatformType.WebGL => BuildTarget.WebGL,
                 _ => BuildTarget.StandaloneWindows64
             };
         }
@@ -33,8 +35,21 @@ namespace Wagenheimer.BuildPipeline.Editor
                 PlatformType.Windows64 or PlatformType.macOS or PlatformType.Linux64 => BuildTargetGroup.Standalone,
                 PlatformType.Android => BuildTargetGroup.Android,
                 PlatformType.iOS => BuildTargetGroup.iOS,
+                PlatformType.WebGL => BuildTargetGroup.WebGL,
                 _ => BuildTargetGroup.Standalone
             };
+        }
+
+        /// <summary>
+        /// True when the platform produces a standalone folder/site artifact (no store upload),
+        /// packaged by the Forge as a generic .zip.
+        /// </summary>
+        public static bool IsGenericArtifact(this PlatformType platform)
+        {
+            return platform is PlatformType.Windows64
+                or PlatformType.macOS
+                or PlatformType.Linux64
+                or PlatformType.WebGL;
         }
     }
 }
