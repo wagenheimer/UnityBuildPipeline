@@ -177,6 +177,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             GUI.backgroundColor = new Color(0.18f, 0.60f, 0.90f);
             if (GUILayout.Button("🚀  OPEN BUILD PIPELINE WINDOW", btnStyle))
             {
+                Debug.Log("[BuildPipeline] 'OPEN BUILD PIPELINE WINDOW' button clicked from GameConfig Inspector.");
                 BuildPipelineWindow.ShowWindow();
             }
             GUI.backgroundColor = Color.white;

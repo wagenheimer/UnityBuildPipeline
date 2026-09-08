@@ -92,6 +92,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             };
             if (GUILayout.Button("🚀  ABRIR JANELA DE BUILDS (BUILD PIPELINE WINDOW)", btnStyle))
             {
+                Debug.Log("[BuildPipeline] 'ABRIR JANELA DE BUILDS' button clicked from ProjectBuildConfig Inspector.");
                 BuildPipelineWindow.ShowWindow();
             }
             GUI.backgroundColor = Color.white;

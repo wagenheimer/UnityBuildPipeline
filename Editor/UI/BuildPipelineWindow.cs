@@ -11,24 +11,61 @@ namespace Wagenheimer.BuildPipeline.Editor
     public class BuildPipelineWindow : EditorWindow
     {
         [MenuItem("Tools/Build Pipeline/Open Build Window", priority = 0)]
+        [MenuItem("Window/Build Pipeline", priority = 205)]
         public static void ShowWindow()
         {
+            Debug.Log("[BuildPipeline] 🚀 Opening Build Pipeline Window...");
             try
             {
-                var win = GetWindow<BuildPipelineWindow>(typeof(SceneView));
+                var win = GetWindow<BuildPipelineWindow>(utility: false, title: "Build Pipeline", focus: true);
                 win.titleContent = new GUIContent("Build Pipeline", EditorGUIUtility.IconContent("BuildSettings.Editor").image);
-                win.minSize = new Vector2(720, 540);
+                win.minSize = new Vector2(760, 560);
+
+                // Check if the window is off-screen or positioned on a disconnected monitor, and center it
+                var mainPos = EditorGUIUtility.GetMainWindowPosition();
+                bool isOffscreen = !win.docked && (
+                    win.position.x >= mainPos.x + mainPos.width - 80 ||
+                    win.position.x + win.position.width <= mainPos.x + 80 ||
+                    win.position.y >= mainPos.y + mainPos.height - 80 ||
+                    win.position.y < mainPos.y - 100 ||
+                    win.position.width < 300 || win.position.height < 300
+                );
+
+                if (isOffscreen)
+                {
+                    float w = Mathf.Min(880f, mainPos.width * 0.85f);
+                    float h = Mathf.Min(660f, mainPos.height * 0.85f);
+                    float x = mainPos.x + (mainPos.width - w) * 0.5f;
+                    float y = mainPos.y + (mainPos.height - h) * 0.5f;
+                    win.position = new Rect(x, y, w, h);
+                    Debug.Log($"[BuildPipeline] Window was off-screen; repositioned to center: {win.position}");
+                }
+
                 win.Show();
                 win.Focus();
+                win.Repaint();
+                Debug.Log($"[BuildPipeline] ✓ Build Pipeline Window is now active and focused at: {win.position} (docked: {win.docked})");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[BuildPipeline] Docked GetWindow fallback: {ex.Message}");
-                var win = GetWindow<BuildPipelineWindow>("Build Pipeline");
-                win.minSize = new Vector2(720, 540);
-                win.Show();
-                win.Focus();
+                Debug.LogError($"[BuildPipeline] ❌ Failed to open BuildPipelineWindow: {ex}");
             }
+        }
+
+        [MenuItem("Tools/Build Pipeline/Reset Window Position (Center Screen)", priority = 50)]
+        public static void ResetPosition()
+        {
+            var win = GetWindow<BuildPipelineWindow>(utility: false, title: "Build Pipeline", focus: true);
+            var mainPos = EditorGUIUtility.GetMainWindowPosition();
+            float w = Mathf.Min(880f, mainPos.width * 0.85f);
+            float h = Mathf.Min(660f, mainPos.height * 0.85f);
+            float x = mainPos.x + (mainPos.width - w) * 0.5f;
+            float y = mainPos.y + (mainPos.height - h) * 0.5f;
+            win.position = new Rect(x, y, w, h);
+            win.Show();
+            win.Focus();
+            win.Repaint();
+            Debug.Log($"[BuildPipeline] ✓ Build Pipeline Window position reset to center: {win.position}");
         }
 
         private ProjectBuildConfig _config;
@@ -88,6 +125,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 _root.style.paddingRight = 12;
 
                 RebuildUI();
+                Debug.Log("[BuildPipeline] BuildPipelineWindow UI visual elements loaded successfully.");
             }
             catch (Exception ex)
             {
