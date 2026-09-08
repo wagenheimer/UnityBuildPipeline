@@ -13,10 +13,22 @@ namespace Wagenheimer.BuildPipeline.Editor
         [MenuItem("Tools/Build Pipeline/Open Build Window", priority = 0)]
         public static void ShowWindow()
         {
-            var win = GetWindow<BuildPipelineWindow>(false, "Build Pipeline", true);
-            win.minSize = new Vector2(720, 540);
-            win.Show();
-            win.Focus();
+            try
+            {
+                var win = GetWindow<BuildPipelineWindow>(typeof(SceneView));
+                win.titleContent = new GUIContent("Build Pipeline", EditorGUIUtility.IconContent("BuildSettings.Editor").image);
+                win.minSize = new Vector2(720, 540);
+                win.Show();
+                win.Focus();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] Docked GetWindow fallback: {ex.Message}");
+                var win = GetWindow<BuildPipelineWindow>("Build Pipeline");
+                win.minSize = new Vector2(720, 540);
+                win.Show();
+                win.Focus();
+            }
         }
 
         private ProjectBuildConfig _config;
@@ -32,13 +44,23 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private void OnEnable()
         {
-            _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
-            InitMatrixArrays();
+            try
+            {
+                _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+                InitMatrixArrays();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] Window OnEnable warning: {ex.Message}");
+            }
         }
 
         private void InitMatrixArrays()
         {
             if (_config == null) return;
+            if (_config.publishers == null) _config.publishers = new System.Collections.Generic.List<PublisherProfile>();
+            if (_config.languages == null) _config.languages = new System.Collections.Generic.List<LanguageProfile>();
+
             if (_selectedPublishers == null || _selectedPublishers.Length != _config.publishers.Count)
                 _selectedPublishers = new bool[_config.publishers.Count];
 
@@ -46,27 +68,52 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 _selectedLanguages = new bool[_config.languages.Count];
                 for (var i = 0; i < _config.languages.Count; i++)
-                    _selectedLanguages[i] = _config.languages[i].enabled;
+                {
+                    if (_config.languages[i] != null)
+                        _selectedLanguages[i] = _config.languages[i].enabled;
+                }
             }
         }
 
         public void CreateGUI()
         {
-            _root = rootVisualElement;
-            _root.style.paddingTop = 10;
-            _root.style.paddingBottom = 10;
-            _root.style.paddingLeft = 12;
-            _root.style.paddingRight = 12;
+            try
+            {
+                _root = rootVisualElement;
+                _root.style.flexGrow = 1;
+                _root.style.height = Length.Percent(100);
+                _root.style.paddingTop = 10;
+                _root.style.paddingBottom = 10;
+                _root.style.paddingLeft = 12;
+                _root.style.paddingRight = 12;
 
-            RebuildUI();
+                RebuildUI();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BuildPipeline] Error initializing BuildPipelineWindow GUI: {ex}");
+                rootVisualElement.Clear();
+                var errBox = new HelpBox($"Erro ao inicializar a interface do Build Pipeline:\n{ex.Message}\n\n{ex.StackTrace}", HelpBoxMessageType.Error);
+                rootVisualElement.Add(errBox);
+                var retryBtn = new Button(() => RebuildUI()) { text = "🔄 Tentar Novamente" };
+                retryBtn.style.height = 30;
+                rootVisualElement.Add(retryBtn);
+            }
         }
 
         private void RebuildUI()
         {
             _root.Clear();
 
-            if (_config == null)
-                _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+            try
+            {
+                if (_config == null)
+                    _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] FindOrCreateProjectBuildConfig: {ex.Message}");
+            }
 
             InitMatrixArrays();
 
@@ -87,8 +134,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             titleLabel.style.color = new Color(0.2f, 0.8f, 0.9f);
             titleBox.Add(titleLabel);
 
-            var projName = _config.projectName;
-            var subTitle = new Label($"Project: {projName}  |  Runtime Config: {(_config.gameConfig != null ? _config.gameConfig.name : "None")}");
+            var projName = _config != null && !string.IsNullOrEmpty(_config.projectName) ? _config.projectName : "Storm Tale 2";
+            string gameConfigName = "None";
+            try
+            {
+                if (_config != null && _config.gameConfig != null)
+                    gameConfigName = _config.gameConfig.name;
+            }
+            catch
+            {
+                gameConfigName = "None";
+            }
+            var subTitle = new Label($"Project: {projName}  |  Runtime Config: {gameConfigName}");
             subTitle.style.fontSize = 11;
             subTitle.style.color = new Color(0.7f, 0.7f, 0.7f);
             titleBox.Add(subTitle);
@@ -145,6 +202,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             _contentContainer = new ScrollView(ScrollViewMode.Vertical);
             _contentContainer.style.flexGrow = 1;
+            _contentContainer.style.flexShrink = 1;
             _root.Add(_contentContainer);
 
             RebuildContent();
@@ -168,10 +226,19 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var versionText = "v1.0.0";
             var dateText = DateTime.Now.ToString("MMM dd, yyyy");
-            if (_config.gameConfig != null)
+            if (_config != null && _config.gameConfig != null)
             {
-                versionText = $"v{_config.gameConfig.GameVersion.GameVersionAsTextWithBetaLabel}";
-                dateText = _config.gameConfig.VersionDate.AsText;
+                try
+                {
+                    if (_config.gameConfig.GameVersion != null)
+                        versionText = $"v{_config.gameConfig.GameVersion.GameVersionAsTextWithBetaLabel}";
+                    if (_config.gameConfig.VersionDate != null)
+                        dateText = _config.gameConfig.VersionDate.AsText;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[BuildPipeline] Version read warning: {ex.Message}");
+                }
             }
 
             var verLabel = new Label($"Version: {versionText}  ({dateText})");
@@ -182,7 +249,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var btnMajor = new Button(() =>
             {
-                if (_config.gameConfig != null)
+                if (_config != null && _config.gameConfig != null && _config.gameConfig.GameVersion != null)
                 {
                     _config.gameConfig.GameVersion.Major++;
                     _config.gameConfig.GameVersion.Minor = 0;
@@ -196,7 +263,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var btnMinor = new Button(() =>
             {
-                if (_config.gameConfig != null)
+                if (_config != null && _config.gameConfig != null && _config.gameConfig.GameVersion != null)
                 {
                     _config.gameConfig.GameVersion.Minor++;
                     _config.gameConfig.GameVersion.Build = 0;
@@ -209,7 +276,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var btnBuild = new Button(() =>
             {
-                if (_config.gameConfig != null)
+                if (_config != null && _config.gameConfig != null && _config.gameConfig.GameVersion != null)
                 {
                     _config.gameConfig.GameVersion.Build++;
                     EditorUtility.SetDirty(_config.gameConfig);
@@ -221,7 +288,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var btnToday = new Button(() =>
             {
-                if (_config.gameConfig != null)
+                if (_config != null && _config.gameConfig != null && _config.gameConfig.VersionDate != null)
                 {
                     var now = DateTime.Now;
                     _config.gameConfig.VersionDate.Day = now.Day;
@@ -665,7 +732,12 @@ namespace Wagenheimer.BuildPipeline.Editor
             vaultCard.style.borderBottomLeftRadius = 6;
             vaultCard.style.borderBottomRightRadius = 6;
 
-            var vaultTitleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, justifyContent = Justify.SpaceBetween, alignItems = Align.Center, marginBottom = 8 } };
+            var vaultTitleRow = new VisualElement();
+            vaultTitleRow.style.flexDirection = FlexDirection.Row;
+            vaultTitleRow.style.justifyContent = Justify.SpaceBetween;
+            vaultTitleRow.style.alignItems = Align.Center;
+            vaultTitleRow.style.marginBottom = 8;
+
             var vaultTitle = new Label("🌐 Central Keystore Vault (wagenheimer.com)");
             vaultTitle.style.fontSize = 13;
             vaultTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -684,24 +756,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             var currentToken = KeystoreVaultClient.GetEffectiveToken(_config);
             var hasToken = !string.IsNullOrEmpty(currentToken);
 
-            var vaultStatus = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 8 } };
-            var tokenBadge = new Label(hasToken ? "● Token Ativo" : "○ Sem Token")
-            {
-                style = {
-                    fontSize = 11,
-                    color = hasToken ? new Color(0.3f, 0.9f, 0.4f) : new Color(0.9f, 0.6f, 0.2f),
-                    unityFontStyleAndWeight = FontStyle.Bold
-                }
-            };
+            var vaultStatus = new VisualElement();
+            vaultStatus.style.flexDirection = FlexDirection.Row;
+            vaultStatus.style.marginBottom = 8;
+
+            var tokenBadge = new Label(hasToken ? "● Token Ativo" : "○ Sem Token");
+            tokenBadge.style.fontSize = 11;
+            tokenBadge.style.color = hasToken ? new Color(0.3f, 0.9f, 0.4f) : new Color(0.9f, 0.6f, 0.2f);
+            tokenBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             vaultStatus.Add(tokenBadge);
 
-            var vaultUrlText = !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
+            var vaultUrlText = _config != null && !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
             var vaultUrlLabel = new Label($"  |  Endpoint: {vaultUrlText}");
             vaultUrlLabel.style.fontSize = 11;
             vaultUrlLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
             vaultStatus.Add(vaultUrlLabel);
 
-            var profileIdText = !string.IsNullOrEmpty(_config.vaultProfileId) ? _config.vaultProfileId : "(auto por bundle id)";
+            var profileIdText = _config != null && !string.IsNullOrEmpty(_config.vaultProfileId) ? _config.vaultProfileId : "(auto por bundle id)";
             var profileIdLabel = new Label($"  |  Perfil: {profileIdText}");
             profileIdLabel.style.fontSize = 11;
             profileIdLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
@@ -713,12 +784,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.DisplayProgressBar("Vault Connection", "Consultando servidor de credenciais...", 0.5f);
                 try
                 {
-                    var effectiveUrl = !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
+                    var effectiveUrl = _config != null && !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
                     var token = KeystoreVaultClient.GetEffectiveToken(_config);
+                    var profId = _config != null ? _config.vaultProfileId : "";
 
                     var result = await KeystoreVaultClient.FetchCredentialsAsync(
                         effectiveUrl,
-                        _config.vaultProfileId,
+                        profId,
                         PlayerSettings.applicationIdentifier,
                         token);
 
@@ -736,7 +808,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     {
                         EditorUtility.DisplayDialog("Aviso - Vault",
                             $"Não foi possível obter as credenciais do Vault:\n\n{result.Message}\n\n" +
-                            $"Dica: Verifique se o perfil '{_config.vaultProfileId}' está cadastrado no portal wagenheimer.com/admin/keystores e se o Token está correto.", "OK");
+                            $"Dica: Verifique se o perfil '{profId}' está cadastrado no portal wagenheimer.com/admin/keystores e se o Token está correto.", "OK");
                     }
                 }
                 finally
@@ -775,10 +847,20 @@ namespace Wagenheimer.BuildPipeline.Editor
             localTitle.style.marginBottom = 8;
             localCard.Add(localTitle);
 
-            var ksPath = _config.GetEffectiveKeystorePath();
-            var pathExists = !string.IsNullOrEmpty(ksPath) && File.Exists(ksPath);
+            string ksPath = "";
+            bool pathExists = false;
+            try
+            {
+                ksPath = _config != null ? _config.GetEffectiveKeystorePath()?.Replace("\r", "")?.Replace("\n", "")?.Trim() : "";
+                pathExists = !string.IsNullOrEmpty(ksPath) && File.Exists(ksPath);
+            }
+            catch
+            {
+                pathExists = false;
+            }
 
-            var localInfo = new Label($"Arquivo: {(string.IsNullOrEmpty(ksPath) ? "(não configurado)" : ksPath)}\nAlias: {(!string.IsNullOrEmpty(_config.androidKeyAlias) ? _config.androidKeyAlias : "(vazio)")}");
+            var localAlias = _config != null && !string.IsNullOrEmpty(_config.androidKeyAlias) ? _config.androidKeyAlias : "(vazio)";
+            var localInfo = new Label($"Arquivo: {(string.IsNullOrEmpty(ksPath) ? "(não configurado)" : ksPath)}\nAlias: {localAlias}");
             localInfo.style.fontSize = 11;
             localInfo.style.color = pathExists ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.7f, 0.7f, 0.7f);
             localInfo.style.marginBottom = 8;
@@ -786,8 +868,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var testLocalBtn = new Button(() =>
             {
+                if (_config == null) return;
+                var safePath = _config.GetEffectiveKeystorePath()?.Replace("\r", "")?.Replace("\n", "")?.Trim();
                 var val = KeystoreVaultClient.ValidateLocalKeystore(
-                    _config.GetEffectiveKeystorePath(),
+                    safePath,
                     _config.androidKeyAlias,
                     _config.GetEffectiveKeystorePassword(),
                     _config.GetEffectiveKeyaliasPassword());

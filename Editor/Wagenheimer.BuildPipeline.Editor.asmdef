@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "Wagenheimer.BuildPipeline.Editor",
   "rootNamespace": "Wagenheimer.BuildPipeline.Editor",
   "references": [
@@ -11,7 +11,7 @@
   "allowUnsafeCode": false,
   "overrideReferences": false,
   "precompiledReferences": [],
-  "autoReferenced": false,
+  "autoReferenced": true,
   "defineConstraints": [],
   "versionDefines": [],
   "noEngineReferences": false

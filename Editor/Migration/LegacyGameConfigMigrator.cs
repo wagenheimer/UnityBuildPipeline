@@ -10,6 +10,11 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static void MigrateOrCreate()
         {
             var config = FindOrCreateProjectBuildConfig();
+            if (config != null)
+            {
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+            }
             Selection.activeObject = config;
             EditorGUIUtility.PingObject(config);
 
@@ -108,7 +113,6 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
 
                 EditorUtility.SetDirty(config);
-                AssetDatabase.SaveAssets();
             }
 
             return config;
