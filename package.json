@@ -1,6 +1,6 @@
 {
   "name": "com.wagenheimer.buildpipeline",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "displayName": "Unity Build Pipeline",
   "description": "Modular, multi-project build automation pipeline for Unity: multi-store/publisher management, language matrix builds, customizable pre/post processors (splash injection, 7-zip/zip archiving, cleanup), modern UI Toolkit window, and 100% headless Unity CLI automation.",
   "unity": "2021.3",
