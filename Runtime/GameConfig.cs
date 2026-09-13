@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.U2D;
 
@@ -28,6 +28,12 @@ public class GameConfig : ScriptableObject
     [Header("Version")]
     public GameVersion GameVersion = new GameVersion();
     public GameBuildDate VersionDate = new GameBuildDate();
+
+    [Header("Mobile Store Build Numbers")]
+    [Tooltip("Android bundleVersionCode for Google Play (must be strictly incremented for each APK/AAB release).")]
+    public int AndroidBundleVersionCode = 1;
+    [Tooltip("iOS / macOS build number (CFBundleVersion) for Apple App Store & TestFlight.")]
+    public string iOSBuildNumber = "1";
 
     [Header("Icons")]
     public Texture2D IconFree;

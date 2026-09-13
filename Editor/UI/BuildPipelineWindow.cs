@@ -264,6 +264,9 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var versionText = "v1.0.0";
             var dateText = DateTime.Now.ToString("MMM dd, yyyy");
+            int andCode = PlayerSettings.Android.bundleVersionCode > 0 ? PlayerSettings.Android.bundleVersionCode : 1;
+            string iosNum = !string.IsNullOrEmpty(PlayerSettings.iOS.buildNumber) ? PlayerSettings.iOS.buildNumber : "1";
+
             if (_config != null && _config.gameConfig != null)
             {
                 try
@@ -272,6 +275,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                         versionText = $"v{_config.gameConfig.GameVersion.GameVersionAsTextWithBetaLabel}";
                     if (_config.gameConfig.VersionDate != null)
                         dateText = _config.gameConfig.VersionDate.AsText;
+                    if (_config.gameConfig.AndroidBundleVersionCode > 0)
+                        andCode = _config.gameConfig.AndroidBundleVersionCode;
+                    if (!string.IsNullOrEmpty(_config.gameConfig.iOSBuildNumber))
+                        iosNum = _config.gameConfig.iOSBuildNumber;
                 }
                 catch (Exception ex)
                 {
@@ -279,9 +286,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             }
 
-            var verLabel = new Label($"Version: {versionText}  ({dateText})");
+            var verLabel = new Label($"Version: {versionText}  ({dateText})   |   🤖 Android: #{andCode}   🍎 iOS: #{iosNum}");
             verLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            verLabel.style.fontSize = 13;
+            verLabel.style.fontSize = 12;
             verLabel.style.flexGrow = 1;
             card.Add(verLabel);
 
@@ -297,7 +304,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             { text = "+ Major" };
-            btnMajor.style.width = 65;
+            btnMajor.style.width = 60;
 
             var btnMinor = new Button(() =>
             {
@@ -310,7 +317,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             { text = "+ Minor" };
-            btnMinor.style.width = 65;
+            btnMinor.style.width = 60;
 
             var btnBuild = new Button(() =>
             {
@@ -322,7 +329,37 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             { text = "+ Build" };
-            btnBuild.style.width = 65;
+            btnBuild.style.width = 60;
+
+            var btnAnd = new Button(() =>
+            {
+                int next = andCode + 1;
+                PlayerSettings.Android.bundleVersionCode = next;
+                if (_config != null && _config.gameConfig != null)
+                {
+                    _config.gameConfig.AndroidBundleVersionCode = next;
+                    EditorUtility.SetDirty(_config.gameConfig);
+                }
+                RebuildUI();
+            })
+            { text = "+1 Android" };
+            btnAnd.style.width = 75;
+
+            var btnIos = new Button(() =>
+            {
+                int.TryParse(iosNum, out int curIos);
+                string nextIos = (curIos + 1).ToString();
+                PlayerSettings.iOS.buildNumber = nextIos;
+                PlayerSettings.macOS.buildNumber = nextIos;
+                if (_config != null && _config.gameConfig != null)
+                {
+                    _config.gameConfig.iOSBuildNumber = nextIos;
+                    EditorUtility.SetDirty(_config.gameConfig);
+                }
+                RebuildUI();
+            })
+            { text = "+1 iOS" };
+            btnIos.style.width = 60;
 
             var btnToday = new Button(() =>
             {
@@ -337,11 +374,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             { text = "Today" };
-            btnToday.style.width = 60;
+            btnToday.style.width = 50;
 
             card.Add(btnMajor);
             card.Add(btnMinor);
             card.Add(btnBuild);
+            card.Add(btnAnd);
+            card.Add(btnIos);
             card.Add(btnToday);
 
             return card;

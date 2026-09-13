@@ -148,31 +148,37 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorGUILayout.Space(6);
 
                 // Validation Button for Web Vault
-                EditorGUILayout.BeginHorizontal();
-                GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f);
-                if (GUILayout.Button("🔌 Testar Conexão com o Vault & Baixar Keystore", GUILayout.Height(28)))
+                var viewWidth = EditorGUIUtility.currentViewWidth;
+                if (viewWidth < 450)
                 {
-                    var token = KeystoreVaultClient.GetEffectiveToken(config);
-                    var bundle = config.gameConfig != null ? config.gameConfig.DefaultBundleIdentifier : config.defaultBundleIdentifier;
-                    var res = KeystoreVaultClient.FetchCredentialsSync(config.vaultUrl, config.vaultProfileId, bundle, token);
-                    if (res.Success && res.Credentials != null)
+                    GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f);
+                    if (GUILayout.Button("🔌 Testar Conexão com o Vault & Baixar Keystore", GUILayout.Height(28)))
                     {
-                        _vaultStatus = $"✓ Conexão bem-sucedida com o Vault!\nCertificado: {res.Credentials.KeystoreFileName}\nSalvo em cache: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
-                        EditorUtility.DisplayDialog("Teste do Vault: Sucesso!", _vaultStatus, "OK");
+                        TestVaultConnection(config);
                     }
-                    else
-                    {
-                        _vaultStatus = $"✗ Falha ao consultar o Vault:\n{res.Message}";
-                        EditorUtility.DisplayDialog("Teste do Vault: Erro", _vaultStatus, "OK");
-                    }
-                }
-                GUI.backgroundColor = Color.white;
+                    GUI.backgroundColor = Color.white;
 
-                if (GUILayout.Button("🌐 Abrir Painel Web (/admin/keystores)", GUILayout.Height(28), GUILayout.Width(220)))
-                {
-                    Application.OpenURL("https://wagenheimer.com/admin/keystores");
+                    if (GUILayout.Button("🌐 Abrir Painel Web (/admin/keystores)", GUILayout.Height(26)))
+                    {
+                        Application.OpenURL("https://wagenheimer.com/admin/keystores");
+                    }
                 }
-                EditorGUILayout.EndHorizontal();
+                else
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f);
+                    if (GUILayout.Button("🔌 Testar Conexão com o Vault & Baixar Keystore", GUILayout.Height(28)))
+                    {
+                        TestVaultConnection(config);
+                    }
+                    GUI.backgroundColor = Color.white;
+
+                    if (GUILayout.Button("🌐 Abrir Painel Web (/admin/keystores)", GUILayout.Height(28), GUILayout.Width(220)))
+                    {
+                        Application.OpenURL("https://wagenheimer.com/admin/keystores");
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
 
                 if (!string.IsNullOrEmpty(_vaultStatus))
                 {
@@ -245,6 +251,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             EditorGUILayout.EndVertical();
+        }
+
+        private void TestVaultConnection(ProjectBuildConfig config)
+        {
+            var token = KeystoreVaultClient.GetEffectiveToken(config);
+            var bundle = config.gameConfig != null ? config.gameConfig.DefaultBundleIdentifier : config.defaultBundleIdentifier;
+            var res = KeystoreVaultClient.FetchCredentialsSync(config.vaultUrl, config.vaultProfileId, bundle, token);
+            if (res.Success && res.Credentials != null)
+            {
+                _vaultStatus = $"✓ Conexão bem-sucedida com o Vault!\nCertificado: {res.Credentials.KeystoreFileName}\nSalvo em cache: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
+                EditorUtility.DisplayDialog("Teste do Vault: Sucesso!", _vaultStatus, "OK");
+            }
+            else
+            {
+                _vaultStatus = $"✗ Falha ao consultar o Vault:\n{res.Message}";
+                EditorUtility.DisplayDialog("Teste do Vault: Erro", _vaultStatus, "OK");
+            }
         }
         #endregion
 

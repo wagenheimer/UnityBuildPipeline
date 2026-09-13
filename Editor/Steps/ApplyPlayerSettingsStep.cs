@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -75,13 +75,27 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var macBackend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.Mono2x;
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, macBackend);
                     PlayerSettings.useMacAppStoreValidation = context.Publisher is Publisher.MacAppStore or Publisher.MacAppStoreFull;
-                    int buildNum = 0;
-                    int.TryParse(PlayerSettings.macOS.buildNumber, out buildNum);
-                    PlayerSettings.macOS.buildNumber = (buildNum + 1).ToString();
+                    if (context.Config != null && context.Config.gameConfig != null && !string.IsNullOrEmpty(context.Config.gameConfig.iOSBuildNumber))
+                    {
+                        PlayerSettings.macOS.buildNumber = context.Config.gameConfig.iOSBuildNumber;
+                    }
+                    else
+                    {
+                        int buildNum = 0;
+                        int.TryParse(PlayerSettings.macOS.buildNumber, out buildNum);
+                        PlayerSettings.macOS.buildNumber = (buildNum + 1).ToString();
+                    }
                     break;
 
                 case PlatformType.Android:
-                    PlayerSettings.Android.bundleVersionCode += 1;
+                    if (context.Config != null && context.Config.gameConfig != null && context.Config.gameConfig.AndroidBundleVersionCode > 0)
+                    {
+                        PlayerSettings.Android.bundleVersionCode = context.Config.gameConfig.AndroidBundleVersionCode;
+                    }
+                    else
+                    {
+                        PlayerSettings.Android.bundleVersionCode += 1;
+                    }
                     EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
                     EditorUserBuildSettings.buildAppBundle = context.AppBundle;
 
@@ -100,9 +114,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                     break;
 
                 case PlatformType.iOS:
-                    int iosBuild = 0;
-                    int.TryParse(PlayerSettings.iOS.buildNumber, out iosBuild);
-                    PlayerSettings.iOS.buildNumber = (iosBuild + 1).ToString();
+                    if (context.Config != null && context.Config.gameConfig != null && !string.IsNullOrEmpty(context.Config.gameConfig.iOSBuildNumber))
+                    {
+                        PlayerSettings.iOS.buildNumber = context.Config.gameConfig.iOSBuildNumber;
+                    }
+                    else
+                    {
+                        int iosBuild = 0;
+                        int.TryParse(PlayerSettings.iOS.buildNumber, out iosBuild);
+                        PlayerSettings.iOS.buildNumber = (iosBuild + 1).ToString();
+                    }
                     break;
             }
 

@@ -91,6 +91,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.VersionDate = new GameBuildDate(DateTime.Now);
                 EditorUtility.SetDirty(config);
             }
+            if (config.AndroidBundleVersionCode <= 0)
+            {
+                config.AndroidBundleVersionCode = PlayerSettings.Android.bundleVersionCode > 0
+                    ? PlayerSettings.Android.bundleVersionCode
+                    : (config.GameVersion.Build > 0 ? config.GameVersion.Build : 1);
+                EditorUtility.SetDirty(config);
+            }
+            if (string.IsNullOrEmpty(config.iOSBuildNumber))
+            {
+                config.iOSBuildNumber = !string.IsNullOrEmpty(PlayerSettings.iOS.buildNumber)
+                    ? PlayerSettings.iOS.buildNumber
+                    : (config.GameVersion.Build > 0 ? config.GameVersion.Build.ToString() : "1");
+                EditorUtility.SetDirty(config);
+            }
         }
 
         #region Hero Banner
@@ -98,6 +112,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var isPro = EditorGUIUtility.isProSkin;
             var bgColor = isPro ? new Color(0.12f, 0.14f, 0.18f) : new Color(0.88f, 0.90f, 0.94f);
+            var viewWidth = EditorGUIUtility.currentViewWidth;
 
             var rect = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUI.DrawRect(rect, bgColor);
@@ -123,25 +138,56 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             GUILayout.Space(6);
 
-            // Status Chips Bar
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
+            // Responsive Badges Bar
+            var fullBadgeColor = config.FullGame ? new Color(0.15f, 0.55f, 0.35f) : new Color(0.75f, 0.55f, 0.15f);
+            var cheatBadgeColor = config.CheatMode ? new Color(0.85f, 0.20f, 0.20f) : (isPro ? new Color(0.28f, 0.30f, 0.35f) : new Color(0.75f, 0.75f, 0.75f));
+            var achBadgeColor = isPro ? new Color(0.25f, 0.35f, 0.55f) : new Color(0.65f, 0.75f, 0.90f);
+            var storeBadgeColor = isPro ? new Color(0.35f, 0.25f, 0.55f) : new Color(0.75f, 0.65f, 0.90f);
 
-            DrawBadge(config.FullGame ? "FULL GAME" : "FREE / DEMO", config.FullGame ? new Color(0.15f, 0.55f, 0.35f) : new Color(0.75f, 0.55f, 0.15f));
-            GUILayout.Space(4);
+            if (viewWidth < 460)
+            {
+                // Compact 2-row layout for narrow views
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                DrawBadge(config.FullGame ? "FULL GAME" : "FREE / DEMO", fullBadgeColor);
+                GUILayout.Space(4);
+                DrawBadge(config.CheatMode ? "CHEAT ON" : "CHEAT OFF", cheatBadgeColor);
+                if (viewWidth >= 360)
+                {
+                    GUILayout.Space(4);
+                    DrawBadge(config.UseAchievements ? "ACHIEVEMENTS ON" : "ACHIEVEMENTS OFF", achBadgeColor);
+                }
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
 
-            if (config.CheatMode)
-                DrawBadge("CHEAT ON", new Color(0.85f, 0.20f, 0.20f));
+                GUILayout.Space(3);
+
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (viewWidth < 360)
+                {
+                    DrawBadge(config.UseAchievements ? "ACHIEVEMENTS ON" : "ACHIEVEMENTS OFF", achBadgeColor);
+                    GUILayout.Space(4);
+                }
+                DrawBadge($"STORE: {config.Publisher}", storeBadgeColor);
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+            }
             else
-                DrawBadge("CHEAT OFF", isPro ? new Color(0.28f, 0.30f, 0.35f) : new Color(0.75f, 0.75f, 0.75f));
-
-            GUILayout.Space(4);
-            DrawBadge(config.UseAchievements ? "ACHIEVEMENTS ON" : "ACHIEVEMENTS OFF", isPro ? new Color(0.25f, 0.35f, 0.55f) : new Color(0.65f, 0.75f, 0.90f));
-            GUILayout.Space(4);
-            DrawBadge($"STORE: {config.Publisher}", isPro ? new Color(0.35f, 0.25f, 0.55f) : new Color(0.75f, 0.65f, 0.90f));
-
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+            {
+                // Wide single-row layout
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                DrawBadge(config.FullGame ? "FULL GAME" : "FREE / DEMO", fullBadgeColor);
+                GUILayout.Space(4);
+                DrawBadge(config.CheatMode ? "CHEAT ON" : "CHEAT OFF", cheatBadgeColor);
+                GUILayout.Space(4);
+                DrawBadge(config.UseAchievements ? "ACHIEVEMENTS ON" : "ACHIEVEMENTS OFF", achBadgeColor);
+                GUILayout.Space(4);
+                DrawBadge($"STORE: {config.Publisher}", storeBadgeColor);
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+            }
 
             GUILayout.Space(6);
             EditorGUILayout.EndVertical();
@@ -167,6 +213,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         private void DrawActionShortcuts()
         {
             GUILayout.Space(4);
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+
             var btnStyle = new GUIStyle(GUI.skin.button)
             {
                 fontStyle = FontStyle.Bold,
@@ -182,106 +230,387 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             GUI.backgroundColor = Color.white;
 
-            EditorGUILayout.BeginHorizontal();
-
-            if (GUILayout.Button("⚙️ Ping ProjectBuildConfig", EditorStyles.miniButtonLeft, GUILayout.Height(22)))
+            if (viewWidth < 410)
             {
-                if (_linkedBuildConfig != null)
+                // Two rows for narrow widths
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("⚙️ Ping Config", EditorStyles.miniButtonLeft, GUILayout.Height(22)))
                 {
-                    Selection.activeObject = _linkedBuildConfig;
-                    EditorGUIUtility.PingObject(_linkedBuildConfig);
+                    PingOrMigrateProjectBuildConfig();
                 }
-                else
+                if (GUILayout.Button("📖 Guide & Docs", EditorStyles.miniButtonRight, GUILayout.Height(22)))
                 {
-                    LegacyGameConfigMigrator.MigrateOrCreate();
+                    BuildPipelineGuideWindow.Open();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                if (GUILayout.Button("🔄 Check Updates", EditorStyles.miniButton, GUILayout.Height(22)))
+                {
+                    UpdateChecker.CheckForUpdate(force: true);
                 }
             }
-
-            if (GUILayout.Button("📖 Guide & Docs", EditorStyles.miniButtonMid, GUILayout.Height(22)))
+            else
             {
-                BuildPipelineGuideWindow.Open();
+                // Single row for wider widths
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("⚙️ Ping ProjectBuildConfig", EditorStyles.miniButtonLeft, GUILayout.Height(22)))
+                {
+                    PingOrMigrateProjectBuildConfig();
+                }
+                if (GUILayout.Button("📖 Guide & Docs", EditorStyles.miniButtonMid, GUILayout.Height(22)))
+                {
+                    BuildPipelineGuideWindow.Open();
+                }
+                if (GUILayout.Button("🔄 Check Updates", EditorStyles.miniButtonRight, GUILayout.Height(22)))
+                {
+                    UpdateChecker.CheckForUpdate(force: true);
+                }
+                EditorGUILayout.EndHorizontal();
             }
+        }
 
-            if (GUILayout.Button("🔄 Check Updates", EditorStyles.miniButtonRight, GUILayout.Height(22)))
+        private void PingOrMigrateProjectBuildConfig()
+        {
+            if (_linkedBuildConfig != null)
             {
-                UpdateChecker.CheckForUpdate(force: true);
+                Selection.activeObject = _linkedBuildConfig;
+                EditorGUIUtility.PingObject(_linkedBuildConfig);
             }
-
-            EditorGUILayout.EndHorizontal();
+            else
+            {
+                LegacyGameConfigMigrator.MigrateOrCreate();
+                _linkedBuildConfig = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+            }
         }
         #endregion
 
-        #region Version Manager
+        #region Version & Mobile Identification Manager
         private void DrawVersionManager(GameConfig config)
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             var ver = config.GameVersion;
             var date = config.VersionDate;
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var isNarrow = viewWidth < 440;
 
-            EditorGUILayout.BeginHorizontal();
+            // Header: Game Version & Date
             var verLabelStyle = new GUIStyle(EditorStyles.boldLabel)
             {
                 fontSize = 13,
                 normal = { textColor = new Color(0.2f, 0.8f, 0.9f) }
             };
-            EditorGUILayout.LabelField($"Version: v{ver.GameVersionAsTextWithBetaLabel}", verLabelStyle);
-            EditorGUILayout.LabelField($"Build Date: {date.AsText}", EditorStyles.miniLabel, GUILayout.Width(130));
-            EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button($"+ Major ({ver.Major})", EditorStyles.miniButtonLeft))
+            if (isNarrow)
             {
-                Undo.RecordObject(config, "Increment Major Version");
-                ver.Major++;
-                ver.Minor = 0;
-                ver.Build = 0;
-                EditorUtility.SetDirty(config);
+                EditorGUILayout.LabelField($"Version: v{ver.GameVersionAsTextWithBetaLabel}", verLabelStyle);
+                EditorGUILayout.LabelField($"Build Date: {date.AsText}", EditorStyles.miniLabel);
             }
-            if (GUILayout.Button($"+ Minor ({ver.Minor})", EditorStyles.miniButtonMid))
+            else
             {
-                Undo.RecordObject(config, "Increment Minor Version");
-                ver.Minor++;
-                ver.Build = 0;
-                EditorUtility.SetDirty(config);
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField($"Version: v{ver.GameVersionAsTextWithBetaLabel}", verLabelStyle);
+                EditorGUILayout.LabelField($"Build Date: {date.AsText}", EditorStyles.miniLabel, GUILayout.Width(130));
+                EditorGUILayout.EndHorizontal();
             }
-            if (GUILayout.Button($"+ Build ({ver.Build})", EditorStyles.miniButtonMid))
-            {
-                Undo.RecordObject(config, "Increment Build Number");
-                ver.Build++;
-                EditorUtility.SetDirty(config);
-            }
-            if (GUILayout.Button("Today", EditorStyles.miniButtonMid))
-            {
-                Undo.RecordObject(config, "Set Date to Today");
-                var now = DateTime.Now;
-                date.Day = now.Day;
-                date.Month = now.Month;
-                date.Year = now.Year;
-                EditorUtility.SetDirty(config);
-            }
-            if (GUILayout.Button("Reset Build", EditorStyles.miniButtonRight))
-            {
-                Undo.RecordObject(config, "Reset Build");
-                ver.Build = 0;
-                EditorUtility.SetDirty(config);
-            }
-            EditorGUILayout.EndHorizontal();
 
-            // Direct inline numeric fields
+            GUILayout.Space(2);
+
+            // Quick Stepper Buttons for Game Version
+            if (isNarrow)
+            {
+                // Row 1: + Major, + Minor, + Build
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button($"+ Major ({ver.Major})", EditorStyles.miniButtonLeft))
+                {
+                    Undo.RecordObject(config, "Increment Major Version");
+                    ver.Major++;
+                    ver.Minor = 0;
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button($"+ Minor ({ver.Minor})", EditorStyles.miniButtonMid))
+                {
+                    Undo.RecordObject(config, "Increment Minor Version");
+                    ver.Minor++;
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button($"+ Build ({ver.Build})", EditorStyles.miniButtonRight))
+                {
+                    Undo.RecordObject(config, "Increment Build Number");
+                    ver.Build++;
+                    EditorUtility.SetDirty(config);
+                }
+                EditorGUILayout.EndHorizontal();
+
+                // Row 2: Today, Reset Build
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("📅 Today", EditorStyles.miniButtonLeft))
+                {
+                    Undo.RecordObject(config, "Set Date to Today");
+                    var now = DateTime.Now;
+                    date.Day = now.Day;
+                    date.Month = now.Month;
+                    date.Year = now.Year;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button("↺ Reset Build (0)", EditorStyles.miniButtonRight))
+                {
+                    Undo.RecordObject(config, "Reset Build");
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button($"+ Major ({ver.Major})", EditorStyles.miniButtonLeft))
+                {
+                    Undo.RecordObject(config, "Increment Major Version");
+                    ver.Major++;
+                    ver.Minor = 0;
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button($"+ Minor ({ver.Minor})", EditorStyles.miniButtonMid))
+                {
+                    Undo.RecordObject(config, "Increment Minor Version");
+                    ver.Minor++;
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button($"+ Build ({ver.Build})", EditorStyles.miniButtonMid))
+                {
+                    Undo.RecordObject(config, "Increment Build Number");
+                    ver.Build++;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button("📅 Today", EditorStyles.miniButtonMid))
+                {
+                    Undo.RecordObject(config, "Set Date to Today");
+                    var now = DateTime.Now;
+                    date.Day = now.Day;
+                    date.Month = now.Month;
+                    date.Year = now.Year;
+                    EditorUtility.SetDirty(config);
+                }
+                if (GUILayout.Button("Reset Build", EditorStyles.miniButtonRight))
+                {
+                    Undo.RecordObject(config, "Reset Build");
+                    ver.Build = 0;
+                    EditorUtility.SetDirty(config);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(4);
+
+            // Direct inline numeric fields: separate rows for Version and Date so they never clip!
+            // Row 1: Semantic Version inputs
             EditorGUILayout.BeginHorizontal();
-            EditorGUIUtility.labelWidth = 40;
+            var origLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 42;
             ver.Major = EditorGUILayout.IntField("Major", ver.Major);
             ver.Minor = EditorGUILayout.IntField("Minor", ver.Minor);
             ver.Build = EditorGUILayout.IntField("Build", ver.Build);
-            EditorGUIUtility.labelWidth = 35;
-            date.Day = EditorGUILayout.IntField("Day", date.Day);
-            date.Month = EditorGUILayout.IntField("Mon", date.Month);
-            date.Year = EditorGUILayout.IntField("Year", date.Year);
-            EditorGUIUtility.labelWidth = 0;
             EditorGUILayout.EndHorizontal();
 
+            // Row 2: Release Date inputs
+            EditorGUILayout.BeginHorizontal();
+            EditorGUIUtility.labelWidth = 32;
+            date.Day = EditorGUILayout.IntField("Day", date.Day);
+            date.Month = EditorGUILayout.IntField("Mon", date.Month);
+            EditorGUIUtility.labelWidth = 38;
+            date.Year = EditorGUILayout.IntField("Year", date.Year);
+            EditorGUIUtility.labelWidth = origLabelWidth;
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
+
+            // =========================================================================
+            // PART 2: MOBILE STORE IDENTIFICATION (Android bundleVersionCode & iOS buildNumber)
+            // =========================================================================
+            DrawMobileBuildNumbersCard(config, ver, isNarrow, viewWidth);
+
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawMobileBuildNumbersCard(GameConfig config, GameVersion ver, bool isNarrow, float viewWidth)
+        {
+            var isPro = EditorGUIUtility.isProSkin;
+            var boxColor = isPro ? new Color(0.14f, 0.17f, 0.22f) : new Color(0.92f, 0.94f, 0.97f);
+
+            var boxRect = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUI.DrawRect(boxRect, boxColor);
+
+            GUILayout.Space(4);
+
+            // Card Title
+            var mobileTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 11,
+                normal = { textColor = isPro ? new Color(0.35f, 0.85f, 0.55f) : new Color(0.10f, 0.55f, 0.25f) }
+            };
+            EditorGUILayout.LabelField("📱 Mobile Store Build Numbers (Android & iOS)", mobileTitleStyle);
+
+            var hintStyle = new GUIStyle(EditorStyles.miniLabel)
+            {
+                normal = { textColor = isPro ? new Color(0.70f, 0.75f, 0.80f) : new Color(0.35f, 0.40f, 0.45f) }
+            };
+            EditorGUILayout.LabelField("Google Play bundleVersionCode & Apple App Store CFBundleVersion", hintStyle);
+
+            GUILayout.Space(4);
+
+            var origLabelWidth = EditorGUIUtility.labelWidth;
+
+            // --- Android bundleVersionCode Row ---
+            int currentAndroid = config.AndroidBundleVersionCode > 0 ? config.AndroidBundleVersionCode : PlayerSettings.Android.bundleVersionCode;
+            if (currentAndroid <= 0) currentAndroid = 1;
+
+            if (viewWidth < 420)
+            {
+                // Narrow: Row 1 = label & field, Row 2 = action buttons
+                EditorGUILayout.BeginHorizontal();
+                EditorGUIUtility.labelWidth = 145;
+                int newAndroid = EditorGUILayout.IntField("🤖 Android Bundle Code", currentAndroid);
+                if (newAndroid != currentAndroid)
+                {
+                    ApplyAndroidBundleVersionCode(config, newAndroid);
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("+ 1 Android", EditorStyles.miniButtonLeft, GUILayout.Height(20)))
+                {
+                    ApplyAndroidBundleVersionCode(config, currentAndroid + 1);
+                }
+                if (GUILayout.Button($"Sync Build ({ver.Build})", EditorStyles.miniButtonRight, GUILayout.Height(20)))
+                {
+                    ApplyAndroidBundleVersionCode(config, ver.Build > 0 ? ver.Build : 1);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                // Wide: single row
+                EditorGUILayout.BeginHorizontal();
+                EditorGUIUtility.labelWidth = 145;
+                int newAndroid = EditorGUILayout.IntField("🤖 Android Bundle Code", currentAndroid);
+                if (newAndroid != currentAndroid)
+                {
+                    ApplyAndroidBundleVersionCode(config, newAndroid);
+                }
+
+                if (GUILayout.Button("+ 1 Android", EditorStyles.miniButtonLeft, GUILayout.Width(85), GUILayout.Height(19)))
+                {
+                    ApplyAndroidBundleVersionCode(config, currentAndroid + 1);
+                }
+                if (GUILayout.Button($"Sync ({ver.Build})", EditorStyles.miniButtonRight, GUILayout.Width(75), GUILayout.Height(19)))
+                {
+                    ApplyAndroidBundleVersionCode(config, ver.Build > 0 ? ver.Build : 1);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(3);
+
+            // --- iOS buildNumber Row ---
+            string currentIos = !string.IsNullOrEmpty(config.iOSBuildNumber) ? config.iOSBuildNumber : PlayerSettings.iOS.buildNumber;
+            if (string.IsNullOrEmpty(currentIos)) currentIos = "1";
+
+            if (viewWidth < 420)
+            {
+                // Narrow: Row 1 = label & field, Row 2 = action buttons
+                EditorGUILayout.BeginHorizontal();
+                EditorGUIUtility.labelWidth = 145;
+                string newIos = EditorGUILayout.TextField("🍎 iOS / Mac Build No", currentIos);
+                if (newIos != currentIos)
+                {
+                    ApplyIosBuildNumber(config, newIos);
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("+ 1 iOS", EditorStyles.miniButtonLeft, GUILayout.Height(20)))
+                {
+                    int.TryParse(currentIos, out int iosNum);
+                    ApplyIosBuildNumber(config, (iosNum + 1).ToString());
+                }
+                if (GUILayout.Button($"Sync Build ({ver.Build})", EditorStyles.miniButtonRight, GUILayout.Height(20)))
+                {
+                    ApplyIosBuildNumber(config, (ver.Build > 0 ? ver.Build : 1).ToString());
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                // Wide: single row
+                EditorGUILayout.BeginHorizontal();
+                EditorGUIUtility.labelWidth = 145;
+                string newIos = EditorGUILayout.TextField("🍎 iOS / Mac Build No", currentIos);
+                if (newIos != currentIos)
+                {
+                    ApplyIosBuildNumber(config, newIos);
+                }
+
+                if (GUILayout.Button("+ 1 iOS", EditorStyles.miniButtonLeft, GUILayout.Width(85), GUILayout.Height(19)))
+                {
+                    int.TryParse(currentIos, out int iosNum);
+                    ApplyIosBuildNumber(config, (iosNum + 1).ToString());
+                }
+                if (GUILayout.Button($"Sync ({ver.Build})", EditorStyles.miniButtonRight, GUILayout.Width(75), GUILayout.Height(19)))
+                {
+                    ApplyIosBuildNumber(config, (ver.Build > 0 ? ver.Build : 1).ToString());
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUIUtility.labelWidth = origLabelWidth;
+
+            GUILayout.Space(5);
+
+            // Combined Actions Bar
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.25f, 0.70f, 0.45f);
+            if (GUILayout.Button("🚀 +1 Both Mobile (Android & iOS)", EditorStyles.miniButtonLeft, GUILayout.Height(22)))
+            {
+                ApplyAndroidBundleVersionCode(config, currentAndroid + 1);
+                int.TryParse(currentIos, out int iosNum);
+                ApplyIosBuildNumber(config, (iosNum + 1).ToString());
+            }
+            GUI.backgroundColor = new Color(0.20f, 0.55f, 0.85f);
+            if (GUILayout.Button($"🔄 Sync Both to Build ({ver.Build})", EditorStyles.miniButtonRight, GUILayout.Height(22)))
+            {
+                int targetBuild = ver.Build > 0 ? ver.Build : 1;
+                ApplyAndroidBundleVersionCode(config, targetBuild);
+                ApplyIosBuildNumber(config, targetBuild.ToString());
+            }
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.Space(4);
+            EditorGUILayout.EndVertical();
+        }
+
+        private void ApplyAndroidBundleVersionCode(GameConfig config, int code)
+        {
+            Undo.RecordObject(config, "Change Android Bundle Version Code");
+            config.AndroidBundleVersionCode = code;
+            PlayerSettings.Android.bundleVersionCode = code;
+            EditorUtility.SetDirty(config);
+            Debug.Log($"[BuildPipeline] Android bundleVersionCode updated to: {code}");
+        }
+
+        private void ApplyIosBuildNumber(GameConfig config, string buildNum)
+        {
+            Undo.RecordObject(config, "Change iOS Build Number");
+            config.iOSBuildNumber = buildNum;
+            PlayerSettings.iOS.buildNumber = buildNum;
+            PlayerSettings.macOS.buildNumber = buildNum;
+            EditorUtility.SetDirty(config);
+            Debug.Log($"[BuildPipeline] iOS/macOS buildNumber updated to: {buildNum}");
         }
         #endregion
 
@@ -290,6 +619,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldTargets = DrawSectionHeader("🎯 1. Core Build & Target Settings", _foldTargets, "GameConfig_FoldTargets");
             if (!_foldTargets) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -312,6 +645,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
         }
         #endregion
 
@@ -320,6 +654,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldVault = DrawSectionHeader("🔐 2. Android Keystore & Credentials Vault", _foldVault, "GameConfig_FoldVault");
             if (!_foldVault) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -332,6 +670,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     _linkedBuildConfig = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
                 }
                 EditorGUILayout.EndVertical();
+                EditorGUIUtility.labelWidth = origLabel;
                 return;
             }
 
@@ -366,28 +705,31 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 EditorGUILayout.Space(6);
 
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("🔌 Test Vault Connection & Cache", GUILayout.Height(24)))
+                if (viewWidth < 430)
                 {
-                    var token = KeystoreVaultClient.GetEffectiveToken(_linkedBuildConfig);
-                    var res = KeystoreVaultClient.FetchCredentialsSync(_linkedBuildConfig.vaultUrl, _linkedBuildConfig.vaultProfileId, config.DefaultBundleIdentifier, token);
-                    if (res.Success && res.Credentials != null)
+                    if (GUILayout.Button("🔌 Test Vault Connection & Cache", GUILayout.Height(26)))
                     {
-                        _vaultTestStatus = $"✓ Connected! Keystore cached at: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
-                        EditorUtility.DisplayDialog("Vault Connection Succeeded", _vaultTestStatus, "OK");
+                        TestVaultConnection(config);
                     }
-                    else
+                    if (GUILayout.Button("🌐 Open Web Admin Portal", GUILayout.Height(24)))
                     {
-                        _vaultTestStatus = $"✗ Failed: {res.Message}";
-                        EditorUtility.DisplayDialog("Vault Connection Failed", _vaultTestStatus, "OK");
+                        Application.OpenURL("https://wagenheimer.com/admin/keystores");
                     }
                 }
+                else
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    if (GUILayout.Button("🔌 Test Vault Connection & Cache", GUILayout.Height(24)))
+                    {
+                        TestVaultConnection(config);
+                    }
 
-                if (GUILayout.Button("🌐 Open Web Admin Portal", GUILayout.Height(24), GUILayout.Width(170)))
-                {
-                    Application.OpenURL("https://wagenheimer.com/admin/keystores");
+                    if (GUILayout.Button("🌐 Open Web Admin Portal", GUILayout.Height(24), GUILayout.Width(170)))
+                    {
+                        Application.OpenURL("https://wagenheimer.com/admin/keystores");
+                    }
+                    EditorGUILayout.EndHorizontal();
                 }
-                EditorGUILayout.EndHorizontal();
 
                 if (!string.IsNullOrEmpty(_vaultTestStatus))
                 {
@@ -409,6 +751,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
+        }
+
+        private void TestVaultConnection(GameConfig config)
+        {
+            var token = KeystoreVaultClient.GetEffectiveToken(_linkedBuildConfig);
+            var res = KeystoreVaultClient.FetchCredentialsSync(_linkedBuildConfig.vaultUrl, _linkedBuildConfig.vaultProfileId, config.DefaultBundleIdentifier, token);
+            if (res.Success && res.Credentials != null)
+            {
+                _vaultTestStatus = $"✓ Connected! Keystore cached at: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
+                EditorUtility.DisplayDialog("Vault Connection Succeeded", _vaultTestStatus, "OK");
+            }
+            else
+            {
+                _vaultTestStatus = $"✗ Failed: {res.Message}";
+                EditorUtility.DisplayDialog("Vault Connection Failed", _vaultTestStatus, "OK");
+            }
         }
         #endregion
 
@@ -417,6 +776,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldAssets = DrawSectionHeader("🎨 3. Visual Assets & Sprite Atlases", _foldAssets, "GameConfig_FoldAssets");
             if (!_foldAssets) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -427,12 +790,21 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("App Icons (Mobile Stores):", EditorStyles.boldLabel);
 
-            EditorGUILayout.BeginHorizontal();
-            config.IconFree = (Texture2D)EditorGUILayout.ObjectField("Icon Free", config.IconFree, typeof(Texture2D), false);
-            config.IconFull = (Texture2D)EditorGUILayout.ObjectField("Icon Full", config.IconFull, typeof(Texture2D), false);
-            EditorGUILayout.EndHorizontal();
+            if (viewWidth < 410)
+            {
+                config.IconFree = (Texture2D)EditorGUILayout.ObjectField("Icon Free", config.IconFree, typeof(Texture2D), false);
+                config.IconFull = (Texture2D)EditorGUILayout.ObjectField("Icon Full", config.IconFull, typeof(Texture2D), false);
+            }
+            else
+            {
+                EditorGUILayout.BeginHorizontal();
+                config.IconFree = (Texture2D)EditorGUILayout.ObjectField("Icon Free", config.IconFree, typeof(Texture2D), false);
+                config.IconFull = (Texture2D)EditorGUILayout.ObjectField("Icon Full", config.IconFull, typeof(Texture2D), false);
+                EditorGUILayout.EndHorizontal();
+            }
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
         }
         #endregion
 
@@ -441,6 +813,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldIdentity = DrawSectionHeader("🏷️ 4. Game Identity & Localized Titles", _foldIdentity, "GameConfig_FoldIdentity");
             if (!_foldIdentity) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -458,6 +834,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             config.GameNameWSA = EditorGUILayout.TextField("Windows Store (WSA) Name", config.GameNameWSA);
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
         }
         #endregion
 
@@ -466,6 +843,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldStores = DrawSectionHeader("📱 5. Store Package Identifiers", _foldStores, "GameConfig_FoldStores");
             if (!_foldStores) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -513,6 +894,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             config.MacAppStoreID = EditorGUILayout.TextField("  Mac App Store ID", config.MacAppStoreID);
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
         }
         #endregion
 
@@ -521,6 +903,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             _foldExtra = DrawSectionHeader("⚙️ 6. Extra Flags & Feature Toggles", _foldExtra, "GameConfig_FoldExtra");
             if (!_foldExtra) return;
+
+            var viewWidth = EditorGUIUtility.currentViewWidth;
+            var origLabel = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Clamp(viewWidth * 0.40f, 110f, 160f);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -531,6 +917,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             config.ExternalTranslation = EditorGUILayout.Toggle("External Translation", config.ExternalTranslation);
 
             EditorGUILayout.EndVertical();
+            EditorGUIUtility.labelWidth = origLabel;
         }
         #endregion
 
