@@ -6,6 +6,15 @@ using Wagenheimer.BuildPipeline;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
+    /// <summary>Maps 1:1 to the Player Settings &gt; macOS &gt; Architecture dropdown (index-compatible with
+    /// <c>PlayerSettings.SetArchitecture</c>'s int parameter: 0=x64, 1=ARM64, 2=Universal).</summary>
+    public enum MacArchitecture
+    {
+        IntelOnly = 0,
+        AppleSiliconOnly = 1,
+        Universal = 2,
+    }
+
     [Serializable]
     public class PublisherProfile
     {
@@ -19,6 +28,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         public bool isFullGame = true;
         public bool isDemo = false;
         public ScriptingImplementation scriptingBackend = ScriptingImplementation.IL2CPP;
+        [Tooltip("macOS only. Universal (Intel + Apple Silicon) is required by Apple for App Store submissions unless the minimum OS is raised to 13.0+. Defaults to Universal so CI builds pass altool validation without manual Player Settings changes.")]
+        public MacArchitecture macArchitecture = MacArchitecture.Universal;
         [Tooltip("Extra scripting define symbols applied for this profile's build target, then restored afterwards (e.g. DEMO_FREE, NO_ADS).")]
         public List<string> scriptingDefines = new List<string>();
         public string outputSubfolder = "Builds/Publishers/{Publisher}/";

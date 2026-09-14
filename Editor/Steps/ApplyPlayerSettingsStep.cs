@@ -75,6 +75,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var macBackend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.Mono2x;
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, macBackend);
                     PlayerSettings.useMacAppStoreValidation = context.Publisher is Publisher.MacAppStore or Publisher.MacAppStoreFull;
+
+                    // Apple rejects Mac App Store uploads that carry only the arm64 slice unless the
+                    // Info.plist minimum OS is 13.0+ (error 90981). Forcing Universal here means an
+                    // engineer who never touched Player Settings still gets a build altool accepts.
+                    var macArch = context.PublisherProfile != null ? context.PublisherProfile.macArchitecture : MacArchitecture.Universal;
+                    PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, (int)macArch);
+                    context.Log($"macOS Architecture set to {macArch}");
                     if (!CommandLineArgs.Has("buildNumber"))
                     {
                         if (context.Config != null && context.Config.gameConfig != null && !string.IsNullOrEmpty(context.Config.gameConfig.iOSBuildNumber))

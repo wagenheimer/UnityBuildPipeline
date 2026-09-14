@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-09-14
+
+### Fixed
+
+- **macOS builds now default to Universal architecture** — `ApplyPlayerSettingsStep` calls
+  `PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, ...)` before every macOS build.
+  Previously an arm64-only Player Settings config would build fine locally but get rejected by
+  `altool` on Mac App Store upload (error 90981: "supports Apple silicon but not Intel-based Mac
+  computers") because the Info.plist's minimum OS didn't match. New `PublisherProfile.macArchitecture`
+  (default `Universal`) lets a profile opt into `AppleSiliconOnly`/`IntelOnly` instead.
+
 ## [1.1.0] - 2026-09-08
 
 ### Added
