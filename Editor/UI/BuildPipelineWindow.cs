@@ -374,7 +374,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             { text = "Today" };
-            btnToday.style.width = 50;
+            var autoBumpToggle = new Toggle("Auto +1")
+            {
+                value = EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false),
+                tooltip = "Auto-increment build number (Android/iOS/macOS) when building"
+            };
+            autoBumpToggle.style.marginLeft = 8;
+            autoBumpToggle.RegisterValueChangedCallback(evt =>
+            {
+                EditorPrefs.SetBool("BuildPipeline_AutoBumpOnBuild", evt.newValue);
+            });
 
             card.Add(btnMajor);
             card.Add(btnMinor);
@@ -382,6 +391,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             card.Add(btnAnd);
             card.Add(btnIos);
             card.Add(btnToday);
+            card.Add(autoBumpToggle);
 
             return card;
         }
@@ -490,6 +500,33 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private void RunQuickBuild(Publisher pub, PlatformType plat, bool cheat, bool appBundle, bool autoRun = false, bool devBuild = false)
         {
+            if (EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false))
+            {
+                if (plat == PlatformType.Android)
+                {
+                    int next = (PlayerSettings.Android.bundleVersionCode > 0 ? PlayerSettings.Android.bundleVersionCode : 0) + 1;
+                    PlayerSettings.Android.bundleVersionCode = next;
+                    if (_config != null && _config.gameConfig != null)
+                    {
+                        _config.gameConfig.AndroidBundleVersionCode = next;
+                        EditorUtility.SetDirty(_config.gameConfig);
+                    }
+                }
+                else if (plat == PlatformType.iOS || plat == PlatformType.macOS)
+                {
+                    int.TryParse(PlayerSettings.iOS.buildNumber, out int curIos);
+                    string nextIos = (curIos + 1).ToString();
+                    PlayerSettings.iOS.buildNumber = nextIos;
+                    PlayerSettings.macOS.buildNumber = nextIos;
+                    if (_config != null && _config.gameConfig != null)
+                    {
+                        _config.gameConfig.iOSBuildNumber = nextIos;
+                        EditorUtility.SetDirty(_config.gameConfig);
+                    }
+                }
+                AssetDatabase.SaveAssets();
+            }
+
             var prof = _config.publishers.FirstOrDefault(p => p.publisher == pub);
             var ctx = new BuildContext
             {

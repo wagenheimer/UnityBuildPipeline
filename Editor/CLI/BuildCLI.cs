@@ -123,18 +123,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (!string.IsNullOrEmpty(cliDefines))
                 defines.AddRange(cliDefines.Split(';', ','));
 
-            // Version override if specified
-            if (CommandLineArgs.Has("version") && config.gameConfig != null)
-            {
-                var parts = CommandLineArgs.Get("version").Split('.');
-                if (parts.Length >= 2)
-                {
-                    int.TryParse(parts[0], out config.gameConfig.GameVersion.Major);
-                    int.TryParse(parts[1], out config.gameConfig.GameVersion.Minor);
-                    if (parts.Length >= 3)
-                        int.TryParse(parts[2], out config.gameConfig.GameVersion.Build);
-                }
-            }
+            ApplyVersionAndBuildNumberOverrides(config);
 
             var context = new BuildContext
             {
@@ -184,6 +173,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.vaultTokenFallback = CommandLineArgs.Get("vaultToken");
             if (CommandLineArgs.Has("keystoreSource") && Enum.TryParse<KeystoreSource>(CommandLineArgs.Get("keystoreSource"), true, out var ks))
                 config.keystoreSource = ks;
+
+            ApplyVersionAndBuildNumberOverrides(config);
 
             var pubArg = CommandLineArgs.Get("matrixPublishers", "");
             var profileArg = CommandLineArgs.Get("matrixProfiles", "");
@@ -300,6 +291,48 @@ namespace Wagenheimer.BuildPipeline.Editor
             var res = BuildPipelineRunner.Execute(ctx);
             manifest.Add(BuildManifestEntry.From(ctx, res));
             return res.Success;
+        }
+
+        private static void ApplyVersionAndBuildNumberOverrides(ProjectBuildConfig config)
+        {
+            if (CommandLineArgs.Has("version"))
+            {
+                var ver = CommandLineArgs.Get("version");
+                PlayerSettings.bundleVersion = ver;
+                if (config != null && config.gameConfig != null)
+                {
+                    var parts = ver.Split('.');
+                    if (parts.Length >= 2)
+                    {
+                        int.TryParse(parts[0], out config.gameConfig.GameVersion.Major);
+                        int.TryParse(parts[1], out config.gameConfig.GameVersion.Minor);
+                        if (parts.Length >= 3)
+                            int.TryParse(parts[2], out config.gameConfig.GameVersion.Build);
+                        EditorUtility.SetDirty(config.gameConfig);
+                    }
+                }
+                Debug.Log($"[BuildCLI] Version set to: {ver}");
+            }
+
+            if (CommandLineArgs.Has("buildNumber"))
+            {
+                var bnStr = CommandLineArgs.Get("buildNumber");
+                if (int.TryParse(bnStr, out var bnInt) && bnInt > 0)
+                {
+                    PlayerSettings.Android.bundleVersionCode = bnInt;
+                    PlayerSettings.iOS.buildNumber = bnStr;
+                    PlayerSettings.macOS.buildNumber = bnStr;
+                    if (config != null && config.gameConfig != null)
+                    {
+                        config.gameConfig.AndroidBundleVersionCode = bnInt;
+                        config.gameConfig.iOSBuildNumber = bnStr;
+                        EditorUtility.SetDirty(config.gameConfig);
+                    }
+                    Debug.Log($"[BuildCLI] Build number set to: #{bnStr}");
+                }
+            }
+
+            AssetDatabase.SaveAssets();
         }
     }
 }
