@@ -295,9 +295,9 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static void ApplyVersionAndBuildNumberOverrides(ProjectBuildConfig config)
         {
-            if (CommandLineArgs.Has("version"))
+            var ver = CommandLineArgs.Get("appVersion", CommandLineArgs.Get("bundleVersion", CommandLineArgs.Get("version", "")));
+            if (!string.IsNullOrEmpty(ver))
             {
-                var ver = CommandLineArgs.Get("version");
                 PlayerSettings.bundleVersion = ver;
                 if (config != null && config.gameConfig != null)
                 {
@@ -314,22 +314,19 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Debug.Log($"[BuildCLI] Version set to: {ver}");
             }
 
-            if (CommandLineArgs.Has("buildNumber"))
+            var bnStr = CommandLineArgs.Get("appBuildNumber", CommandLineArgs.Get("buildNumber", ""));
+            if (!string.IsNullOrEmpty(bnStr) && int.TryParse(bnStr, out var bnInt) && bnInt > 0)
             {
-                var bnStr = CommandLineArgs.Get("buildNumber");
-                if (int.TryParse(bnStr, out var bnInt) && bnInt > 0)
+                PlayerSettings.Android.bundleVersionCode = bnInt;
+                PlayerSettings.iOS.buildNumber = bnStr;
+                PlayerSettings.macOS.buildNumber = bnStr;
+                if (config != null && config.gameConfig != null)
                 {
-                    PlayerSettings.Android.bundleVersionCode = bnInt;
-                    PlayerSettings.iOS.buildNumber = bnStr;
-                    PlayerSettings.macOS.buildNumber = bnStr;
-                    if (config != null && config.gameConfig != null)
-                    {
-                        config.gameConfig.AndroidBundleVersionCode = bnInt;
-                        config.gameConfig.iOSBuildNumber = bnStr;
-                        EditorUtility.SetDirty(config.gameConfig);
-                    }
-                    Debug.Log($"[BuildCLI] Build number set to: #{bnStr}");
+                    config.gameConfig.AndroidBundleVersionCode = bnInt;
+                    config.gameConfig.iOSBuildNumber = bnStr;
+                    EditorUtility.SetDirty(config.gameConfig);
                 }
+                Debug.Log($"[BuildCLI] Build number set to: #{bnStr}");
             }
 
             AssetDatabase.SaveAssets();
