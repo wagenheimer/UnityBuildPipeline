@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-09-14
+
+### Fixed
+
+- **v1.1.3's Universal-architecture fix never actually applied on macOS** — it called
+  `PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, ...)`, but that API only affects
+  iOS/tvOS/visionOS and is a silent no-op on macOS (confirmed against Unity's own docs after the
+  fix shipped and Mac App Store uploads kept failing with error 90981). The macOS "Architecture"
+  dropdown is a standalone-platform setting only reachable via
+  `EditorUserBuildSettings.SetPlatformSettings("Standalone", "OSXUniversal", "Architecture", ...)`,
+  which `ApplyPlayerSettingsStep` now uses instead.
+
 ## [1.1.4] - 2026-09-14
 
 ### Fixed

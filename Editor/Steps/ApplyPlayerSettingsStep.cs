@@ -79,9 +79,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                     // Apple rejects Mac App Store uploads that carry only the arm64 slice unless the
                     // Info.plist minimum OS is 13.0+ (error 90981). Forcing Universal here means an
                     // engineer who never touched Player Settings still gets a build altool accepts.
+                    // NOTE: PlayerSettings.SetArchitecture only applies to iOS/tvOS/visionOS — it's a
+                    // silent no-op on macOS. The macOS "Architecture" dropdown is a standalone platform
+                    // setting, only reachable via EditorUserBuildSettings.SetPlatformSettings.
                     var macArch = context.PublisherProfile != null ? context.PublisherProfile.macArchitecture : MacArchitecture.Universal;
-                    PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, (int)macArch);
-                    context.Log($"macOS Architecture set to {macArch}");
+                    var macArchValue = macArch switch
+                    {
+                        MacArchitecture.IntelOnly => "x64",
+                        MacArchitecture.AppleSiliconOnly => "ARM64",
+                        _ => "x64ARM64",
+                    };
+                    EditorUserBuildSettings.SetPlatformSettings("Standalone", "OSXUniversal", "Architecture", macArchValue);
+                    context.Log($"macOS Architecture set to {macArch} ({macArchValue})");
                     if (!CommandLineArgs.Has("buildNumber"))
                     {
                         // Apple rejects a re-upload whose CFBundleVersion isn't strictly higher than the
