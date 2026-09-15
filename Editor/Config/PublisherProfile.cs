@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -30,6 +30,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         public ScriptingImplementation scriptingBackend = ScriptingImplementation.IL2CPP;
         [Tooltip("macOS only. Universal (Intel + Apple Silicon) is required by Apple for App Store submissions unless the minimum OS is raised to 13.0+. Defaults to Universal so CI builds pass altool validation without manual Player Settings changes.")]
         public MacArchitecture macArchitecture = MacArchitecture.Universal;
+        [Tooltip("macOS only. Enables Unity's built-in Mac App Store receipt validation. WARNING: If enabled, the game will exit with error code 173 when launched outside the Mac App Store (local builds / testing). Apple does NOT require this setting to be enabled. Defaults to false.")]
+        public bool macAppStoreValidation = false;
         [Tooltip("Extra scripting define symbols applied for this profile's build target, then restored afterwards (e.g. DEMO_FREE, NO_ADS).")]
         public List<string> scriptingDefines = new List<string>();
         public string outputSubfolder = "Builds/Publishers/{Publisher}/";

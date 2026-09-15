@@ -74,7 +74,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.macOS:
                     var macBackend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.Mono2x;
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, macBackend);
-                    PlayerSettings.useMacAppStoreValidation = context.Publisher is Publisher.MacAppStore or Publisher.MacAppStoreFull;
+                    
+                    // DEPRECATED / DANGEROUS: PlayerSettings.useMacAppStoreValidation forces the app to call exit(173)
+                    // if Contents/_MASReceipt/receipt is missing, breaking ALL local testing and non-App Store runs.
+                    // Apple does not require this setting for Mac App Store acceptance.
+                    // Only enable if explicitly requested via CLI (-macAppStoreValidation true) or profile.
+                    var enableMasValidation = CommandLineArgs.GetBool("macAppStoreValidation", false)
+                        || (context.PublisherProfile != null && context.PublisherProfile.macAppStoreValidation);
+                    PlayerSettings.useMacAppStoreValidation = enableMasValidation;
+                    if (enableMasValidation)
+                        context.LogWarning("⚠️ PlayerSettings.useMacAppStoreValidation=true: o app falhará com erro 173 se executado fora da Mac App Store!");
+                    else
+                        context.Log("🛡️ PlayerSettings.useMacAppStoreValidation=false (evita crash com erro 173 em testes locais)");
 
                     // Apple rejects Mac App Store uploads that carry only the arm64 slice unless the
                     // Info.plist minimum OS is 13.0+ (error 90981). Forcing Universal here means an
