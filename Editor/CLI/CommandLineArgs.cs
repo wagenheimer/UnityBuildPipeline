@@ -15,7 +15,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var arg = rawArgs[i];
                 if (arg.StartsWith("-") && i + 1 < rawArgs.Length && !rawArgs[i + 1].StartsWith("-"))
                 {
-                    Args[arg.TrimStart('-')] = rawArgs[i + 1];
+                    // Some CI wrappers (e.g. the `unity build` CLI's `--args "..."` passthrough) can
+                    // forward values with their shell-escaped quotes still attached (e.g. `\"15\"`
+                    // surviving as a literal `"15"` argv token) instead of the bare `15` a normal
+                    // shell would produce. Stripping stray wrapping quotes here means downstream
+                    // int.TryParse/string comparisons don't silently fail on a well-formed CLI value.
+                    var value = rawArgs[i + 1];
+                    if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+                        value = value[1..^1];
+                    Args[arg.TrimStart('-')] = value;
                     i++;
                 }
                 else if (arg.StartsWith("-"))

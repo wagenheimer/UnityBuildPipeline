@@ -317,16 +317,25 @@ namespace Wagenheimer.BuildPipeline.Editor
             var bnStr = CommandLineArgs.Get("appBuildNumber", CommandLineArgs.Get("buildNumber", ""));
             if (!string.IsNullOrEmpty(bnStr) && int.TryParse(bnStr, out var bnInt) && bnInt > 0)
             {
-                PlayerSettings.Android.bundleVersionCode = bnInt;
-                PlayerSettings.iOS.buildNumber = bnStr;
-                PlayerSettings.macOS.buildNumber = bnStr;
+                // Never let a CLI-supplied build number regress a store-facing version field (Apple/Google
+                // both reject a re-upload whose build number isn't strictly higher than the last accepted
+                // one). Floors bnInt against what's already loaded from ProjectSettings.asset so a bad CLI
+                // value (e.g. mangled by a CI wrapper's arg passthrough) can't silently downgrade it.
+                int.TryParse(PlayerSettings.iOS.buildNumber, out var currentIosBuild);
+                int.TryParse(PlayerSettings.macOS.buildNumber, out var currentMacBuild);
+                var effectiveBnInt = Math.Max(bnInt, Math.Max(PlayerSettings.Android.bundleVersionCode, Math.Max(currentIosBuild, currentMacBuild)));
+                var effectiveBnStr = effectiveBnInt.ToString();
+
+                PlayerSettings.Android.bundleVersionCode = effectiveBnInt;
+                PlayerSettings.iOS.buildNumber = effectiveBnStr;
+                PlayerSettings.macOS.buildNumber = effectiveBnStr;
                 if (config != null && config.gameConfig != null)
                 {
-                    config.gameConfig.AndroidBundleVersionCode = bnInt;
-                    config.gameConfig.iOSBuildNumber = bnStr;
+                    config.gameConfig.AndroidBundleVersionCode = effectiveBnInt;
+                    config.gameConfig.iOSBuildNumber = effectiveBnStr;
                     EditorUtility.SetDirty(config.gameConfig);
                 }
-                Debug.Log($"[BuildCLI] Build number set to: #{bnStr}");
+                Debug.Log($"[BuildCLI] Build number set to: #{effectiveBnStr}");
             }
 
             AssetDatabase.SaveAssets();

@@ -84,16 +84,23 @@ namespace Wagenheimer.BuildPipeline.Editor
                     context.Log($"macOS Architecture set to {macArch}");
                     if (!CommandLineArgs.Has("buildNumber"))
                     {
-                        if (context.Config != null && context.Config.gameConfig != null && !string.IsNullOrEmpty(context.Config.gameConfig.iOSBuildNumber))
+                        // Apple rejects a re-upload whose CFBundleVersion isn't strictly higher than the
+                        // last accepted one (error 90061). ProjectSettings.asset was already bumped on
+                        // disk by the CI script before Unity even started, so whatever candidate this
+                        // fallback computes must never regress below what's already loaded in memory —
+                        // otherwise a stale/mismatched gameConfig.iOSBuildNumber (a field shared with iOS,
+                        // not macOS-specific) can silently downgrade the macOS build number.
+                        int currentMacBuild = 0;
+                        int.TryParse(PlayerSettings.macOS.buildNumber, out currentMacBuild);
+
+                        int candidate = currentMacBuild + 1;
+                        if (context.Config != null && context.Config.gameConfig != null
+                            && int.TryParse(context.Config.gameConfig.iOSBuildNumber, out var configuredBuild))
                         {
-                            PlayerSettings.macOS.buildNumber = context.Config.gameConfig.iOSBuildNumber;
+                            candidate = Math.Max(candidate, configuredBuild);
                         }
-                        else
-                        {
-                            int buildNum = 0;
-                            int.TryParse(PlayerSettings.macOS.buildNumber, out buildNum);
-                            PlayerSettings.macOS.buildNumber = (buildNum + 1).ToString();
-                        }
+
+                        PlayerSettings.macOS.buildNumber = Math.Max(candidate, currentMacBuild).ToString();
                     }
                     break;
 

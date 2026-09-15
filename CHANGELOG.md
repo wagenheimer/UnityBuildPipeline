@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-09-14
+
+### Fixed
+
+- **macOS/iOS build number could regress and get rejected by Apple (error 90061)** — a build
+  landed with `CFBundleVersion=1` after the CI-bumped build number was #15, because
+  `ApplyPlayerSettingsStep`'s macOS fallback path assigned `gameConfig.iOSBuildNumber` (a field
+  shared with iOS, not macOS-specific) verbatim without checking it against the value already
+  loaded from `ProjectSettings.asset`. `ApplyPlayerSettingsStep` and
+  `BuildCLI.ApplyVersionAndBuildNumberOverrides` now floor every computed/CLI-supplied build
+  number against the current in-memory Android/iOS/macOS values, so none of them can go backwards.
+- **`CommandLineArgs` could keep stray wrapping quotes on a value** — CI wrappers that reconstruct
+  argv from a single `--args "..."` string (e.g. the `unity build` CLI) can forward a value with
+  its shell-escaped quotes still attached (`"15"` instead of `15`), which silently fails
+  `int.TryParse` downstream. Values are now unwrapped of a single pair of surrounding quotes.
+
 ## [1.1.3] - 2026-09-14
 
 ### Fixed
