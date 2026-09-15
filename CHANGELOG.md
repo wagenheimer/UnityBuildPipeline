@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2026-09-15
+
+### Fixed
+
+- **`PlayerSettings.useMacAppStoreValidation=true` crashed locally-installed builds with "exit 173"**
+  — this Unity flag makes the app call `exit(173)` at launch whenever
+  `Contents/_MASReceipt/receipt` is missing, which is always the case for a `.pkg` installed
+  directly (outside the real Mac App Store) — exactly the scenario used to QA a build before/without
+  going through Apple's review. Apple does not require this flag for App Store acceptance; it's an
+  optional, known-buggy anti-piracy convenience. `ApplyPlayerSettingsStep` now defaults it to `false`
+  for every macOS build; opt back in per-profile via `PublisherProfile.macAppStoreValidation` or
+  `-macAppStoreValidation true` on the CLI if genuine receipt validation is wanted for a release build.
+
 ## [1.1.5] - 2026-09-14
 
 ### Fixed
