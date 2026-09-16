@@ -233,12 +233,14 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         /// <summary>
-        /// Locates bundletool.jar: EditorPrefs override -> env var -> Library/ folder -> project root.
-        /// Returns null when not found (caller prompts with a file picker and persists the choice).
+        /// Locates bundletool.jar: EditorPrefs override -> env var -> project folders ->
+        /// Unity's bundled Android player -> .NET Android SDK packs -> Visual Studio Xamarin ->
+        /// VS Code extension cache. Returns null when not found (caller prompts with a file
+        /// picker and persists the choice).
         /// </summary>
         private static string FindBundletool()
         {
-            var candidates = new[]
+            var explicitCandidates = new[]
             {
                 EditorPrefs.GetString("BuildPipeline_BundletoolJar", ""),
                 System.Environment.GetEnvironmentVariable("BUNDLETOOL_JAR") ?? "",
@@ -246,11 +248,71 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Path.Combine(Directory.GetParent(Application.dataPath)?.FullName ?? "", "bundletool.jar")
             };
 
-            foreach (var c in candidates)
+            foreach (var c in explicitCandidates)
             {
                 if (!string.IsNullOrEmpty(c) && File.Exists(c)) return c;
             }
+
+            // Common locations where bundletool.jar ships with other toolchains.
+            var programFiles = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFiles);
+            var searchRoots = new[]
+            {
+                // Unity's Android player tools (some editor installs ship bundletool here)
+                Path.GetFullPath(Path.Combine(EditorApplication.applicationPath, "Data/PlaybackEngines/AndroidPlayer")),
+                // .NET Android SDK workloads (MAUI / Xamarin) each carry a copy under <version>/tools
+                Path.Combine(programFiles, "dotnet", "packs", "Microsoft.Android.Sdk.Windows")
+            };
+
+            foreach (var root in searchRoots)
+            {
+                var found = GlobBundletool(root);
+                if (found != null) return found;
+            }
+
+            // Visual Studio keeps one copy per edition under <edition>/MSBuild/Xamarin/Android -
+            // scan only that subtree instead of the whole VS install (which is huge).
+            var vsRoot = Path.Combine(programFiles, "Microsoft Visual Studio");
+            if (Directory.Exists(vsRoot))
+            {
+                try
+                {
+                    foreach (var edition in Directory.GetDirectories(vsRoot))
+                    {
+                        var found = GlobBundletool(Path.Combine(edition, "MSBuild", "Xamarin", "Android"));
+                        if (found != null) return found;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[BuildPipeline] bundletool search failed in {vsRoot}: {ex.Message}");
+                }
+            }
+
             return null;
+        }
+
+        private static string GlobBundletool(string root)
+        {
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) return null;
+
+            try
+            {
+                var jars = Directory.GetFiles(root, "bundletool*.jar", SearchOption.AllDirectories);
+                if (jars.Length == 0) return null;
+
+                // Prefer the newest copy (newest SDK/workload version wins).
+                var best = jars
+                    .Select(j => new { Path = j, Modified = File.GetLastWriteTimeUtc(j) })
+                    .OrderByDescending(j => j.Modified)
+                    .First();
+                Debug.Log($"[BuildPipeline] bundletool.jar found automatically: {best.Path}");
+                return best.Path;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] bundletool search failed in {root}: {ex.Message}");
+                return null;
+            }
         }
 
         private static string ResolveBundletool()

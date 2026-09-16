@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-09-16
+
+### Added
+
+- **Automatic bundletool.jar discovery** - when no explicit path is configured, the AAB
+  runner now scans known toolchain locations for `bundletool*.jar` before asking:
+  Unity's Android player tools (`Data/PlaybackEngines/AndroidPlayer`), .NET Android SDK
+  workloads (`ProgramFiles/dotnet/packs/Microsoft.Android.Sdk.Windows/<ver>/tools`),
+  and Visual Studio editions (`<edition>/MSBuild/Xamarin/Android`). The newest copy wins;
+  the file picker is now a last resort only.
+
 ## [1.2.1] - 2026-09-16
 
 ### Added
