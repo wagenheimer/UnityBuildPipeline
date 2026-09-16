@@ -163,7 +163,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case "macOS":
                     return Directory.Exists(entry.outputPath);
                 case "Android":
-                    return entry.IsApk;
+                    return entry.IsApk || entry.IsAab;
                 default:
                     return false;
             }
@@ -189,12 +189,116 @@ namespace Wagenheimer.BuildPipeline.Editor
                     case "Android":
                         if (entry.IsApk)
                             InstallAndLaunchApk(entry);
+                        else if (entry.IsAab)
+                            InstallAndLaunchAab(entry);
                         break;
                 }
             }
             catch (Exception ex)
             {
                 EditorUtility.DisplayDialog("Run Build", $"Failed to run build:\n{ex.Message}", "OK");
+            }
+        }
+
+        private static string FindJava()
+        {
+            var candidates = new[]
+            {
+                Path.GetFullPath(Path.Combine(EditorApplication.applicationPath, "Data/PlaybackEngines/AndroidPlayer/OpenJDK/bin/java.exe")),
+                Path.Combine(System.Environment.GetEnvironmentVariable("JAVA_HOME") ?? "", "bin", "java.exe"),
+                "java"
+            };
+
+            foreach (var c in candidates)
+            {
+                if (c == "java" || File.Exists(c)) return c;
+            }
+            return "java";
+        }
+
+        /// <summary>
+        /// Locates bundletool.jar: EditorPrefs override -> env var -> Library/ folder -> project root.
+        /// Returns null when not found (caller prompts with a file picker and persists the choice).
+        /// </summary>
+        private static string FindBundletool()
+        {
+            var candidates = new[]
+            {
+                EditorPrefs.GetString("BuildPipeline_BundletoolJar", ""),
+                System.Environment.GetEnvironmentVariable("BUNDLETOOL_JAR") ?? "",
+                Path.Combine(Directory.GetParent(Application.dataPath)?.FullName ?? "", "Library", "bundletool.jar"),
+                Path.Combine(Directory.GetParent(Application.dataPath)?.FullName ?? "", "bundletool.jar")
+            };
+
+            foreach (var c in candidates)
+            {
+                if (!string.IsNullOrEmpty(c) && File.Exists(c)) return c;
+            }
+            return null;
+        }
+
+        private static string ResolveBundletool()
+        {
+            var jar = FindBundletool();
+            if (jar != null) return jar;
+
+            jar = EditorUtility.OpenFilePanel(
+                "Select bundletool.jar",
+                "",
+                "jar");
+            if (string.IsNullOrEmpty(jar) || !File.Exists(jar)) return null;
+
+            EditorPrefs.SetString("BuildPipeline_BundletoolJar", jar);
+            Debug.Log($"[BuildPipeline] bundletool.jar saved for future runs: {jar}");
+            return jar;
+        }
+
+        private static void InstallAndLaunchAab(BuildHistoryEntry entry)
+        {
+            var bundletool = ResolveBundletool();
+            if (bundletool == null)
+            {
+                EditorUtility.DisplayDialog("Run Build (AAB)",
+                    "bundletool.jar não encontrado.\n\n" +
+                    "Baixe em https://github.com/google/bundletool/releases e selecione o arquivo na próxima janela " +
+                    "(ou coloque-o em Library/bundletool.jar do projeto).", "OK");
+                return;
+            }
+
+            var java = FindJava();
+            var apksPath = Path.Combine(Path.GetTempPath(),
+                $"{Path.GetFileNameWithoutExtension(entry.outputPath)}.apks");
+
+            EditorUtility.DisplayProgressBar("Run Build (AAB)", "Generating device-specific APKs from .aab (bundletool)...", 0.3f);
+            try
+            {
+                var buildOut = RunCommand(java,
+                    $"-jar \"{bundletool}\" build-apks --connected-device --bundle=\"{entry.outputPath}\" --output=\"{apksPath}\" --overwrite");
+                Debug.Log($"[BuildPipeline] bundletool build-apks:\n{buildOut}");
+
+                EditorUtility.DisplayProgressBar("Run Build (AAB)", "Installing APKs on device...", 0.7f);
+                var installOut = RunCommand(java,
+                    $"-jar \"{bundletool}\" install-apks --apks=\"{apksPath}\"");
+                Debug.Log($"[BuildPipeline] bundletool install-apks:\n{installOut}");
+
+                if (installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    buildOut.IndexOf("error", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    EditorUtility.DisplayDialog("Run Build (AAB)",
+                        $"bundletool failed.\n\nOutput:\n{buildOut}\n{installOut}\n\n" +
+                        "Check that a device is connected and USB debugging is enabled.", "OK");
+                    return;
+                }
+
+                var launchOut = "";
+                if (!string.IsNullOrEmpty(entry.bundleId))
+                    launchOut = RunCommand(FindAdb(), $"shell monkey -p {entry.bundleId} 1");
+
+                Debug.Log($"[BuildPipeline] AAB installed & launched. bundleId: {entry.bundleId}\n{launchOut}");
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
             }
         }
 

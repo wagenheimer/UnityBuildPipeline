@@ -16,22 +16,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`Library/BuildPipelineHistory.json`, machine-local) with per-entry actions:
   open output folder, run again (exe/app directly, APK via `adb install -r` + launch),
   and remove entry.
+- **Install .aab builds on a connected device** - the "Run" button on `.aab` history entries
+  now generates device-specific APKs with Google's official `bundletool`
+  (`build-apks --connected-device`) and installs them (`install-apks`), then launches the
+  game via adb. Java comes from Unity's bundled OpenJDK
+  (`Editor/Data/PlaybackEngines/AndroidPlayer/OpenJDK`); `bundletool.jar` is auto-discovered
+  from `Library/bundletool.jar` / project root / `BUNDLETOOL_JAR` env var, with a file-picker
+  fallback that persists the path in EditorPrefs.
 - **Tools/build.sh.meta** - missing meta file added so cached packages no longer warn
   about an untracked file in an immutable folder.
 
 ### Fixed
 
+- **"Recent Builds" tab showed "Keystore & Vault" content** - a stale tab-index shift
+  (`i >= 2 ? i + 1 : i`) left over from before the Recent Builds tab existed made every tab
+  from index 2 onward render the wrong panel. Tab index now maps 1:1 to content.
+- **`BuildHistory` did not compile** - ambiguous `Debug` reference
+  (`System.Diagnostics` vs `UnityEngine`) and an implicit `ulong`-to-`long` conversion.
 - LegacyGameConfigMigrator now creates `Assets/_Game/Settings` via
   `AssetDatabase.CreateFolder` instead of `Directory.CreateDirectory`, fixing asset
   creation failure when the Editor process working directory is not the project root.
+
 ## [1.1.7] - 2026-09-16
 
 ### Added
 
-- **`GameConfig.CanRate`** — property migrated from the legacy per-project `GameConfig`
+- **`GameConfig.CanRate`** ï¿½ property migrated from the legacy per-project `GameConfig`
   (rate/review prompt availability per store publisher), so legacy projects can delete their
   local `GameConfig`/`GameConfigEditor` and switch to the package without code changes.
-- **`Publisher.FourTheBalanceAndroidFull = 102`** — legacy publisher value preserved from the
+- **`Publisher.FourTheBalanceAndroidFull = 102`** ï¿½ legacy publisher value preserved from the
   per-project enums; also moved `LegacyGames` back to its historical value `26` (matches the
   value serialized inside existing legacy `GameConfig.asset` files).
 
@@ -45,9 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **`PlayerSettings.useMacAppStoreValidation=true` crashed locally-installed builds with "exit 173"**
-  — this Unity flag makes the app call `exit(173)` at launch whenever
+  ï¿½ this Unity flag makes the app call `exit(173)` at launch whenever
   `Contents/_MASReceipt/receipt` is missing, which is always the case for a `.pkg` installed
-  directly (outside the real Mac App Store) — exactly the scenario used to QA a build before/without
+  directly (outside the real Mac App Store) ï¿½ exactly the scenario used to QA a build before/without
   going through Apple's review. Apple does not require this flag for App Store acceptance; it's an
   optional, known-buggy anti-piracy convenience. `ApplyPlayerSettingsStep` now defaults it to `false`
   for every macOS build; opt back in per-profile via `PublisherProfile.macAppStoreValidation` or
@@ -57,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **v1.1.3's Universal-architecture fix never actually applied on macOS** — it called
+- **v1.1.3's Universal-architecture fix never actually applied on macOS** ï¿½ it called
   `PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, ...)`, but that API only affects
   iOS/tvOS/visionOS and is a silent no-op on macOS (confirmed against Unity's own docs after the
   fix shipped and Mac App Store uploads kept failing with error 90981). The macOS "Architecture"
@@ -69,14 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **macOS/iOS build number could regress and get rejected by Apple (error 90061)** — a build
+- **macOS/iOS build number could regress and get rejected by Apple (error 90061)** ï¿½ a build
   landed with `CFBundleVersion=1` after the CI-bumped build number was #15, because
   `ApplyPlayerSettingsStep`'s macOS fallback path assigned `gameConfig.iOSBuildNumber` (a field
   shared with iOS, not macOS-specific) verbatim without checking it against the value already
   loaded from `ProjectSettings.asset`. `ApplyPlayerSettingsStep` and
   `BuildCLI.ApplyVersionAndBuildNumberOverrides` now floor every computed/CLI-supplied build
   number against the current in-memory Android/iOS/macOS values, so none of them can go backwards.
-- **`CommandLineArgs` could keep stray wrapping quotes on a value** — CI wrappers that reconstruct
+- **`CommandLineArgs` could keep stray wrapping quotes on a value** ï¿½ CI wrappers that reconstruct
   argv from a single `--args "..."` string (e.g. the `unity build` CLI) can forward a value with
   its shell-escaped quotes still attached (`"15"` instead of `15`), which silently fails
   `int.TryParse` downstream. Values are now unwrapped of a single pair of surrounding quotes.
@@ -85,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **macOS builds now default to Universal architecture** — `ApplyPlayerSettingsStep` calls
+- **macOS builds now default to Universal architecture** ï¿½ `ApplyPlayerSettingsStep` calls
   `PlayerSettings.SetArchitecture(NamedBuildTarget.Standalone, ...)` before every macOS build.
   Previously an arm64-only Player Settings config would build fine locally but get rejected by
   `altool` on Mac App Store upload (error 90981: "supports Apple silicon but not Intel-based Mac
@@ -96,23 +109,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Machine-readable build manifest** — `-manifest <path>` writes a JSON summary
+- **Machine-readable build manifest** ï¿½ `-manifest <path>` writes a JSON summary
   (`success`, `platform`, `profileId`, `defines`, `version`, `buildNumber`, `artifactPath`,
   `xcodeProjectPath`, `sizeBytes`, `errors`, `warnings`, `durationSeconds`). `BuildMatrix`
   writes an array of entries. Intended for external CI (AppDeployHub.Forge) instead of log scraping.
-- **Stable profile ids** — `PublisherProfile.id` + `-buildProfile <id>` / `-matrixProfiles "a,b,c"`
+- **Stable profile ids** ï¿½ `PublisherProfile.id` + `-buildProfile <id>` / `-matrixProfiles "a,b,c"`
   so CI can select a profile without depending on the `Publisher` enum. `EffectiveId` falls back to
   the publisher name when `id` is empty.
-- **Compile-time build variants** — `PublisherProfile.scriptingDefines` + `-defines "A;B;C"` applied
+- **Compile-time build variants** ï¿½ `PublisherProfile.scriptingDefines` + `-defines "A;B;C"` applied
   by the new `ApplyScriptingDefinesStep` and **restored** afterwards (also on build failure), so CI
   never leaves `ProjectSettings` dirty. Enables real Free/Full/Demo via `#if`.
-- **WebGL platform** — `PlatformType.WebGL` with target/target-group mapping and output-path
+- **WebGL platform** ï¿½ `PlatformType.WebGL` with target/target-group mapping and output-path
   resolution; `PlatformTypeExtensions.IsGenericArtifact()` marks folder/site artifacts (no store upload).
-- **`Tools/build.sh`** — macOS/Linux headless runner that resolves the Editor from
+- **`Tools/build.sh`** ï¿½ macOS/Linux headless runner that resolves the Editor from
   `ProjectVersion.txt` (Unity Hub layout), mirroring `Tools/build.ps1`.
 - **`-keystorePath` / `-keystoreAlias`** CLI args for the Android keystore (forces `LocalDisk` source);
   passwords still come from `ANDROID_KEYSTORE_PASS` / `ANDROID_KEYALIAS_PASS`. Lets CI inject a central keystore.
-- **ProjectSettings stays pristine on CI** — `ApplyPlayerSettingsStep` now snapshots and restores
+- **ProjectSettings stays pristine on CI** ï¿½ `ApplyPlayerSettingsStep` now snapshots and restores
   `Android.bundleVersionCode` / `iOS.buildNumber` / `macOS.buildNumber` in its post step (also on build failure).
 
 ### Fixed

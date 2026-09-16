@@ -888,16 +888,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             folderBtn.style.marginRight = 6;
             btnRow.Add(folderBtn);
 
-            var runLabel = entry.platform == "Android" ? (entry.IsAab ? "▶️ Not Runnable (.aab)" : "▶️ Install & Run") : "▶️ Run";
+            var runLabel = entry.platform == "Android" ? (entry.IsAab ? "▶️ Install & Run (bundletool)" : "▶️ Install & Run") : "▶️ Run";
             var runBtn = new Button(() =>
             {
-                if (entry.IsAab)
-                {
-                    EditorUtility.DisplayDialog("Run Build",
-                        ".aab is a Play Store upload format and cannot be executed directly.\n\n" +
-                        "To test on a device, generate a .apk build instead, or upload the .aab to Play Internal Testing.", "OK");
-                    return;
-                }
                 BuildHistory.Run(entry);
             })
             { text = runLabel };
