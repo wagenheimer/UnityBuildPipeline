@@ -285,16 +285,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             var apksPath = Path.Combine(Path.GetTempPath(),
                 $"{Path.GetFileNameWithoutExtension(entry.outputPath)}.apks");
 
-            EditorUtility.DisplayProgressBar("Run Build (AAB)", "Generating device-specific APKs from .aab (bundletool)...", 0.3f);
             try
             {
                 var buildOut = RunCommand(java,
-                    $"-jar \"{bundletool}\" build-apks --connected-device --bundle=\"{entry.outputPath}\" --output=\"{apksPath}\" --overwrite");
+                    $"-jar \"{bundletool}\" build-apks --connected-device --bundle=\"{entry.outputPath}\" --output=\"{apksPath}\" --overwrite",
+                    "Run Build (AAB)", "Generating device-specific APKs from .aab (bundletool build-apks)...");
+                if (buildOut == null) return; // cancelled by user
                 Debug.Log($"[BuildPipeline] bundletool build-apks:\n{buildOut}");
 
-                EditorUtility.DisplayProgressBar("Run Build (AAB)", "Installing APKs on device...", 0.7f);
                 var installOut = RunCommand(java,
-                    $"-jar \"{bundletool}\" install-apks --apks=\"{apksPath}\"");
+                    $"-jar \"{bundletool}\" install-apks --apks=\"{apksPath}\"",
+                    "Run Build (AAB)", "Installing APKs on device (bundletool install-apks)...");
+                if (installOut == null) return; // cancelled by user
                 Debug.Log($"[BuildPipeline] bundletool install-apks:\n{installOut}");
 
                 if (installOut.IndexOf("Success", StringComparison.OrdinalIgnoreCase) < 0 &&
@@ -308,7 +310,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 var launchOut = "";
                 if (!string.IsNullOrEmpty(entry.bundleId))
-                    launchOut = RunCommand(FindAdb(), $"shell monkey -p {entry.bundleId} 1");
+                {
+                    launchOut = RunCommand(FindAdb(), $"shell monkey -p {entry.bundleId} 1", "Run Build (AAB)", "Launching game on device");
+                    if (launchOut == null) return;
+                }
 
                 Debug.Log($"[BuildPipeline] AAB installed & launched. bundleId: {entry.bundleId}\n{launchOut}");
             }
@@ -339,13 +344,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var adb = FindAdb();
 
-            EditorUtility.DisplayProgressBar("Run Build", $"Installing APK on device ({adb})...", 0.5f);
             try
             {
-                var output = RunCommand(adb, $"install -r \"{entry.outputPath}\"");
+                var output = RunCommand(adb, $"install -r \"{entry.outputPath}\"", "Run Build", $"Installing APK on device ({adb}) (adb install -r)");
+                if (output == null) return; // cancelled by user
+
                 if (output.IndexOf("Success", StringComparison.OrdinalIgnoreCase) < 0)
                 {
-                    EditorUtility.ClearProgressBar();
                     EditorUtility.DisplayDialog("Run Build (APK)",
                         $"APK install did not report success.\n\nCommand: adb install -r\nOutput:\n{output}\n\n" +
                         "Check that a device is connected and USB debugging is enabled.", "OK");
@@ -354,9 +359,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 var launchOut = "";
                 if (!string.IsNullOrEmpty(entry.bundleId))
-                    launchOut = RunCommand(adb, $"shell monkey -p {entry.bundleId} 1");
+                {
+                    launchOut = RunCommand(adb, $"shell monkey -p {entry.bundleId} 1", "Run Build", "Launching game on device");
+                    if (launchOut == null) return;
+                }
 
-                EditorUtility.ClearProgressBar();
                 Debug.Log($"[BuildPipeline] APK installed & launched. bundleId: {entry.bundleId}\n{output}\n{launchOut}");
             }
             finally
@@ -365,7 +372,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
-        private static string RunCommand(string fileName, string arguments)
+        private static string RunCommand(string fileName, string arguments, string progressTitle = null, string progressInfo = null)
         {
             var psi = new ProcessStartInfo
             {
@@ -379,10 +386,24 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             using (var p = Process.Start(psi))
             {
-                var stdout = p.StandardOutput.ReadToEnd();
-                var stderr = p.StandardError.ReadToEnd();
-                p.WaitForExit(120000);
-                return $"{stdout}\n{stderr}".Trim();
+                var stdoutTask = p.StandardOutput.ReadToEndAsync();
+                var stderrTask = p.StandardError.ReadToEndAsync();
+
+                var sw = Stopwatch.StartNew();
+                while (!p.WaitForExit(200))
+                {
+                    if (progressTitle == null) continue;
+
+                    var progress = Mathf.Min(0.95f, (float)(sw.ElapsedMilliseconds / 120000.0));
+                    if (EditorUtility.DisplayCancelableProgressBar(progressTitle, progressInfo, progress))
+                    {
+                        try { p.Kill(); } catch { }
+                        Debug.LogWarning($"[BuildPipeline] Cancelled by user: {fileName} {arguments}");
+                        return null;
+                    }
+                }
+
+                return $"{stdoutTask.Result}\n{stderrTask.Result}".Trim();
             }
         }
     }

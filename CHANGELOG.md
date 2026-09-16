@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-09-16
+
+### Added
+
+- **"Run Build" confirmation dialog** - before running/installing, a dialog shows exactly
+  what will happen (run exe/app, adb install APK, or bundletool AAB install) plus the
+  entry's publisher/language/cheat/dev flags, with RUN/CANCEL buttons.
+- **Cancellable installs** - APK install, bundletool AAB generate/install and launch steps now
+  use `DisplayCancelableProgressBar`; the adb/bundletool process is killed and the operation
+  aborts cleanly when Cancel is pressed.
+
 ## [1.2.0] - 2026-09-16
 
 ### Added
