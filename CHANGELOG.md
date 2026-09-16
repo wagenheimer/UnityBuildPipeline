@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2026-09-16
+
+### Added
+
+- **`GameConfig.CanRate`** — property migrated from the legacy per-project `GameConfig`
+  (rate/review prompt availability per store publisher), so legacy projects can delete their
+  local `GameConfig`/`GameConfigEditor` and switch to the package without code changes.
+- **`Publisher.FourTheBalanceAndroidFull = 102`** — legacy publisher value preserved from the
+  per-project enums; also moved `LegacyGames` back to its historical value `26` (matches the
+  value serialized inside existing legacy `GameConfig.asset` files).
+
+### Fixed
+
+- **`GameLanguage.Korean` restored** (value `13`) with `ko` language-code and name mappings so
+  projects that still reference `GameLanguage.Korean` keep compiling.
+
 ## [1.1.6] - 2026-09-15
 
 ### Fixed

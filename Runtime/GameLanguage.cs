@@ -15,7 +15,8 @@ public enum GameLanguage
     Czech = 9,     // CZ
     Russian = 10,  // RU
     Japanese = 11, // JA
-    Chinese = 12   // ZH
+    Chinese = 12,  // ZH
+    Korean = 13    // KR
 }
 
 public static class PublisherAndLanguageExtensions
@@ -83,6 +84,7 @@ namespace Wagenheimer.BuildPipeline
                 GameLanguage.Russian => "ru",
                 GameLanguage.Japanese => "ja",
                 GameLanguage.Chinese => "zh",
+                GameLanguage.Korean => "ko",
                 _ => ""
             };
         }
@@ -103,6 +105,7 @@ namespace Wagenheimer.BuildPipeline
                 GameLanguage.Russian => "Russian",
                 GameLanguage.Japanese => "Japanese",
                 GameLanguage.Chinese => "Chinese",
+                GameLanguage.Korean => "Korean",
                 _ => "Auto"
             };
         }

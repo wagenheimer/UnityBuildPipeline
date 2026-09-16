@@ -33,10 +33,11 @@ public enum Publisher
 
     SamsungFull = 101,
     SamsungFree = 1012,
+    FourTheBalanceAndroidFull = 102,
 
     Denda = 125,
     Gamigo = 126,
-    LegacyGames = 127,
+    LegacyGames = 26,
 
     ItchIO = 200
 }

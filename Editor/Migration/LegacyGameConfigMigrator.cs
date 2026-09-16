@@ -39,12 +39,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (config == null)
             {
                 var settingsDir = "Assets/_Game/Settings";
-                if (!Directory.Exists(settingsDir))
+                if (AssetDatabase.IsValidFolder(settingsDir))
+                {
+                    // already exists
+                }
+                else if (AssetDatabase.IsValidFolder("Assets/Settings"))
                 {
                     settingsDir = "Assets/Settings";
-                    if (!Directory.Exists(settingsDir))
-                        Directory.CreateDirectory("Assets/_Game/Settings");
-                    settingsDir = "Assets/_Game/Settings";
+                }
+                else
+                {
+                    AssetDatabase.CreateFolder("Assets/_Game", "Settings");
                 }
 
                 var assetPath = $"{settingsDir}/ProjectBuildConfig.asset";

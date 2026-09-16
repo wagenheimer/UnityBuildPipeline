@@ -8,6 +8,7 @@ public class GameConfig : ScriptableObject
     [Header("Settings")]
     public SpriteAtlas HudSpriteAtlas;
     public SpriteAtlas LevelHudSpriteAtlas;
+    public SpriteAtlas DefaultSpriteAtlas;
     public Texture2D cursorTexture;
     public string BuildFolderName = "";
     public Publisher Publisher = Publisher.Default;
@@ -24,6 +25,10 @@ public class GameConfig : ScriptableObject
     public bool LogLevelsInfo = true;
     public bool LevelEditor = false;
     public bool ExternalTranslation = false;
+    [Tooltip("Bypasses the multi-profile player list and loads the in-Editor player directly.")]
+    public bool UseOnlyEditorPlayer = true;
+    [Tooltip("Whether the player can switch the game language from in-game UI.")]
+    public bool CanChangeLanguage = false;
 
     [Header("Version")]
     public GameVersion GameVersion = new GameVersion();
@@ -73,4 +78,12 @@ public class GameConfig : ScriptableObject
     public bool PublisherIsAmazonAndroid => Publisher is Publisher.AmazonAndroidFree or Publisher.AmazonAndroidFull;
     public bool PublisherIsSamsungAndroid => Publisher is Publisher.SamsungFree or Publisher.SamsungFull;
     public bool PublisherIsStandalone => Publisher.IsStandaloneDesktop();
+
+    public bool CanRate =>
+        Publisher is Publisher.iOSFree or Publisher.iOSFull
+                   or Publisher.MacAppStore or Publisher.MacAppStoreFull
+                   or Publisher.GoogleAndroidFree or Publisher.GoogleAndroidFull
+                   or Publisher.AmazonAndroidFree or Publisher.AmazonAndroidFull
+                   or Publisher.WindowsStore or Publisher.WindowsStoreFull
+                   or Publisher.SamsungFull or Publisher.SamsungFree;
 }
