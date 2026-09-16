@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.7] - 2026-09-16
+
+### Fixed
+
+- **Slim bundletool jars still passed the aapt2 check** - the previous check matched any entry
+  containing "aapt2", which also matches class files present in *every* bundletool build
+  (`Aapt2Command.class`), so the Visual Studio / .NET SDK slim jar kept being selected and
+  `build-apks` failed with "Unable to locate aapt2 inside jar". The check now matches only the
+  actual binary entry name (`aapt2` / `aapt2.exe`), which exists solely in the official
+  `bundletool-all` jar (`windows/aapt2.exe`, `macos/aapt2`, `linux/aapt2`).
+- **Deep jar search aborted on a single unreadable subfolder** - the recursive scan now falls
+  back to a depth-limited tolerant scan instead of giving up (which previously let a slim
+  Visual Studio copy win the search).
+
 ## [1.2.6] - 2026-09-16
 
 ### Fixed

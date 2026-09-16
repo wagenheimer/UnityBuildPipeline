@@ -341,7 +341,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
             "Wagenheimer", "BuildPipeline");
 
-        /// <summary>True when the jar embeds aapt2 (only the official bundletool-all build does).</summary>
+        /// <summary>True when the jar embeds the aapt2 binary (only the official bundletool-all
+        /// build does). bundletool extracts it from an OS folder inside the jar
+        /// (windows/aapt2.exe, macos/aapt2, linux/aapt2); class files such as Aapt2Command.class
+        /// must NOT count as a match.</summary>
         private static bool JarHasAapt2(string jarPath, string origin)
         {
             try
@@ -350,7 +353,11 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     foreach (var e in zip.Entries)
                     {
-                        if (e.FullName.IndexOf("aapt2", StringComparison.OrdinalIgnoreCase) >= 0)
+                        var name = e.FullName;
+                        var slash = name.LastIndexOf('/');
+                        var fileName = slash >= 0 ? name.Substring(slash + 1) : name;
+                        if (fileName.Equals("aapt2", StringComparison.OrdinalIgnoreCase) ||
+                            fileName.Equals("aapt2.exe", StringComparison.OrdinalIgnoreCase))
                             return true;
                     }
                 }
@@ -370,25 +377,53 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) return null;
 
+            var jars = new List<string>();
             try
             {
-                var jars = Directory.GetFiles(root, "bundletool*.jar", SearchOption.AllDirectories);
-                if (jars.Length == 0) return null;
-
-                // Prefer the newest copy; slim SDK builds are rejected by JarHasAapt2.
-                var best = jars
-                    .Select(j => new { Path = j, Modified = File.GetLastWriteTimeUtc(j) })
-                    .OrderByDescending(j => j.Modified);
-                foreach (var j in best)
-                {
-                    if (JarHasAapt2(j.Path, "auto-discovered")) return j.Path;
-                }
-                return null;
+                jars.AddRange(Directory.GetFiles(root, "bundletool*.jar", SearchOption.AllDirectories));
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[BuildPipeline] bundletool search failed in {root}: {ex.Message}");
-                return null;
+                // A single unreadable subfolder must not kill the whole search: fall back to a
+                // shallow scan of the first levels (enough for SDK pack layouts).
+                Debug.LogWarning($"[BuildPipeline] Deep bundletool search failed in {root} ({ex.Message}); using shallow scan.");
+                jars.AddRange(ShallowJarScan(root, 3));
+            }
+
+            if (jars.Count == 0) return null;
+
+            // Prefer the newest copy; slim SDK builds are rejected by JarHasAapt2.
+            var best = jars
+                .Select(j => new { Path = j, Modified = File.GetLastWriteTimeUtc(j) })
+                .OrderByDescending(j => j.Modified);
+            foreach (var j in best)
+            {
+                if (JarHasAapt2(j.Path, "auto-discovered")) return j.Path;
+            }
+            return null;
+        }
+
+        /// <summary>Depth-limited jar scan that tolerates unreadable folders.</summary>
+        private static IEnumerable<string> ShallowJarScan(string root, int maxDepth)
+        {
+            var queue = new Queue<(string dir, int depth)>();
+            queue.Enqueue((root, 0));
+
+            while (queue.Count > 0)
+            {
+                var (dir, depth) = queue.Dequeue();
+
+                string[] files;
+                try { files = Directory.GetFiles(dir, "bundletool*.jar"); }
+                catch { files = Array.Empty<string>(); }
+                foreach (var f in files) yield return f;
+
+                if (depth >= maxDepth) continue;
+
+                string[] subdirs;
+                try { subdirs = Directory.GetDirectories(dir); }
+                catch { subdirs = Array.Empty<string>(); }
+                foreach (var d in subdirs) queue.Enqueue((d, depth + 1));
             }
         }
 
