@@ -9,6 +9,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     [CustomEditor(typeof(ProjectBuildConfig))]
     public class ProjectBuildConfigCustomEditor : UnityEditor.Editor
     {
+        private static bool _foldQuick = true;
         private static bool _foldVault = true;
         private static bool _foldPublishers = true;
         private static bool _foldLanguages = true;
@@ -19,8 +20,17 @@ namespace Wagenheimer.BuildPipeline.Editor
         private string _vaultStatus = "";
         private string _localStatus = "";
 
+        private Publisher _quickPublisher = Publisher.BigFish;
+        private PlatformType _quickPlatform = PlatformType.Windows64;
+        private GameLanguage _quickLanguage = GameLanguage.AutoDetect;
+        private bool _quickCheat = false;
+        private bool _quickDevBuild = false;
+        private bool _quickAppBundle = true;
+        private bool _quickAutoRun = false;
+
         private void OnEnable()
         {
+            _foldQuick = EditorPrefs.GetBool("ProjectBuildConfig_FoldQuick", true);
             _foldVault = EditorPrefs.GetBool("ProjectBuildConfig_FoldVault", true);
             _foldPublishers = EditorPrefs.GetBool("ProjectBuildConfig_FoldPublishers", true);
             _foldLanguages = EditorPrefs.GetBool("ProjectBuildConfig_FoldLanguages", true);
@@ -35,23 +45,155 @@ namespace Wagenheimer.BuildPipeline.Editor
             // 1. Header Banner
             DrawHeader(config);
 
-            // 2. Android Keystore & Remote Vault (Categorized & with Test Buttons!)
+            // 2. Quick Build (Run Build From Here) + Last Build Actions
+            DrawQuickBuildSection(config);
+            EditorGUILayout.Space(6);
+
+            // 3. Android Keystore & Remote Vault (Categorized & with Test Buttons!)
             DrawKeystoreVaultSection(config);
             EditorGUILayout.Space(6);
 
-            // 3. Publishers & Lojas (Human-readable cards instead of Element 0..17)
+            // 4. Publishers & Lojas (Human-readable cards instead of Element 0..17)
             DrawPublishersSection(config);
             EditorGUILayout.Space(6);
 
-            // 4. Languages Matrix (Clean grid of language toggles)
+            // 5. Languages Matrix (Clean grid of language toggles)
             DrawLanguagesSection(config);
             EditorGUILayout.Space(6);
 
-            // 5. Output Paths & Scenes
+            // 6. Output Paths & Scenes
             DrawPathsAndScenesSection(config);
 
             serializedObject.ApplyModifiedProperties();
         }
+
+        #region Section: Quick Build
+        private void DrawQuickBuildSection(ProjectBuildConfig config)
+        {
+            _foldQuick = DrawSectionHeader("🚀 0. Executar Build Agora (Quick Build)", _foldQuick, "ProjectBuildConfig_FoldQuick");
+            if (!_foldQuick) return;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            EditorGUILayout.HelpBox(
+                "Dispara um build imediato sem abrir o Build Pipeline Window.\n" +
+                "Usa o perfil da publicadora (pasta de saída, splash, ZIP) e o GameConfig vinculado.\n" +
+                "Observação: .aab não é executável — para testar no device use .apk (desmarque '.aab').",
+                MessageType.Info);
+
+            EditorGUILayout.BeginHorizontal();
+            _quickPlatform = (PlatformType)EditorGUILayout.EnumPopup("Plataforma", _quickPlatform);
+            _quickPublisher = (Publisher)EditorGUILayout.EnumPopup("Publicadora", _quickPublisher);
+            EditorGUILayout.EndHorizontal();
+
+            _quickLanguage = (GameLanguage)EditorGUILayout.EnumPopup("Idioma", _quickLanguage);
+
+            EditorGUILayout.BeginHorizontal();
+            _quickCheat = EditorGUILayout.ToggleLeft("Cheat", _quickCheat, GUILayout.Width(70));
+            _quickDevBuild = EditorGUILayout.ToggleLeft("Development", _quickDevBuild, GUILayout.Width(100));
+            if (_quickPlatform == PlatformType.Android)
+                _quickAppBundle = EditorGUILayout.ToggleLeft(".aab", _quickAppBundle, GUILayout.Width(55));
+            _quickAutoRun = EditorGUILayout.ToggleLeft("Auto Run", _quickAutoRun);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(4);
+
+            GUI.backgroundColor = new Color(0.25f, 0.70f, 0.45f);
+            if (GUILayout.Button("▶️  RODAR BUILD AGORA", GUILayout.Height(32)))
+            {
+                RunQuickBuild(config);
+            }
+            GUI.backgroundColor = Color.white;
+
+            EditorGUILayout.Space(4);
+            DrawLastBuildRow();
+
+            EditorGUILayout.EndVertical();
+        }
+
+        private void RunQuickBuild(ProjectBuildConfig config)
+        {
+            if (config.publishers == null || config.publishers.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Quick Build", "Nenhuma lista de publicadoras configurada.\nUse 'Restaurar Lista Padrão de Publicadoras' na seção de Publicadoras.", "OK");
+                return;
+            }
+
+            var prof = config.publishers.FirstOrDefault(p => p.publisher == _quickPublisher);
+            var ctx = new BuildContext
+            {
+                Config = config,
+                Publisher = _quickPublisher,
+                PublisherProfile = prof,
+                Language = _quickLanguage,
+                Platform = _quickPlatform,
+                CheatMode = _quickCheat,
+                DevelopmentBuild = _quickDevBuild,
+                Demo = prof != null && prof.isDemo,
+                AppBundle = _quickAppBundle,
+                AutoRun = _quickAutoRun
+            };
+
+            AssetDatabase.SaveAssets();
+
+            var res = BuildPipelineRunner.Execute(ctx);
+            if (res.Success)
+            {
+                var choice = EditorUtility.DisplayDialogComplex(
+                    "Build Concluído",
+                    $"Build finalizado em {res.Duration:mm\\:ss}!\n\nCaminho: {res.OutputPath}",
+                    "▶️ Executar",
+                    "OK",
+                    "📂 Abrir Pasta");
+
+                var entry = BuildHistory.LastSuccessful;
+                if (choice == 0 && entry != null)
+                    BuildHistory.Run(entry);
+                else if (choice == 2)
+                    BuildHistory.OpenFolder(entry ?? new BuildHistoryEntry { outputPath = res.OutputPath });
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Build Falhou", $"Build falhou com {res.TotalErrors} erro(s).\nVerifique o Console para detalhes.", "OK");
+            }
+        }
+
+        private void DrawLastBuildRow()
+        {
+            var last = BuildHistory.LastSuccessful;
+            if (last == null) return;
+
+            var sizeMb = last.totalSize > 0 ? $"{last.totalSize / (1024.0 * 1024.0):F1} MB" : "";
+            var info = $"{last.Time:dd/MM HH:mm}  |  {last.platform}  |  {last.publisher}  |  {last.language}{(last.cheatMode ? " | CHEAT" : "")}  {(string.IsNullOrEmpty(sizeMb) ? "" : $"|  {sizeMb}")}";
+
+            EditorGUILayout.LabelField("Último Build:", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(info, EditorStyles.miniLabel);
+            EditorGUILayout.LabelField(last.outputPath, EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.18f, 0.60f, 0.90f);
+            if (GUILayout.Button("📂 Abrir Pasta", GUILayout.Height(24)))
+            {
+                BuildHistory.OpenFolder(last);
+            }
+            GUI.backgroundColor = new Color(0.25f, 0.70f, 0.45f);
+            using (new EditorGUI.DisabledScope(!BuildHistory.CanRun(last)))
+            {
+                var runLabel = last.platform == "Android" ? "▶️ Instalar & Rodar" : "▶️ Executar";
+                if (GUILayout.Button(runLabel, GUILayout.Height(24)))
+                {
+                    BuildHistory.Run(last);
+                }
+            }
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+
+            if (last.IsAab)
+            {
+                EditorGUILayout.HelpBox("ℹ️ O último build é um .aab (formato de upload da Play Store). Ele não pode ser executado diretamente. Para testar no device, gere um .apk (desmarque '.aab' no Quick Build).", MessageType.None);
+            }
+        }
+        #endregion
 
         #region Header
         private void DrawHeader(ProjectBuildConfig config)

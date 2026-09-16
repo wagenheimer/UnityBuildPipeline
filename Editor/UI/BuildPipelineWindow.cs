@@ -215,10 +215,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             tabRow.style.flexDirection = FlexDirection.Row;
             tabRow.style.marginBottom = 10;
 
-            string[] tabNames = { "⚡ Quick Build", "🏭 Matrix Batch Builder", "🔐 Keystore & Vault", "💻 CLI & Automation", "⚙️ Project Config" };
+            string[] tabNames = { "⚡ Quick Build", "🏭 Matrix Batch Builder", "🕘 Recent Builds", "🔐 Keystore & Vault", "💻 CLI & Automation", "⚙️ Project Config" };
             for (var i = 0; i < tabNames.Length; i++)
             {
-                var tabIndex = i;
+                var tabIndex = i >= 2 ? i + 1 : i; // shift tabs after "Recent Builds"
                 var tabBtn = new Button(() =>
                 {
                     _selectedTab = tabIndex;
@@ -408,12 +408,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                     BuildMatrixTab();
                     break;
                 case 2:
-                    BuildKeystoreVaultTab();
+                    BuildHistoryTab();
                     break;
                 case 3:
-                    BuildCliTab();
+                    BuildKeystoreVaultTab();
                     break;
                 case 4:
+                    BuildCliTab();
+                    break;
+                case 5:
                     BuildConfigTab();
                     break;
             }
@@ -793,6 +796,133 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.ClearProgressBar();
                 EditorUtility.DisplayDialog("Matrix Complete", $"Generated {count} builds.", "OK");
             }
+        }
+        #endregion
+
+        #region Recent Builds Tab
+        private void BuildHistoryTab()
+        {
+            var container = new VisualElement();
+
+            var headerRow = new VisualElement();
+            headerRow.style.flexDirection = FlexDirection.Row;
+            headerRow.style.justifyContent = Justify.SpaceBetween;
+            headerRow.style.alignItems = Align.Center;
+            headerRow.style.marginBottom = 10;
+
+            var desc = new Label("Last 30 builds recorded on this machine. Open the output folder or run them again (APK installs to the connected device):");
+            desc.style.color = new Color(0.7f, 0.7f, 0.7f);
+            headerRow.Add(desc);
+
+            var clearBtn = new Button(() =>
+            {
+                if (EditorUtility.DisplayDialog("Clear Build History", "Remove all entries from the build history?", "CLEAR", "CANCEL"))
+                {
+                    BuildHistory.Clear();
+                    RebuildContent();
+                }
+            })
+            { text = "🗑 Clear" };
+            clearBtn.style.height = 22;
+            clearBtn.style.fontSize = 10;
+            headerRow.Add(clearBtn);
+
+            container.Add(headerRow);
+
+            var entries = BuildHistory.Entries;
+            if (entries.Count == 0)
+            {
+                var empty = new Label("No builds recorded yet. Run a build from Quick Build or Matrix to populate this list.");
+                empty.style.color = new Color(0.5f, 0.5f, 0.5f);
+                empty.style.paddingTop = 20;
+                empty.style.unityTextAlign = TextAnchor.MiddleCenter;
+                container.Add(empty);
+                _contentContainer.Add(container);
+                return;
+            }
+
+            foreach (var entry in entries)
+            {
+                container.Add(CreateHistoryEntryRow(entry));
+            }
+
+            _contentContainer.Add(container);
+        }
+
+        private VisualElement CreateHistoryEntryRow(BuildHistoryEntry entry)
+        {
+            var row = new VisualElement();
+            row.style.backgroundColor = entry.success ? new Color(0.16f, 0.18f, 0.16f) : new Color(0.20f, 0.14f, 0.14f);
+            row.style.paddingTop = 6;
+            row.style.paddingBottom = 6;
+            row.style.paddingLeft = 10;
+            row.style.paddingRight = 10;
+            row.style.marginBottom = 4;
+            row.style.borderTopLeftRadius = 4;
+            row.style.borderTopRightRadius = 4;
+            row.style.borderBottomLeftRadius = 4;
+            row.style.borderBottomRightRadius = 4;
+
+            var info = new Label(
+                $"{(entry.success ? "✓" : "✗")} {entry.Time:dd/MM/yyyy HH:mm}  |  {entry.platform}  |  {entry.publisher}  |  {entry.language}" +
+                $"{(entry.cheatMode ? "  |  CHEAT" : "")}{(entry.developmentBuild ? "  |  DEV" : "")}" +
+                $"  |  {entry.durationSeconds:F0}s{(entry.totalSize > 0 ? $"  |  {entry.totalSize / (1024.0 * 1024.0):F1} MB" : "")}");
+            info.style.fontSize = 11;
+            info.style.color = entry.success ? new Color(0.75f, 0.85f, 0.75f) : new Color(0.9f, 0.6f, 0.6f);
+            info.style.whiteSpace = WhiteSpace.Normal;
+            row.Add(info);
+
+            var pathLbl = new Label(entry.outputPath);
+            pathLbl.style.fontSize = 10;
+            pathLbl.style.color = new Color(0.6f, 0.65f, 0.7f);
+            pathLbl.style.whiteSpace = WhiteSpace.Normal;
+            row.Add(pathLbl);
+
+            var btnRow = new VisualElement();
+            btnRow.style.flexDirection = FlexDirection.Row;
+            btnRow.style.marginTop = 4;
+
+            var folderBtn = new Button(() => BuildHistory.OpenFolder(entry)) { text = "📂 Open Folder" };
+            folderBtn.style.height = 20;
+            folderBtn.style.fontSize = 10;
+            folderBtn.style.marginRight = 6;
+            btnRow.Add(folderBtn);
+
+            var runLabel = entry.platform == "Android" ? (entry.IsAab ? "▶️ Not Runnable (.aab)" : "▶️ Install & Run") : "▶️ Run";
+            var runBtn = new Button(() =>
+            {
+                if (entry.IsAab)
+                {
+                    EditorUtility.DisplayDialog("Run Build",
+                        ".aab is a Play Store upload format and cannot be executed directly.\n\n" +
+                        "To test on a device, generate a .apk build instead, or upload the .aab to Play Internal Testing.", "OK");
+                    return;
+                }
+                BuildHistory.Run(entry);
+            })
+            { text = runLabel };
+            runBtn.style.height = 20;
+            runBtn.style.fontSize = 10;
+            runBtn.SetEnabled(BuildHistory.CanRun(entry));
+            btnRow.Add(runBtn);
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1;
+            btnRow.Add(spacer);
+
+            var removeBtn = new Button(() =>
+            {
+                BuildHistory.Remove(entry);
+                RebuildContent();
+            })
+            { text = "✕" };
+            removeBtn.style.width = 24;
+            removeBtn.style.height = 20;
+            btnRow.Add(removeBtn);
+
+            row.Add(btnRow);
+
+            return row;
         }
         #endregion
 

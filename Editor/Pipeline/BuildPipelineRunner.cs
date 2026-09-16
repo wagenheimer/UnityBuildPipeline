@@ -112,6 +112,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             var report = UnityEditor.BuildPipeline.BuildPlayer(playerOptions);
             stopwatch.Stop();
 
+            // Record into build history BEFORE post steps restore ProjectSettings,
+            // so the bundle id captured is the one actually built with.
+            BuildHistory.Record(context, new BuildResultSummary
+            {
+                Success = report.summary.result == BuildResult.Succeeded,
+                OutputPath = context.ResolvedOutputFilePath,
+                Duration = stopwatch.Elapsed,
+                TotalSize = report.summary.totalSize,
+                TotalErrors = report.summary.totalErrors
+            }, PlayerSettings.applicationIdentifier);
+
             var summary = report.summary;
             var result = new BuildResultSummary
             {
