@@ -233,10 +233,11 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         /// <summary>
-        /// Locates bundletool.jar: EditorPrefs override -> env var -> project folders ->
-        /// Unity's bundled Android player -> .NET Android SDK packs -> Visual Studio Xamarin ->
-        /// VS Code extension cache. Returns null when not found (caller prompts with a file
-        /// picker and persists the choice).
+        /// Locates a usable bundletool.jar (one with an embedded aapt2, i.e. the official
+        /// "bundletool-all" build): EditorPrefs override -> env var -> project folders ->
+        /// Unity's bundled Android player -> .NET Android SDK packs -> Visual Studio Xamarin.
+        /// Slim SDK-bundled jars (no aapt2 inside) are rejected with a warning. Returns null
+        /// when nothing usable is found (caller can then download or prompt).
         /// </summary>
         private static string FindBundletool()
         {
@@ -250,7 +251,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             foreach (var c in explicitCandidates)
             {
-                if (!string.IsNullOrEmpty(c) && File.Exists(c)) return c;
+                if (!string.IsNullOrEmpty(c) && File.Exists(c) && JarHasAapt2(c, "explicit"))
+                    return c;
             }
 
             // Common locations where bundletool.jar ships with other toolchains.
@@ -291,6 +293,31 @@ namespace Wagenheimer.BuildPipeline.Editor
             return null;
         }
 
+        /// <summary>True when the jar embeds aapt2 (only the official bundletool-all build does).</summary>
+        private static bool JarHasAapt2(string jarPath, string origin)
+        {
+            try
+            {
+                using (var zip = System.IO.Compression.ZipFile.OpenRead(jarPath))
+                {
+                    foreach (var e in zip.Entries)
+                    {
+                        if (e.FullName.StartsWith("aapt2", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] Could not inspect bundletool jar {jarPath}: {ex.Message}");
+                return false;
+            }
+
+            Debug.LogWarning($"[BuildPipeline] {origin} bundletool.jar at {jarPath} is a slim build " +
+                             "without embedded aapt2 - skipping it. bundletool-all.jar is required to build APKs.");
+            return false;
+        }
+
         private static string GlobBundletool(string root)
         {
             if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) return null;
@@ -300,17 +327,102 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var jars = Directory.GetFiles(root, "bundletool*.jar", SearchOption.AllDirectories);
                 if (jars.Length == 0) return null;
 
-                // Prefer the newest copy (newest SDK/workload version wins).
+                // Prefer the newest copy; slim SDK builds are rejected by JarHasAapt2.
                 var best = jars
                     .Select(j => new { Path = j, Modified = File.GetLastWriteTimeUtc(j) })
-                    .OrderByDescending(j => j.Modified)
-                    .First();
-                Debug.Log($"[BuildPipeline] bundletool.jar found automatically: {best.Path}");
-                return best.Path;
+                    .OrderByDescending(j => j.Modified);
+                foreach (var j in best)
+                {
+                    if (JarHasAapt2(j.Path, "auto-discovered")) return j.Path;
+                }
+                return null;
             }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[BuildPipeline] bundletool search failed in {root}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Downloads the latest official bundletool-all.jar from Google's GitHub releases into
+        /// the project Library folder. Returns the path or null when download fails/declined.
+        /// </summary>
+        private static string TryDownloadBundletool()
+        {
+            if (!EditorUtility.DisplayDialog("bundletool.jar",
+                    "Nenhum bundletool.jar completo (com aapt2 embutido) foi encontrado no sistema.\n\n" +
+                    "Baixar bundletool-all.jar automaticamente da release oficial do GitHub\n" +
+                    "(será salvo em Library/bundletool-all.jar do projeto)?",
+                    "BAIXAR", "CANCELAR"))
+                return null;
+
+            var destDir = Directory.GetParent(Application.dataPath)?.FullName;
+            if (string.IsNullOrEmpty(destDir)) return null;
+
+            try
+            {
+                using (var wc = new System.Net.WebClient())
+                {
+                    wc.Headers.Add(System.Net.HttpRequestHeader.UserAgent, "UnityBuildPipeline");
+
+                    EditorUtility.DisplayProgressBar("bundletool", "Consultando releases do GitHub...", 0.1f);
+                    var json = wc.DownloadString("https://api.github.com/repos/google/bundletool/releases/latest");
+
+                    string assetUrl = null;
+                    foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(json, "\"browser_download_url\":\\s*\"([^\"]+)\""))
+                    {
+                        var url = m.Groups[1].Value;
+                        if (url.IndexOf("bundletool-all", StringComparison.OrdinalIgnoreCase) >= 0 && url.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
+                        {
+                            assetUrl = url;
+                            break;
+                        }
+                    }
+
+                    if (assetUrl == null)
+                    {
+                        EditorUtility.ClearProgressBar();
+                        Debug.LogWarning("[BuildPipeline] No bundletool-all asset found in latest GitHub release.");
+                        return null;
+                    }
+
+                    var fileName = Path.GetFileName(assetUrl);
+                    var destFolder = Path.Combine(destDir, "Library");
+                    Directory.CreateDirectory(destFolder);
+                    var destPath = Path.Combine(destFolder, fileName);
+
+                    var downloadTask = wc.DownloadFileTaskAsync(assetUrl, destPath);
+                    while (!downloadTask.IsCompleted)
+                    {
+                        if (EditorUtility.DisplayCancelableProgressBar("bundletool", $"Downloading {fileName}...", 0.5f))
+                        {
+                            wc.CancelAsync();
+                            EditorUtility.ClearProgressBar();
+                            try { System.Threading.Tasks.Task.WaitAny(downloadTask); } catch { }
+                            if (File.Exists(destPath)) File.Delete(destPath);
+                            return null;
+                        }
+                        System.Threading.Thread.Sleep(100);
+                    }
+                    downloadTask.Wait();
+                }
+
+                EditorUtility.ClearProgressBar();
+
+                var libFolder = Path.Combine(destDir, "Library");
+                var actual = Directory.GetFiles(libFolder, "bundletool-all*.jar")
+                    .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+
+                if (actual == null || !JarHasAapt2(actual, "downloaded")) return null;
+
+                Debug.Log($"[BuildPipeline] bundletool downloaded: {actual}");
+                return actual;
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogWarning($"[BuildPipeline] bundletool download failed: {ex.Message}");
                 return null;
             }
         }
@@ -320,11 +432,15 @@ namespace Wagenheimer.BuildPipeline.Editor
             var jar = FindBundletool();
             if (jar != null) return jar;
 
+            jar = TryDownloadBundletool();
+            if (jar != null) return jar;
+
             jar = EditorUtility.OpenFilePanel(
-                "Select bundletool.jar",
+                "Select bundletool-all.jar (the full build, not the slim SDK copy)",
                 "",
                 "jar");
             if (string.IsNullOrEmpty(jar) || !File.Exists(jar)) return null;
+            if (!JarHasAapt2(jar, "manually selected")) return null;
 
             EditorPrefs.SetString("BuildPipeline_BundletoolJar", jar);
             Debug.Log($"[BuildPipeline] bundletool.jar saved for future runs: {jar}");

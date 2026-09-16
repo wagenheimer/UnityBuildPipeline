@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-09-16
+
+### Fixed
+
+- **AAB install failed with "Unable to locate aapt2 inside jar"** - the slim `bundletool.jar`
+  shipped inside .NET Android SDK packs / Visual Studio lacks the embedded aapt2 binary that
+  `build-apks` requires. Every discovered jar is now inspected (zip check for embedded aapt2
+  resources) and slim builds are skipped with a warning.
+
+### Added
+
+- **Automatic download of bundletool-all.jar** - when no jar with embedded aapt2 is found on
+  the system, the AAB runner offers to download the latest official `bundletool-all.jar`
+  from Google's GitHub releases into the project's `Library/` folder (cancelable download).
+  The manual file picker remains as last resort and now rejects slim jars too.
+
 ## [1.2.2] - 2026-09-16
 
 ### Added
