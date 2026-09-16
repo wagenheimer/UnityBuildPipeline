@@ -173,6 +173,22 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             if (!CanRun(entry)) return;
 
+            var action = entry.platform switch
+            {
+                "Windows64" or "Linux64" => $"Run executable:\n{entry.outputPath}",
+                "macOS" => $"Run app:\n{entry.outputPath}",
+                "Android" when entry.IsApk =>
+                    $"Install APK on connected device (adb install -r) and launch:\n{entry.outputPath}",
+                "Android" when entry.IsAab =>
+                    $"Install AAB on connected device (bundletool: generate device APKs + install) and launch:\n{entry.outputPath}",
+                _ => entry.outputPath
+            };
+
+            var info = $"{action}\n\n" +
+                       $"Publisher: {entry.publisher}  |  Language: {entry.language}" +
+                       $"{(entry.cheatMode ? "  |  CHEAT" : "")}{(entry.developmentBuild ? "  |  DEV" : "")}";
+            if (!EditorUtility.DisplayDialog("Run Build", info, "▶ RUN", "CANCEL")) return;
+
             try
             {
                 switch (entry.platform)
