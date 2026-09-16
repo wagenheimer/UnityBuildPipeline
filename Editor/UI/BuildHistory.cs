@@ -350,7 +350,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     foreach (var e in zip.Entries)
                     {
-                        if (e.FullName.StartsWith("aapt2", StringComparison.OrdinalIgnoreCase))
+                        if (e.FullName.IndexOf("aapt2", StringComparison.OrdinalIgnoreCase) >= 0)
                             return true;
                     }
                 }

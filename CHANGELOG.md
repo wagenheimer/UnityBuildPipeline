@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.6] - 2026-09-16
+
+### Fixed
+
+- **Valid bundletool-all jars were rejected as slim** - the aapt2 validator only matched
+  entries whose path *starts with* `aapt2`, but in bundletool 1.17+ the binary lives under
+  an OS folder (`windows/aapt2.exe`). The check now matches `aapt2` anywhere in the entry
+  path, so the official jar is detected correctly and "NOT FOUND" no longer triggers a
+  needless download loop.
+
 ## [1.2.5] - 2026-09-16
 
 ### Fixed
