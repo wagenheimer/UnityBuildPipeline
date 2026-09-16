@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
@@ -113,7 +114,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 outputPath = context.ResolvedOutputFilePath,
                 success = result.Success,
                 durationSeconds = result.Duration.TotalSeconds,
-                totalSize = result.TotalSize,
+                totalSize = (long) result.TotalSize,
                 totalErrors = result.TotalErrors
             };
 
