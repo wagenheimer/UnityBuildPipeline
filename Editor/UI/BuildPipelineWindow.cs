@@ -71,7 +71,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private ProjectBuildConfig _config;
         private VisualElement _root;
         private VisualElement _contentContainer;
-        private int _selectedTab = 0; // 0 = Quick Build, 1 = Matrix, 2 = Keystore & Vault, 3 = CLI, 4 = Settings
+        private int _selectedTab = 0; // 0 = Quick Build, 1 = Matrix, 2 = Recent Builds, 3 = Keystore & Vault, 4 = CLI, 5 = Project Config
 
         private bool[] _selectedPublishers;
         private bool[] _selectedLanguages;
@@ -218,7 +218,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             string[] tabNames = { "⚡ Quick Build", "🏭 Matrix Batch Builder", "🕘 Recent Builds", "🔐 Keystore & Vault", "💻 CLI & Automation", "⚙️ Project Config" };
             for (var i = 0; i < tabNames.Length; i++)
             {
-                var tabIndex = i >= 2 ? i + 1 : i; // shift tabs after "Recent Builds"
+                var tabIndex = i;
                 var tabBtn = new Button(() =>
                 {
                     _selectedTab = tabIndex;
