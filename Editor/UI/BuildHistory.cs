@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -187,6 +188,19 @@ namespace Wagenheimer.BuildPipeline.Editor
             var info = $"{action}\n\n" +
                        $"Publisher: {entry.publisher}  |  Language: {entry.language}" +
                        $"{(entry.cheatMode ? "  |  CHEAT" : "")}{(entry.developmentBuild ? "  |  DEV" : "")}";
+
+            // Show which toolchain will actually do the work so the user can verify it.
+            if (entry.IsAab)
+            {
+                var bt = GetBundletoolPath();
+                info += $"\n\nbundletool: {(string.IsNullOrEmpty(bt) ? "NOT FOUND (will offer download)" : bt)}";
+                info += $"\njava: {FindJava()}";
+            }
+            else if (entry.IsApk)
+            {
+                info += $"\nadb: {FindAdb()}";
+            }
+
             if (!EditorUtility.DisplayDialog("Run Build", info, "▶ RUN", "CANCEL")) return;
 
             try
@@ -214,6 +228,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 EditorUtility.DisplayDialog("Run Build", $"Failed to run build:\n{ex.Message}", "OK");
             }
+        }
+
+        private static string _bundletoolPath;
+
+        /// <summary>Cached bundletool path for UI display (Run dialog + Recent Builds header).</summary>
+        public static string GetBundletoolPath()
+        {
+            if (_bundletoolPath == null || !File.Exists(_bundletoolPath))
+                _bundletoolPath = FindBundletool();
+            return _bundletoolPath;
         }
 
         private static string FindJava()

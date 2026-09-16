@@ -829,6 +829,15 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             container.Add(headerRow);
 
+            // Toolchain status line so the user can verify which bundletool/adb will run AAB/APKs.
+            var btPath = BuildHistory.GetBundletoolPath();
+            var btLabel = new Label($"bundletool.jar: {(string.IsNullOrEmpty(btPath) ? "NOT FOUND (will offer download)" : btPath)}");
+            btLabel.style.fontSize = 10;
+            btLabel.style.whiteSpace = WhiteSpace.Normal;
+            btLabel.style.marginBottom = 8;
+            btLabel.style.color = string.IsNullOrEmpty(btPath) ? new Color(0.9f, 0.6f, 0.3f) : new Color(0.5f, 0.8f, 0.5f);
+            container.Add(btLabel);
+
             var entries = BuildHistory.Entries;
             if (entries.Count == 0)
             {
