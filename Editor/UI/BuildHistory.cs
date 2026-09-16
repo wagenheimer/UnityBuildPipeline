@@ -258,10 +258,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         /// <summary>
         /// Locates a usable bundletool.jar (one with an embedded aapt2, i.e. the official
-        /// "bundletool-all" build): EditorPrefs override -> env var -> project folders ->
-        /// Unity's bundled Android player -> .NET Android SDK packs -> Visual Studio Xamarin.
-        /// Slim SDK-bundled jars (no aapt2 inside) are rejected with a warning. Returns null
-        /// when nothing usable is found (caller can then download or prompt).
+        /// "bundletool-all" build): EditorPrefs override -> env var -> stable shared folder ->
+        /// project folders -> Unity's bundled Android player -> .NET Android SDK packs ->
+        /// Visual Studio Xamarin. Slim SDK-bundled jars (no aapt2 inside) are rejected with a
+        /// warning. Returns null when nothing valid is found (caller can then download or prompt).
         /// </summary>
         private static string FindBundletool()
         {
@@ -277,6 +277,25 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 if (!string.IsNullOrEmpty(c) && File.Exists(c) && JarHasAapt2(c, "explicit"))
                     return c;
+            }
+
+            // Stable machine-wide folder where TryDownloadBundletool saves copies - survives
+            // Unity regenerating the project's Library folder and is shared across projects.
+            if (Directory.Exists(StableBundletoolDir))
+            {
+                try
+                {
+                    var stable = Directory.GetFiles(StableBundletoolDir, "bundletool-all*.jar")
+                        .OrderByDescending(File.GetLastWriteTimeUtc);
+                    foreach (var j in stable)
+                    {
+                        if (JarHasAapt2(j, "stable folder")) return j;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[BuildPipeline] bundletool search failed in {StableBundletoolDir}: {ex.Message}");
+                }
             }
 
             // Common locations where bundletool.jar ships with other toolchains.
@@ -316,6 +335,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             return null;
         }
+
+        /// <summary>Machine-wide folder for downloaded tools (survives Unity's Library regeneration).</summary>
+        private static string StableBundletoolDir => Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+            "Wagenheimer", "BuildPipeline");
 
         /// <summary>True when the jar embeds aapt2 (only the official bundletool-all build does).</summary>
         private static bool JarHasAapt2(string jarPath, string origin)
@@ -369,85 +393,184 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         /// <summary>
-        /// Downloads the latest official bundletool-all.jar from Google's GitHub releases into
-        /// the project Library folder. Returns the path or null when download fails/declined.
+        /// Downloads the latest official bundletool-all.jar into a stable machine-wide folder
+        /// (%LOCALAPPDATA%\Wagenheimer\BuildPipeline). Prefers the OS curl.exe (with timeouts,
+        /// no hang possible); falls back to WebClient with a 30s stall watchdog so a stuck
+        /// connection can never hang the Editor forever.
         /// </summary>
         private static string TryDownloadBundletool()
         {
             if (!EditorUtility.DisplayDialog("bundletool.jar",
                     "Nenhum bundletool.jar completo (com aapt2 embutido) foi encontrado no sistema.\n\n" +
-                    "Baixar bundletool-all.jar automaticamente da release oficial do GitHub\n" +
-                    "(será salvo em Library/bundletool-all.jar do projeto)?",
+                    "Baixar bundletool-all.jar automaticamente da release oficial do GitHub?\n" +
+                    "(será salvo em %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline, compartilhado entre projetos)",
                     "BAIXAR", "CANCELAR"))
                 return null;
 
-            var destDir = Directory.GetParent(Application.dataPath)?.FullName;
-            if (string.IsNullOrEmpty(destDir)) return null;
-
+            var destDir = StableBundletoolDir;
             try
             {
-                using (var wc = new System.Net.WebClient())
+                Directory.CreateDirectory(destDir);
+
+                EditorUtility.DisplayProgressBar("bundletool", "Consultando releases do GitHub...", 0.1f);
+                var json = DownloadString("https://api.github.com/repos/google/bundletool/releases/latest");
+                if (string.IsNullOrEmpty(json))
                 {
-                    wc.Headers.Add(System.Net.HttpRequestHeader.UserAgent, "UnityBuildPipeline");
-
-                    EditorUtility.DisplayProgressBar("bundletool", "Consultando releases do GitHub...", 0.1f);
-                    var json = wc.DownloadString("https://api.github.com/repos/google/bundletool/releases/latest");
-
-                    string assetUrl = null;
-                    foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(json, "\"browser_download_url\":\\s*\"([^\"]+)\""))
-                    {
-                        var url = m.Groups[1].Value;
-                        if (url.IndexOf("bundletool-all", StringComparison.OrdinalIgnoreCase) >= 0 && url.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
-                        {
-                            assetUrl = url;
-                            break;
-                        }
-                    }
-
-                    if (assetUrl == null)
-                    {
-                        EditorUtility.ClearProgressBar();
-                        Debug.LogWarning("[BuildPipeline] No bundletool-all asset found in latest GitHub release.");
-                        return null;
-                    }
-
-                    var fileName = Path.GetFileName(assetUrl);
-                    var destFolder = Path.Combine(destDir, "Library");
-                    Directory.CreateDirectory(destFolder);
-                    var destPath = Path.Combine(destFolder, fileName);
-
-                    var downloadTask = wc.DownloadFileTaskAsync(assetUrl, destPath);
-                    while (!downloadTask.IsCompleted)
-                    {
-                        if (EditorUtility.DisplayCancelableProgressBar("bundletool", $"Downloading {fileName}...", 0.5f))
-                        {
-                            wc.CancelAsync();
-                            EditorUtility.ClearProgressBar();
-                            try { System.Threading.Tasks.Task.WaitAny(downloadTask); } catch { }
-                            if (File.Exists(destPath)) File.Delete(destPath);
-                            return null;
-                        }
-                        System.Threading.Thread.Sleep(100);
-                    }
-                    downloadTask.Wait();
+                    EditorUtility.ClearProgressBar();
+                    Debug.LogWarning("[BuildPipeline] Could not query GitHub releases API.");
+                    return null;
                 }
+
+                string assetUrl = null;
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(json, "\"browser_download_url\":\\s*\"([^\"]+)\""))
+                {
+                    var url = m.Groups[1].Value;
+                    if (url.IndexOf("bundletool-all", StringComparison.OrdinalIgnoreCase) >= 0 && url.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
+                    {
+                        assetUrl = url;
+                        break;
+                    }
+                }
+
+                if (assetUrl == null)
+                {
+                    EditorUtility.ClearProgressBar();
+                    Debug.LogWarning("[BuildPipeline] No bundletool-all asset found in latest GitHub release.");
+                    return null;
+                }
+
+                var fileName = Path.GetFileName(assetUrl);
+                var destPath = Path.Combine(destDir, fileName);
+
+                var outp = DownloadFile(assetUrl, destPath, fileName);
+                if (outp == null) return null; // cancelled / failed (already logged)
 
                 EditorUtility.ClearProgressBar();
 
-                var libFolder = Path.Combine(destDir, "Library");
-                var actual = Directory.GetFiles(libFolder, "bundletool-all*.jar")
-                    .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+                if (!JarHasAapt2(destPath, "downloaded"))
+                {
+                    try { File.Delete(destPath); } catch { }
+                    return null;
+                }
 
-                if (actual == null || !JarHasAapt2(actual, "downloaded")) return null;
-
-                Debug.Log($"[BuildPipeline] bundletool downloaded: {actual}");
-                return actual;
+                Debug.Log($"[BuildPipeline] bundletool downloaded: {destPath}");
+                return destPath;
             }
             catch (Exception ex)
             {
                 EditorUtility.ClearProgressBar();
                 Debug.LogWarning($"[BuildPipeline] bundletool download failed: {ex.Message}");
                 return null;
+            }
+        }
+
+        private static string FindCurl()
+        {
+            var sys = Path.Combine(System.Environment.SystemDirectory, "curl.exe");
+            if (File.Exists(sys)) return sys;
+            return null;
+        }
+
+        /// <summary>GET with curl.exe (timeouts, no hang) falling back to WebClient + 30s stall watchdog.</summary>
+        private static string DownloadString(string url)
+        {
+            var curl = FindCurl();
+            if (curl != null)
+            {
+                var outp = RunCommand(curl, $"-sSL -A UnityBuildPipeline --connect-timeout 15 --max-time 30 \"{url}\"");
+                if (outp != null && outp.Length > 0) return outp;
+                Debug.LogWarning("[BuildPipeline] curl string fetch failed; falling back to WebClient.");
+            }
+
+            try
+            {
+                using (var wc = new System.Net.WebClient())
+                {
+                    wc.Headers.Add(System.Net.HttpRequestHeader.UserAgent, "UnityBuildPipeline");
+                    var task = wc.DownloadStringTaskAsync(url);
+                    var sw = Stopwatch.StartNew();
+                    while (!task.IsCompleted)
+                    {
+                        if (sw.Elapsed.TotalSeconds > 30)
+                        {
+                            wc.CancelAsync();
+                            return null;
+                        }
+                        System.Threading.Thread.Sleep(100);
+                    }
+                    return task.Result;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BuildPipeline] DownloadString failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>File download with curl.exe; WebClient fallback cancels when stalled for 30s.</summary>
+        private static bool DownloadFile(string url, string destPath, string displayName)
+        {
+            var curl = FindCurl();
+            if (curl != null)
+            {
+                var outp = RunCommand(curl,
+                    $"-sSL -A UnityBuildPipeline --connect-timeout 15 --max-time 600 -o \"{destPath}\" \"{url}\"",
+                    "bundletool", $"Downloading {displayName} (curl)...");
+                if (outp == null) return false; // cancelled by user (process killed)
+
+                if (File.Exists(destPath) && new FileInfo(destPath).Length > 1024 * 1024)
+                    return true;
+                Debug.LogWarning($"[BuildPipeline] curl download produced no file: {outp}");
+            }
+            else
+            {
+                Debug.LogWarning("[BuildPipeline] curl.exe not found; using WebClient with 30s stall watchdog.");
+            }
+
+            try
+            {
+                using (var wc = new System.Net.WebClient())
+                {
+                    wc.Headers.Add(System.Net.HttpRequestHeader.UserAgent, "UnityBuildPipeline");
+                    var lastProgress = DateTime.UtcNow;
+                    wc.DownloadProgressChanged += (s, e) => lastProgress = DateTime.UtcNow;
+
+                    var task = wc.DownloadFileTaskAsync(url, destPath);
+                    while (!task.IsCompleted)
+                    {
+                        if (EditorUtility.DisplayCancelableProgressBar("bundletool", $"Downloading {displayName}...", 0.5f))
+                        {
+                            wc.CancelAsync();
+                            EditorUtility.ClearProgressBar();
+                            try { System.Threading.Tasks.Task.WaitAny(task); } catch { }
+                            if (File.Exists(destPath)) File.Delete(destPath);
+                            return false;
+                        }
+
+                        if ((DateTime.UtcNow - lastProgress).TotalSeconds > 30)
+                        {
+                            wc.CancelAsync();
+                            EditorUtility.ClearProgressBar();
+                            try { System.Threading.Tasks.Task.WaitAny(task); } catch { }
+                            if (File.Exists(destPath)) File.Delete(destPath);
+                            Debug.LogWarning("[BuildPipeline] Download stalled (no progress for 30s) - aborted. Check proxy/network or download bundletool-all.jar manually.");
+                            return false;
+                        }
+
+                        System.Threading.Thread.Sleep(200);
+                    }
+                    task.Wait();
+                }
+
+                return File.Exists(destPath) && new FileInfo(destPath).Length > 1024 * 1024;
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogWarning($"[BuildPipeline] bundletool download failed: {ex.Message}");
+                if (File.Exists(destPath)) { try { File.Delete(destPath); } catch { } }
+                return false;
             }
         }
 
@@ -479,7 +602,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.DisplayDialog("Run Build (AAB)",
                     "bundletool.jar não encontrado.\n\n" +
                     "Baixe em https://github.com/google/bundletool/releases e selecione o arquivo na próxima janela " +
-                    "(ou coloque-o em Library/bundletool.jar do projeto).", "OK");
+                    "(ou coloque bundletool-all.jar em %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline).", "OK");
                 return;
             }
 

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-09-16
+
+### Fixed
+
+- **bundletool download could hang forever** - the .NET `WebClient` has no timeout, so a
+  stalled GitHub connection kept the Editor "downloading" indefinitely. The download now
+  prefers the OS `curl.exe` (`--connect-timeout 15 --max-time 600`), and the WebClient
+  fallback aborts automatically after 30s without progress (watchdog), reporting the failure
+  instead of hanging.
+
+### Changed
+
+- **Downloaded bundletool now stored in a stable machine-wide folder**
+  (`%LOCALAPPDATA%\Wagenheimer\BuildPipeline`), shared across projects and immune to Unity
+  regenerating the project's `Library` folder; the search looks there as well.
+
 ## [1.2.4] - 2026-09-16
 
 ### Fixed
