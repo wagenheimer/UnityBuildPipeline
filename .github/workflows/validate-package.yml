@@ -1,0 +1,65 @@
+name: Validate Unity Package
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  meta-files:
+    name: Every asset ships a .meta
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Um .cs (ou qualquer asset) sem .meta versionado não é importado/compilado dentro do pacote
+      # git — consumidores quebram com CS0103/CS0246 (foi o caso do ExportAndroidSymbolsStep na
+      # 1.2.9). O mesmo check pega o inverso: .meta órfão (asset removido e meta ficou pra trás).
+      - name: Check for missing / orphan .meta files
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          import sys
+          import os
+
+          files = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          files = [f.replace("\\", "/") for f in files]
+
+          def is_hidden(path: str) -> bool:
+              return any(part.startswith(".") for part in path.split("/"))
+
+          # A Unity não importa dotfiles/dot-dirs (.gitignore, .gitattributes, .github) — não levam .meta.
+          visible = [f for f in files if not is_hidden(f)]
+
+          expected = set()
+          for f in visible:
+              if f.endswith(".meta"):
+                  continue
+              expected.add(f + ".meta")             # .meta do próprio asset
+              d = os.path.dirname(f)
+              while d:                              # .meta de cada pasta (git ls-files não lista diretórios)
+                  expected.add(d + ".meta")
+                  d = os.path.dirname(d)
+
+          actual = {f for f in files if f.endswith(".meta") and not is_hidden(f)}
+
+          missing = sorted(expected - actual)
+          orphans = sorted(actual - expected)
+
+          for f in missing:
+              asset = f[: -len(".meta")]
+              print(f"::error file={asset}::{asset} is missing its committed .meta ({f})")
+          for f in orphans:
+              print(f"::error file={f}::{f} is an orphan .meta (no matching asset)")
+
+          print(f"visible files: {len(visible)} | expected .meta: {len(expected)} | found .meta: {len(actual)}")
+          if missing or orphans:
+              print(f"::error::{len(missing)} missing and {len(orphans)} orphan .meta file(s).")
+              sys.exit(1)
+          print("OK: every asset and folder has a committed .meta, no orphans.")
+          PY
