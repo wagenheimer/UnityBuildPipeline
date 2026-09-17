@@ -156,87 +156,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             InitMatrixArrays();
 
             // Header: Title & Project Identity + Quick Action Buttons
-            var header = new VisualElement();
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.justifyContent = Justify.SpaceBetween;
-            header.style.alignItems = Align.Center;
-            header.style.marginBottom = 12;
-            header.style.paddingBottom = 8;
-            header.style.borderBottomWidth = 1;
-            header.style.borderBottomColor = new Color(0.25f, 0.25f, 0.25f);
+            _root.Add(CreateHeaderBar());
 
-            var titleBox = new VisualElement();
-            var titleLabel = new Label("Unity Build Pipeline");
-            titleLabel.style.fontSize = 18;
-            titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            titleLabel.style.color = new Color(0.2f, 0.8f, 0.9f);
-            titleBox.Add(titleLabel);
-
-            var projName = _config != null && !string.IsNullOrEmpty(_config.projectName) ? _config.projectName : "Storm Tale 2";
-            string gameConfigName = "None";
-            try
-            {
-                if (_config != null && _config.gameConfig != null)
-                    gameConfigName = _config.gameConfig.name;
-            }
-            catch
-            {
-                gameConfigName = "None";
-            }
-            var subTitle = new Label($"Project: {projName}  |  Runtime Config: {gameConfigName}");
-            subTitle.style.fontSize = 11;
-            subTitle.style.color = new Color(0.7f, 0.7f, 0.7f);
-            titleBox.Add(subTitle);
-            header.Add(titleBox);
-
-            var headerButtons = new VisualElement();
-            headerButtons.style.flexDirection = FlexDirection.Row;
-
-            var guideBtn = new Button(() => BuildPipelineGuideWindow.Open()) { text = "📖 Documentation & Guide" };
-            guideBtn.style.height = 26;
-            guideBtn.style.marginRight = 6;
-            guideBtn.style.fontSize = 11;
-            headerButtons.Add(guideBtn);
-
-            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true)) { text = "🔄 Check Updates" };
-            updateBtn.style.height = 26;
-            updateBtn.style.fontSize = 11;
-            headerButtons.Add(updateBtn);
-
-            header.Add(headerButtons);
-
-            _root.Add(header);
+            // Live save/dirty status — mirrors the banner in GameConfig/ProjectBuildConfig Inspectors
+            _root.Add(CreateSaveStatusBar());
 
             // Version Management Bar
             _root.Add(CreateVersionBar());
 
-            // Tab Buttons
-            var tabRow = new VisualElement();
-            tabRow.style.flexDirection = FlexDirection.Row;
-            tabRow.style.marginBottom = 10;
-
-            string[] tabNames = { "⚡ Quick Build", "🏭 Matrix Batch Builder", "🕘 Recent Builds", "🔐 Keystore & Vault", "💻 CLI & Automation", "⚙️ Project Config" };
-            for (var i = 0; i < tabNames.Length; i++)
-            {
-                var tabIndex = i;
-                var tabBtn = new Button(() =>
-                {
-                    _selectedTab = tabIndex;
-                    RebuildUI();
-                })
-                { text = tabNames[i] };
-                tabBtn.style.flexGrow = 1;
-                tabBtn.style.height = 28;
-                tabBtn.style.fontSize = 11;
-                if (_selectedTab == tabIndex)
-                {
-                    tabBtn.style.backgroundColor = new Color(0.2f, 0.45f, 0.7f);
-                    tabBtn.style.color = Color.white;
-                    tabBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
-                }
-                tabRow.Add(tabBtn);
-            }
-            _root.Add(tabRow);
+            // Tab Buttons (segmented control)
+            _root.Add(CreateTabBar());
 
             _contentContainer = new ScrollView(ScrollViewMode.Vertical);
             _contentContainer.style.flexGrow = 1;
@@ -246,14 +175,194 @@ namespace Wagenheimer.BuildPipeline.Editor
             RebuildContent();
         }
 
+        private static readonly Color ColAccent = new(0.20f, 0.75f, 0.90f);
+        private static readonly Color ColPanelBg = new(0.18f, 0.18f, 0.18f);
+        private static readonly Color ColDim = new(0.65f, 0.65f, 0.65f);
+        private static readonly Color ColWarnBg = new(0.40f, 0.24f, 0.05f);
+        private static readonly Color ColWarnAccent = new(0.95f, 0.65f, 0.15f);
+        private static readonly Color ColOkBg = new(0.10f, 0.22f, 0.15f);
+        private static readonly Color ColOkAccent = new(0.30f, 0.80f, 0.50f);
+
+        private VisualElement CreateHeaderBar()
+        {
+            var header = new VisualElement();
+            header.style.flexDirection = FlexDirection.Row;
+            header.style.justifyContent = Justify.SpaceBetween;
+            header.style.alignItems = Align.Center;
+            header.style.marginBottom = 10;
+            header.style.paddingBottom = 10;
+            header.style.borderBottomWidth = 2;
+            header.style.borderBottomColor = ColAccent;
+
+            var titleBox = new VisualElement();
+            var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var titleIcon = new Label("🚀") { style = { fontSize = 18, marginRight = 6 } };
+            var titleLabel = new Label("Unity Build Pipeline");
+            titleLabel.style.fontSize = 18;
+            titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            titleLabel.style.color = ColAccent;
+            titleRow.Add(titleIcon);
+            titleRow.Add(titleLabel);
+            titleBox.Add(titleRow);
+
+            var projName = _config != null && !string.IsNullOrEmpty(_config.projectName)
+                ? _config.projectName
+                : (!string.IsNullOrEmpty(Application.productName) ? Application.productName : "Untitled Project");
+            string gameConfigName = "Nenhum vinculado";
+            try
+            {
+                if (_config != null && _config.gameConfig != null)
+                    gameConfigName = _config.gameConfig.name;
+            }
+            catch
+            {
+                gameConfigName = "Nenhum vinculado";
+            }
+            var subTitle = new Label($"📁 Projeto: {projName}    •    🎮 GameConfig: {gameConfigName}");
+            subTitle.style.fontSize = 11;
+            subTitle.style.marginTop = 2;
+            subTitle.style.color = ColDim;
+            titleBox.Add(subTitle);
+            header.Add(titleBox);
+
+            var headerButtons = new VisualElement();
+            headerButtons.style.flexDirection = FlexDirection.Row;
+
+            var guideBtn = new Button(() => BuildPipelineGuideWindow.Open()) { text = "📖 Guia" };
+            guideBtn.tooltip = "Documentação completa: arquitetura, CLI, matriz de builds, vault de keystore.";
+            guideBtn.style.height = 26;
+            guideBtn.style.marginRight = 6;
+            guideBtn.style.fontSize = 11;
+            headerButtons.Add(guideBtn);
+
+            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true)) { text = "🔄 Atualizações" };
+            updateBtn.tooltip = "Verifica se há uma versão mais nova do pacote UnityBuildPipeline.";
+            updateBtn.style.height = 26;
+            updateBtn.style.fontSize = 11;
+            headerButtons.Add(updateBtn);
+
+            header.Add(headerButtons);
+            return header;
+        }
+
+        /// <summary>
+        /// Makes the exact moment a version/build-number edit reaches disk (and therefore git) explicit,
+        /// instead of relying on the user remembering to press Ctrl+S.
+        /// </summary>
+        private VisualElement CreateSaveStatusBar()
+        {
+            bool isDirty = _config != null && _config.gameConfig != null && EditorUtility.IsDirty(_config.gameConfig);
+
+            var bar = new VisualElement();
+            bar.style.flexDirection = FlexDirection.Row;
+            bar.style.alignItems = Align.Center;
+            bar.style.justifyContent = Justify.SpaceBetween;
+            bar.style.paddingTop = 5;
+            bar.style.paddingBottom = 5;
+            bar.style.paddingLeft = 10;
+            bar.style.paddingRight = 10;
+            bar.style.marginBottom = 8;
+            bar.style.borderTopLeftRadius = 4;
+            bar.style.borderTopRightRadius = 4;
+            bar.style.borderBottomLeftRadius = 4;
+            bar.style.borderBottomRightRadius = 4;
+            bar.style.backgroundColor = isDirty ? ColWarnBg : ColOkBg;
+
+            var label = new Label(isDirty
+                ? "⚠ Alterações em memória — ainda NÃO gravadas em disco (não aparecem no 'git status')."
+                : "✔ Tudo salvo em disco.");
+            label.style.fontSize = 11;
+            label.style.unityFontStyleAndWeight = FontStyle.Bold;
+            label.style.color = Color.white;
+            bar.Add(label);
+
+            if (isDirty)
+            {
+                var saveBtn = new Button(() =>
+                {
+                    AssetDatabase.SaveAssetIfDirty(_config.gameConfig);
+                    if (_config != null) AssetDatabase.SaveAssetIfDirty(_config);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[BuildPipeline] Configuração salva em disco. Confira o 'git status' agora.");
+                    RebuildUI();
+                })
+                { text = "💾  Salvar Agora" };
+                saveBtn.style.height = 22;
+                saveBtn.style.fontSize = 11;
+                saveBtn.style.backgroundColor = ColWarnAccent;
+                saveBtn.style.color = Color.white;
+                saveBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+                bar.Add(saveBtn);
+            }
+
+            return bar;
+        }
+
+        private VisualElement CreateTabBar()
+        {
+            var tabRow = new VisualElement();
+            tabRow.style.flexDirection = FlexDirection.Row;
+            tabRow.style.marginBottom = 10;
+
+            (string icon, string label)[] tabs =
+            {
+                ("⚡", "Quick Build"),
+                ("🏭", "Matrix Batch"),
+                ("🕘", "Recent Builds"),
+                ("🔐", "Keystore & Vault"),
+                ("💻", "CLI & Automation"),
+                ("⚙️", "Project Config"),
+            };
+
+            for (var i = 0; i < tabs.Length; i++)
+            {
+                var tabIndex = i;
+                var isSelected = _selectedTab == tabIndex;
+
+                var tabBtn = new Button(() =>
+                {
+                    _selectedTab = tabIndex;
+                    RebuildUI();
+                })
+                { text = $"{tabs[i].icon} {tabs[i].label}" };
+                tabBtn.style.flexGrow = 1;
+                tabBtn.style.height = 30;
+                tabBtn.style.fontSize = 11;
+                tabBtn.style.marginLeft = 0;
+                tabBtn.style.marginRight = i < tabs.Length - 1 ? 2 : 0;
+                tabBtn.style.borderTopLeftRadius = 4;
+                tabBtn.style.borderTopRightRadius = 4;
+                tabBtn.style.borderBottomLeftRadius = 0;
+                tabBtn.style.borderBottomRightRadius = 0;
+                tabBtn.style.borderBottomWidth = 3;
+
+                if (isSelected)
+                {
+                    tabBtn.style.backgroundColor = new Color(0.16f, 0.30f, 0.38f);
+                    tabBtn.style.borderBottomColor = ColAccent;
+                    tabBtn.style.color = Color.white;
+                    tabBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+                }
+                else
+                {
+                    tabBtn.style.borderBottomColor = new Color(0, 0, 0, 0);
+                    var normalBg = tabBtn.style.backgroundColor;
+                    tabBtn.RegisterCallback<PointerEnterEvent>(_ => tabBtn.style.backgroundColor = new Color(0.28f, 0.28f, 0.30f));
+                    tabBtn.RegisterCallback<PointerLeaveEvent>(_ => tabBtn.style.backgroundColor = normalBg);
+                }
+
+                tabRow.Add(tabBtn);
+            }
+
+            return tabRow;
+        }
+
         private VisualElement CreateVersionBar()
         {
             var card = new VisualElement();
-            card.style.flexDirection = FlexDirection.Row;
-            card.style.alignItems = Align.Center;
-            card.style.backgroundColor = new Color(0.18f, 0.18f, 0.18f);
-            card.style.paddingTop = 6;
-            card.style.paddingBottom = 6;
+            card.style.backgroundColor = ColPanelBg;
+            card.style.paddingTop = 8;
+            card.style.paddingBottom = 8;
             card.style.paddingLeft = 10;
             card.style.paddingRight = 10;
             card.style.marginBottom = 10;
@@ -286,11 +395,26 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             }
 
-            var verLabel = new Label($"Version: {versionText}  ({dateText})   |   🤖 Android: #{andCode}   🍎 iOS: #{iosNum}");
-            verLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            verLabel.style.fontSize = 12;
-            verLabel.style.flexGrow = 1;
-            card.Add(verLabel);
+            // Row 1: section title + live summary
+            var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
+            var sectionTitle = new Label("📦 Versão & Build Numbers");
+            sectionTitle.style.fontSize = 11;
+            sectionTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            sectionTitle.style.color = ColDim;
+            titleRow.Add(sectionTitle);
+
+            var spacer0 = new VisualElement { style = { flexGrow = 1 } };
+            titleRow.Add(spacer0);
+
+            var summaryLabel = new Label($"{versionText}  •  {dateText}  •  🤖 #{andCode}  •  🍎 #{iosNum}");
+            summaryLabel.style.fontSize = 11;
+            summaryLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            summaryLabel.style.color = Color.white;
+            titleRow.Add(summaryLabel);
+            card.Add(titleRow);
+
+            // Row 2: grouped clusters, separated visually so it's obvious what each button changes
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.FlexEnd, flexWrap = Wrap.Wrap } };
 
             var btnMajor = new Button(() =>
             {
@@ -303,8 +427,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Major" };
-            btnMajor.style.width = 60;
+            { text = "+ Major", tooltip = "Incrementa a versão principal (X.0.0) e zera Minor/Build." };
+            btnMajor.style.width = 58;
 
             var btnMinor = new Button(() =>
             {
@@ -316,8 +440,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Minor" };
-            btnMinor.style.width = 60;
+            { text = "+ Minor", tooltip = "Incrementa a versão secundária (x.X.0) e zera Build." };
+            btnMinor.style.width = 58;
 
             var btnBuild = new Button(() =>
             {
@@ -328,8 +452,26 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Build" };
-            btnBuild.style.width = 60;
+            { text = "+ Build", tooltip = "Incrementa apenas o número de build (x.x.X)." };
+            btnBuild.style.width = 58;
+
+            var btnToday = new Button(() =>
+            {
+                if (_config != null && _config.gameConfig != null && _config.gameConfig.VersionDate != null)
+                {
+                    var now = DateTime.Now;
+                    _config.gameConfig.VersionDate.Day = now.Day;
+                    _config.gameConfig.VersionDate.Month = now.Month;
+                    _config.gameConfig.VersionDate.Year = now.Year;
+                    EditorUtility.SetDirty(_config.gameConfig);
+                    RebuildUI();
+                }
+            })
+            { text = "📅 Hoje", tooltip = "Define a data de release como hoje." };
+            btnToday.style.width = 58;
+
+            row.Add(CreateButtonGroup("VERSÃO DO JOGO", btnMajor, btnMinor, btnBuild, btnToday));
+            row.Add(CreateVerticalSeparator());
 
             var btnAnd = new Button(() =>
             {
@@ -342,8 +484,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
                 RebuildUI();
             })
-            { text = "+1 Android" };
-            btnAnd.style.width = 75;
+            { text = "+1 Android", tooltip = "Incrementa AndroidBundleVersionCode (obrigatório subir a cada release na Google Play)." };
+            btnAnd.style.width = 82;
+            row.Add(CreateButtonGroup("🤖 ANDROID BUNDLE CODE", btnAnd));
+            row.Add(CreateVerticalSeparator());
 
             var btnIos = new Button(() =>
             {
@@ -358,42 +502,54 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
                 RebuildUI();
             })
-            { text = "+1 iOS" };
-            btnIos.style.width = 60;
+            { text = "+1 iOS", tooltip = "Incrementa iOSBuildNumber (CFBundleVersion) para App Store / TestFlight." };
+            btnIos.style.width = 58;
+            row.Add(CreateButtonGroup("🍎 iOS / macOS BUILD", btnIos));
+            row.Add(CreateVerticalSeparator());
 
-            var btnToday = new Button(() =>
-            {
-                if (_config != null && _config.gameConfig != null && _config.gameConfig.VersionDate != null)
-                {
-                    var now = DateTime.Now;
-                    _config.gameConfig.VersionDate.Day = now.Day;
-                    _config.gameConfig.VersionDate.Month = now.Month;
-                    _config.gameConfig.VersionDate.Year = now.Year;
-                    EditorUtility.SetDirty(_config.gameConfig);
-                    RebuildUI();
-                }
-            })
-            { text = "Today" };
-            var autoBumpToggle = new Toggle("Auto +1")
+            var autoBumpToggle = new Toggle("Auto +1 ao buildar")
             {
                 value = EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false),
-                tooltip = "Auto-increment build number (Android/iOS/macOS) when building"
+                tooltip = "Incrementa automaticamente o build number (Android/iOS/macOS) sempre que um build for gerado por esta janela."
             };
-            autoBumpToggle.style.marginLeft = 8;
             autoBumpToggle.RegisterValueChangedCallback(evt =>
             {
                 EditorPrefs.SetBool("BuildPipeline_AutoBumpOnBuild", evt.newValue);
             });
+            row.Add(CreateButtonGroup("AUTOMAÇÃO", autoBumpToggle));
 
-            card.Add(btnMajor);
-            card.Add(btnMinor);
-            card.Add(btnBuild);
-            card.Add(btnAnd);
-            card.Add(btnIos);
-            card.Add(btnToday);
-            card.Add(autoBumpToggle);
-
+            card.Add(row);
             return card;
+        }
+
+        private VisualElement CreateButtonGroup(string label, params VisualElement[] controls)
+        {
+            var group = new VisualElement { style = { marginRight = 10 } };
+            var groupLabel = new Label(label);
+            groupLabel.style.fontSize = 9;
+            groupLabel.style.color = ColDim;
+            groupLabel.style.marginBottom = 3;
+            group.Add(groupLabel);
+
+            var controlsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            foreach (var c in controls)
+            {
+                c.style.marginRight = 4;
+                controlsRow.Add(c);
+            }
+            group.Add(controlsRow);
+            return group;
+        }
+
+        private VisualElement CreateVerticalSeparator()
+        {
+            var sep = new VisualElement();
+            sep.style.width = 1;
+            sep.style.marginRight = 10;
+            sep.style.marginLeft = 0;
+            sep.style.backgroundColor = new Color(0.32f, 0.32f, 0.32f);
+            sep.style.alignSelf = Align.Stretch;
+            return sep;
         }
 
         private void RebuildContent()
