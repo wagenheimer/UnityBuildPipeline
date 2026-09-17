@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.9] - 2026-09-17
+
+### Added
+
+- **Android native debug symbols enabled by default, and exported for Google Play** - release
+  Android builds now generate native symbols and hand them to CI. The Play Console warnings
+  "this release contains native code and you didn't upload debug symbols" are gone.
+  - `ApplyPlayerSettingsStep` now uses the Unity 6 API
+    `UnityEditor.Android.UserBuildSettings.DebugSymbols` (`level = SymbolTable`,
+    `format = Zip | LegacyExtensions | IncludeInBundle`), falling back to the obsolete
+    `EditorUserBuildSettings.androidCreateSymbols` on older editors. The obsolete property
+    became a no-op in Unity 6000.0.23, which is why builds were producing no `*.symbols.zip` at
+    all. Symbols are embedded in the `.aab` itself (Play receives them with the bundle, no extra
+    upload) and also written as a `.symbols.zip` beside the artifact.
+  - New `ExportAndroidSymbolsStep` post-build step copies the generated `*.symbols.zip` and, when
+    present, the R8/ProGuard `mapping.txt` next to the `.aab` with deterministic names.
+  - `BuildManifest` gained `symbolsZipPath`, `mappingPath` and `symbolsEmbedded` so external CI
+    (AppDeployHub.Forge) can upload them without guessing paths.
+
 ## [1.2.8] - 2026-09-16
 
 ### Added

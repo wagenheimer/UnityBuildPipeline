@@ -38,6 +38,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             new ApplyPlayerSettingsStep(),
             new CopyPublisherSplashStep(),
             new CleanupObsoleteFilesStep(),
+            new ExportAndroidSymbolsStep(),
             new ZipArchiveStep()
         };
 

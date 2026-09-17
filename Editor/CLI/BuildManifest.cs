@@ -23,6 +23,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string outputDirectory;
         public string artifactPath;    // .aab/.apk/.exe/.app or the WebGL/Xcode folder
         public string xcodeProjectPath; // set only for iOS (== artifactPath folder)
+        public string symbolsZipPath;   // Android: native symbols (.symbols.zip) beside the artifact
+        public string mappingPath;      // Android: R8/ProGuard mapping.txt (only when Minify is on)
+        public bool symbolsEmbedded;    // Android .aab: native symbols embedded in the bundle itself
         public long sizeBytes;
         public int errors;
         public int warnings;
@@ -42,6 +45,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 buildNumber = ResolveBuildNumber(context),
                 outputDirectory = context.ResolvedOutputDirectory,
                 artifactPath = context.ResolvedOutputFilePath,
+                symbolsZipPath = GetExtraString(context, ExportAndroidSymbolsStep.SymbolsZipKey),
+                mappingPath = GetExtraString(context, ExportAndroidSymbolsStep.MappingFileKey),
+                symbolsEmbedded = GetExtraBool(context, ExportAndroidSymbolsStep.SymbolsEmbeddedKey),
                 sizeBytes = (long)summary.TotalSize,
                 errors = summary.TotalErrors,
                 warnings = summary.TotalWarnings,
@@ -53,6 +59,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                 entry.xcodeProjectPath = context.ResolvedOutputFilePath;
 
             return entry;
+        }
+
+        private static string GetExtraString(BuildContext context, string key)
+        {
+            return context.ExtraData.TryGetValue(key, out var value) && value is string s ? s : "";
+        }
+
+        private static bool GetExtraBool(BuildContext context, string key)
+        {
+            return context.ExtraData.TryGetValue(key, out var value) && value is bool b && b;
         }
 
         private static string ResolveVersion(BuildContext context)

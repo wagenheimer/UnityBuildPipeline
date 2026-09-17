@@ -139,18 +139,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
                     EditorUserBuildSettings.buildAppBundle = context.AppBundle;
 
-#pragma warning disable CS0618
                     if (context.DevelopmentBuild)
                     {
-                        EditorUserBuildSettings.androidCreateSymbols = AndroidCreateSymbols.Disabled;
+                        ApplyAndroidDebugSymbols(false, false);
                         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
                     }
                     else
                     {
-                        EditorUserBuildSettings.androidCreateSymbols = AndroidCreateSymbols.Public;
+                        // Símbolos nativos habilitados por padrão em todo build Android de release: a Play
+                        // Store usa pra simbolizar ANRs/crashes (aviso "não enviou os símbolos de depuração").
+                        // Em .aab eles vão embutidos no bundle (sem upload extra) e também em zip ao lado do
+                        // artefato — ver ExportAndroidSymbolsStep e o antigo androidCreateSymbols abaixo.
+                        ApplyAndroidDebugSymbols(true, context.AppBundle);
                         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64;
                     }
-#pragma warning restore CS0618
                     break;
 
                 case PlatformType.iOS:
@@ -171,6 +173,39 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Configura a geração de símbolos nativos do Android.
+        /// No Unity 6 a propriedade obsoleta <see cref="EditorUserBuildSettings.androidCreateSymbols"/>
+        /// foi substituída por <c>UnityEditor.Android.UserBuildSettings.DebugSymbols</c> e deixou de ter
+        /// efeito — era por isso que os builds saíam sem <c>*.symbols.zip</c> e a Play Store reclamava
+        /// de "símbolos de depuração nativos" ausentes. Quando <paramref name="embedInBundle"/> é true
+        /// e o artefato é .aab, os símbolos vão embutidos no próprio bundle (a Play os recebe junto do
+        /// .aab, sem upload separado) e também empacotados num zip com extensão .so legada.
+        /// </summary>
+        private static void ApplyAndroidDebugSymbols(bool create, bool embedInBundle)
+        {
+#if UNITY_6000_0_OR_NEWER
+            UnityEditor.Android.UserBuildSettings.DebugSymbols.level = create
+                ? Unity.Android.Types.DebugSymbolLevel.SymbolTable
+                : Unity.Android.Types.DebugSymbolLevel.None;
+
+            if (create)
+            {
+                var format = Unity.Android.Types.DebugSymbolFormat.Zip
+                             | Unity.Android.Types.DebugSymbolFormat.LegacyExtensions;
+                if (embedInBundle)
+                    format |= Unity.Android.Types.DebugSymbolFormat.IncludeInBundle;
+                UnityEditor.Android.UserBuildSettings.DebugSymbols.format = format;
+            }
+#else
+#pragma warning disable CS0618
+            EditorUserBuildSettings.androidCreateSymbols = create
+                ? AndroidCreateSymbols.Public
+                : AndroidCreateSymbols.Disabled;
+#pragma warning restore CS0618
+#endif
         }
 
         public bool ExecutePostBuild(BuildContext context, BuildReport report)
