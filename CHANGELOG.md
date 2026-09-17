@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.10] - 2026-09-17
+
+### Fixed
+
+- **Missing `.meta` for `ExportAndroidSymbolsStep.cs` broke every project on 1.2.9** - the new
+  script had no versioned `.cs.meta`, so Unity did not import/compile it inside the git package and
+  any package that referenced the type failed with `CS0103/CS0246: ExportAndroidSymbolsStep does not
+  exist`. Added the `.meta` (repo-consistent 59-byte format: `fileFormatVersion` + `guid`). Every
+  `.cs` in the package must ship with its `.meta`.
+
 ## [1.2.9] - 2026-09-17
 
 ### Added
