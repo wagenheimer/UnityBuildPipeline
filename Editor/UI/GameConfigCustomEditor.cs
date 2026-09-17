@@ -44,6 +44,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             // 1. Modern Hero Branding Card
             DrawHeroBanner(config);
 
+            // 1b. Live Save/Dirty Status — answers "why doesn't my edit show up in git?"
+            DrawSaveStatusBanner(config);
+
             // 2. Action Shortcuts Toolbar
             DrawActionShortcuts();
 
@@ -191,6 +194,52 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             GUILayout.Space(6);
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawSaveStatusBanner(GameConfig config)
+        {
+            bool isDirty = EditorUtility.IsDirty(config);
+            var isPro = EditorGUIUtility.isProSkin;
+
+            var bgColor = isDirty
+                ? (isPro ? new Color(0.40f, 0.24f, 0.05f) : new Color(1.00f, 0.90f, 0.70f))
+                : (isPro ? new Color(0.10f, 0.24f, 0.15f) : new Color(0.82f, 0.93f, 0.85f));
+
+            var rect = EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            EditorGUI.DrawRect(rect, bgColor);
+            GUILayout.Space(2);
+
+            var textStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 11,
+                wordWrap = true,
+                normal = { textColor = isPro ? Color.white : new Color(0.15f, 0.15f, 0.15f) }
+            };
+
+            if (isDirty)
+            {
+                EditorGUILayout.LabelField(
+                    "⚠ Alterações em memória, ainda NÃO gravadas em disco — não vão aparecer no 'git status' até você salvar.",
+                    textStyle);
+
+                GUILayout.FlexibleSpace();
+                GUI.backgroundColor = new Color(0.90f, 0.55f, 0.15f);
+                if (GUILayout.Button("💾  Salvar Agora", GUILayout.Width(140), GUILayout.Height(24)))
+                {
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[BuildPipeline] GameConfig e PlayerSettings salvos em disco. Confira o 'git status' agora.");
+                }
+                GUI.backgroundColor = Color.white;
+            }
+            else
+            {
+                EditorGUILayout.LabelField("✔ Tudo salvo em disco — o que estiver diferente aqui já aparece no 'git status'.", textStyle);
+            }
+
+            GUILayout.Space(2);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4);
         }
 
         private void DrawBadge(string text, Color bgColor)
@@ -460,8 +509,11 @@ namespace Wagenheimer.BuildPipeline.Editor
                 normal = { textColor = isPro ? new Color(0.70f, 0.75f, 0.80f) : new Color(0.35f, 0.40f, 0.45f) }
             };
             EditorGUILayout.LabelField("Google Play bundleVersionCode & Apple App Store CFBundleVersion", hintStyle);
-            EditorGUILayout.LabelField("Source of truth: THIS asset (GameConfig). Not ProjectBuildConfig — that only holds pipeline settings (paths, keystore, publishers).", hintStyle);
-            EditorGUILayout.LabelField("⚠ Changes here are in-memory only until you Save Project (Ctrl+S) — that's when they reach the .asset files and show up in git.", hintStyle);
+
+            GUILayout.Space(2);
+            EditorGUILayout.HelpBox(
+                "Fonte da verdade: ESTE asset (GameConfig). O ProjectBuildConfig NÃO tem esses campos — ele só guarda config de pipeline (caminhos, keystore, publishers).",
+                MessageType.Info);
 
             GUILayout.Space(4);
 

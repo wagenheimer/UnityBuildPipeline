@@ -57,12 +57,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "Rule of thumb: version/build numbers → always edit on GameConfig.asset. Paths/keystore/publishers → always edit on ProjectBuildConfig.asset.",
                 code: "// Access runtime settings in your game code:\nPublisher activeStore = Main.main.Config.Publisher;\nGameLanguage lang = Main.main.Config.GameLanguage;\nstring version = MainBase.Version;\nbool isCheat = MainBase.Config.CheatMode;");
 
-            DrawCard(2, "Where Build Numbers Really Live (and why nothing shows up in git)",
+            DrawComparisonTable();
+
+            DrawCard(2, "⚠ Where Build Numbers Really Live (and why nothing shows up in git)",
                 "AndroidBundleVersionCode / iOSBuildNumber are stored ONLY on GameConfig.asset (e.g. \"YourGame.asset\"). Editing them from the Inspector (or the +1 / Sync buttons) also pushes the value live into PlayerSettings.Android.bundleVersionCode / PlayerSettings.iOS.buildNumber — which is what ProjectSettings/ProjectSettings.asset stores on disk.\n\n" +
                 "Both writes only mark the assets 'dirty' in memory (EditorUtility.SetDirty). Nothing reaches disk — and therefore nothing shows up in 'git status' — until Unity actually saves the project.\n\n" +
-                "If you bumped the number and see no diff: press Ctrl+S (File → Save Project) and check git again. You should then see changes in BOTH files:\n" +
+                "If you bumped the number and see no diff: press Ctrl+S (File → Save Project), or use the new '💾 Salvar Agora' button that now appears at the top of both GameConfig and ProjectBuildConfig whenever there are unsaved changes. Then check git again — you should see changes in BOTH files:\n" +
                 "• Assets/_Game/YourGame.asset (GameConfig — the source of truth)\n" +
-                "• ProjectSettings/ProjectSettings.asset (Unity's own PlayerSettings mirror, also rewritten automatically by the pipeline right after a real build)");
+                "• ProjectSettings/ProjectSettings.asset (Unity's own PlayerSettings mirror, also rewritten automatically by the pipeline right after a real build)",
+                highlight: true);
 
             DrawCard(3, "Quick Build Dashboard",
                 "Open Tools → Build Pipeline → Open Build Window (or Window → Build Pipeline).\n\n" +
@@ -145,9 +148,116 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        void DrawCard(int step, string title, string description, string code = null, string link = null, string url = null)
+        static readonly Color ColWarnBg = new(0.32f, 0.20f, 0.05f);
+        static readonly Color ColWarnAccent = new(0.95f, 0.65f, 0.15f);
+        static readonly Color ColRuntimeBg = new(0.08f, 0.28f, 0.20f);
+        static readonly Color ColRuntimeAccent = new(0.30f, 0.85f, 0.55f);
+        static readonly Color ColEditorBg = new(0.22f, 0.14f, 0.32f);
+        static readonly Color ColEditorAccent = new(0.70f, 0.50f, 0.95f);
+
+        void DrawComparisonTable()
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+
+            DrawFileColumn(
+                icon: "🎮",
+                fileName: "GameConfig.asset",
+                subtitle: "(ex: \"Forgotten Tales...asset\")",
+                bg: ColRuntimeBg, accent: ColRuntimeAccent,
+                badge: "VAI DENTRO DO BUILD",
+                bullets: new[] {
+                    "Versão (Major.Minor.Build)",
+                    "Android Bundle Version Code",
+                    "iOS / macOS Build Number",
+                    "Bundle IDs, ícones, nome do jogo",
+                    "Lido pelo próprio jogo em runtime"
+                });
+
+            GUILayout.Space(8);
+
+            DrawFileColumn(
+                icon: "🛠️",
+                fileName: "ProjectBuildConfig.asset",
+                subtitle: "(Assets/_Game/Settings/)",
+                bg: ColEditorBg, accent: ColEditorAccent,
+                badge: "NUNCA VAI PRO BUILD (Editor-only)",
+                bullets: new[] {
+                    "Caminhos de output (E:/Games/...)",
+                    "Keystore Android + senha/vault",
+                    "Lista de publishers/lojas",
+                    "Idiomas habilitados",
+                    "Só existe enquanto você builda"
+                });
+
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(10);
+        }
+
+        void DrawFileColumn(string icon, string fileName, string subtitle, Color bg, Color accent, string badge, string[] bullets)
+        {
+            var rect = EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width((position.width - 40) / 2));
+            EditorGUI.DrawRect(rect, bg);
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, 3), accent);
+
+            GUILayout.Space(6);
+            var titleStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white },
+                wordWrap = true
+            };
+            EditorGUILayout.LabelField($"{icon} {fileName}", titleStyle);
+
+            var subStyle = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = new Color(0.80f, 0.82f, 0.85f) }
+            };
+            EditorGUILayout.LabelField(subtitle, subStyle);
+
+            GUILayout.Space(4);
+            var badgeStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                fontSize = 9,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+            var badgeContent = new GUIContent(badge);
+            var badgeSize = badgeStyle.CalcSize(badgeContent);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                var badgeRect = GUILayoutUtility.GetRect(badgeSize.x + 12, 16);
+                EditorGUI.DrawRect(badgeRect, accent);
+                GUI.Label(badgeRect, badge, badgeStyle);
+                GUILayout.FlexibleSpace();
+            }
+
+            GUILayout.Space(6);
+            var bulletStyle = new GUIStyle(EditorStyles.label)
+            {
+                fontSize = 10,
+                wordWrap = true,
+                normal = { textColor = new Color(0.92f, 0.94f, 0.96f) }
+            };
+            foreach (var b in bullets)
+            {
+                EditorGUILayout.LabelField("• " + b, bulletStyle);
+            }
+
+            GUILayout.Space(6);
+            EditorGUILayout.EndVertical();
+        }
+
+        void DrawCard(int step, string title, string description, string code = null, string link = null, string url = null, bool highlight = false)
+        {
+            var boxRect = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            if (highlight)
+            {
+                EditorGUI.DrawRect(boxRect, ColWarnBg);
+                EditorGUI.DrawRect(new Rect(boxRect.x, boxRect.y, 4, boxRect.height), ColWarnAccent);
+            }
             GUILayout.Space(4);
 
             using (new EditorGUILayout.HorizontalScope())
@@ -155,7 +265,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var numStyle = new GUIStyle(EditorStyles.boldLabel)
                 {
                     fontSize = 13,
-                    normal = { textColor = ColAccent },
+                    normal = { textColor = highlight ? ColWarnAccent : ColAccent },
                     alignment = TextAnchor.MiddleLeft
                 };
                 GUILayout.Label($"#{step}", numStyle, GUILayout.Width(28));
@@ -163,7 +273,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var titleStyle = new GUIStyle(EditorStyles.boldLabel)
                 {
                     fontSize = 13,
-                    normal = { textColor = ColText },
+                    normal = { textColor = highlight ? Color.white : ColText },
                     alignment = TextAnchor.MiddleLeft
                 };
                 GUILayout.Label(title, titleStyle);
@@ -173,7 +283,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var descStyle = new GUIStyle(EditorStyles.wordWrappedLabel)
             {
                 fontSize = 11,
-                normal = { textColor = ColText }
+                normal = { textColor = highlight ? new Color(0.95f, 0.92f, 0.85f) : ColText }
             };
             EditorGUILayout.LabelField(description, descStyle);
 

@@ -221,7 +221,6 @@ namespace Wagenheimer.BuildPipeline.Editor
             };
             var linkedName = config.gameConfig != null ? config.gameConfig.name : "Nenhum (Clique em Migrar)";
             EditorGUILayout.LabelField($"CONFIGURAÇÃO GERAL DE BUILDS  •  GameConfig: {linkedName}", subStyle);
-            EditorGUILayout.LabelField("ℹ Versão / Android Bundle Code / iOS Build Number NÃO ficam aqui — edite em cima do asset GameConfig acima ↑", subStyle);
 
             GUILayout.Space(6);
 
@@ -242,7 +241,69 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             GUILayout.Space(4);
             EditorGUILayout.EndVertical();
+
+            GUILayout.Space(4);
+            EditorGUILayout.HelpBox(
+                "📌 Este arquivo é só INFRAESTRUTURA de build (caminhos, keystore, publishers, idiomas).\n" +
+                "Versão do jogo, Android Bundle Code e iOS Build Number NÃO ficam aqui — eles ficam no GameConfig (" +
+                linkedName + "), listado acima.",
+                MessageType.Info);
+
+            if (config.gameConfig != null)
+            {
+                if (GUILayout.Button($"📂 Abrir GameConfig ({linkedName})", EditorStyles.miniButton, GUILayout.Height(20)))
+                {
+                    Selection.activeObject = config.gameConfig;
+                    EditorGUIUtility.PingObject(config.gameConfig);
+                }
+            }
+
+            DrawSaveStatusBanner(config);
+
             EditorGUILayout.Space(6);
+        }
+
+        private void DrawSaveStatusBanner(ProjectBuildConfig config)
+        {
+            bool isDirty = EditorUtility.IsDirty(config);
+            var isPro = EditorGUIUtility.isProSkin;
+
+            GUILayout.Space(4);
+            var bgColor = isDirty
+                ? (isPro ? new Color(0.40f, 0.24f, 0.05f) : new Color(1.00f, 0.90f, 0.70f))
+                : (isPro ? new Color(0.10f, 0.24f, 0.15f) : new Color(0.82f, 0.93f, 0.85f));
+
+            var rect = EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            EditorGUI.DrawRect(rect, bgColor);
+            GUILayout.Space(2);
+
+            var textStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 11,
+                wordWrap = true,
+                normal = { textColor = isPro ? Color.white : new Color(0.15f, 0.15f, 0.15f) }
+            };
+
+            if (isDirty)
+            {
+                EditorGUILayout.LabelField("⚠ Alterações NÃO gravadas em disco ainda — não aparecem no 'git status'.", textStyle);
+                GUILayout.FlexibleSpace();
+                GUI.backgroundColor = new Color(0.90f, 0.55f, 0.15f);
+                if (GUILayout.Button("💾  Salvar Agora", GUILayout.Width(140), GUILayout.Height(24)))
+                {
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[BuildPipeline] ProjectBuildConfig salvo em disco.");
+                }
+                GUI.backgroundColor = Color.white;
+            }
+            else
+            {
+                EditorGUILayout.LabelField("✔ Tudo salvo em disco.", textStyle);
+            }
+
+            GUILayout.Space(2);
+            EditorGUILayout.EndHorizontal();
         }
         #endregion
 
