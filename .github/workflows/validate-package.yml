@@ -17,9 +17,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Um .cs (ou qualquer asset) sem .meta versionado não é importado/compilado dentro do pacote
-      # git — consumidores quebram com CS0103/CS0246 (foi o caso do ExportAndroidSymbolsStep na
-      # 1.2.9). O mesmo check pega o inverso: .meta órfão (asset removido e meta ficou pra trás).
+      # A .cs (or any asset) without a committed .meta doesn't get imported/compiled inside the
+      # git package — consumers break with CS0103/CS0246 (this happened with ExportAndroidSymbolsStep
+      # in 1.2.9). The same check catches the reverse: an orphan .meta (asset removed, meta left behind).
       - name: Check for missing / orphan .meta files
         run: |
           python3 - <<'PY'
@@ -33,16 +33,16 @@ jobs:
           def is_hidden(path: str) -> bool:
               return any(part.startswith(".") for part in path.split("/"))
 
-          # A Unity não importa dotfiles/dot-dirs (.gitignore, .gitattributes, .github) — não levam .meta.
+          # Unity doesn't import dotfiles/dot-dirs (.gitignore, .gitattributes, .github) — they carry no .meta.
           visible = [f for f in files if not is_hidden(f)]
 
           expected = set()
           for f in visible:
               if f.endswith(".meta"):
                   continue
-              expected.add(f + ".meta")             # .meta do próprio asset
+              expected.add(f + ".meta")             # .meta for the asset itself
               d = os.path.dirname(f)
-              while d:                              # .meta de cada pasta (git ls-files não lista diretórios)
+              while d:                              # .meta for each folder (git ls-files doesn't list directories)
                   expected.add(d + ".meta")
                   d = os.path.dirname(d)
 

@@ -57,8 +57,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (CommandLineArgs.Has("keystoreSource") && Enum.TryParse<KeystoreSource>(CommandLineArgs.Get("keystoreSource"), true, out var ks))
                 config.keystoreSource = ks;
 
-            // CI: keystore Android por args (o Forge injeta o keystore central). Passwords vêm das envs
-            // ANDROID_KEYSTORE_PASS / ANDROID_KEYALIAS_PASS já lidas por GetEffective*Password().
+            // CI: Android keystore via args (Forge injects the central keystore). Passwords come from the
+            // ANDROID_KEYSTORE_PASS / ANDROID_KEYALIAS_PASS env vars, already read by GetEffective*Password().
             if (CommandLineArgs.Has("keystorePath"))
             {
                 var ksPath = CommandLineArgs.Get("keystorePath");

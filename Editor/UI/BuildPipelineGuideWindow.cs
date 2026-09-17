@@ -62,7 +62,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             DrawCard(2, "⚠ Where Build Numbers Really Live (and why nothing shows up in git)",
                 "AndroidBundleVersionCode / iOSBuildNumber are stored ONLY on GameConfig.asset (e.g. \"YourGame.asset\"). Editing them from the Inspector (or the +1 / Sync buttons) also pushes the value live into PlayerSettings.Android.bundleVersionCode / PlayerSettings.iOS.buildNumber — which is what ProjectSettings/ProjectSettings.asset stores on disk.\n\n" +
                 "Both writes only mark the assets 'dirty' in memory (EditorUtility.SetDirty). Nothing reaches disk — and therefore nothing shows up in 'git status' — until Unity actually saves the project.\n\n" +
-                "If you bumped the number and see no diff: press Ctrl+S (File → Save Project), or use the new '💾 Salvar Agora' button that now appears at the top of both GameConfig and ProjectBuildConfig whenever there are unsaved changes. Then check git again — you should see changes in BOTH files:\n" +
+                "If you bumped the number and see no diff: press Ctrl+S (File → Save Project), or use the new '💾 Save Now' button that now appears at the top of both GameConfig and ProjectBuildConfig whenever there are unsaved changes. Then check git again — you should see changes in BOTH files:\n" +
                 "• Assets/_Game/YourGame.asset (GameConfig — the source of truth)\n" +
                 "• ProjectSettings/ProjectSettings.asset (Unity's own PlayerSettings mirror, also rewritten automatically by the pipeline right after a real build)",
                 highlight: true);
@@ -162,15 +162,15 @@ namespace Wagenheimer.BuildPipeline.Editor
             DrawFileColumn(
                 icon: "🎮",
                 fileName: "GameConfig.asset",
-                subtitle: "(ex: \"Forgotten Tales...asset\")",
+                subtitle: "(e.g. \"Forgotten Tales...asset\")",
                 bg: ColRuntimeBg, accent: ColRuntimeAccent,
-                badge: "VAI DENTRO DO BUILD",
+                badge: "SHIPS INSIDE THE BUILD",
                 bullets: new[] {
-                    "Versão (Major.Minor.Build)",
+                    "Version (Major.Minor.Build)",
                     "Android Bundle Version Code",
                     "iOS / macOS Build Number",
-                    "Bundle IDs, ícones, nome do jogo",
-                    "Lido pelo próprio jogo em runtime"
+                    "Bundle IDs, icons, game name",
+                    "Read by the game itself at runtime"
                 });
 
             GUILayout.Space(8);
@@ -180,13 +180,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 fileName: "ProjectBuildConfig.asset",
                 subtitle: "(Assets/_Game/Settings/)",
                 bg: ColEditorBg, accent: ColEditorAccent,
-                badge: "NUNCA VAI PRO BUILD (Editor-only)",
+                badge: "NEVER SHIPS (Editor-only)",
                 bullets: new[] {
-                    "Caminhos de output (E:/Games/...)",
-                    "Keystore Android + senha/vault",
-                    "Lista de publishers/lojas",
-                    "Idiomas habilitados",
-                    "Só existe enquanto você builda"
+                    "Output paths (E:/Games/...)",
+                    "Android keystore + password/vault",
+                    "List of publishers/stores",
+                    "Enabled languages",
+                    "Only exists while you build"
                 });
 
             EditorGUILayout.EndHorizontal();

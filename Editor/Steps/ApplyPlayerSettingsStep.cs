@@ -16,8 +16,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public bool ExecutePreBuild(BuildContext context)
         {
-            // Snapshot dos números auto-incrementados abaixo — restaurados no post step para não
-            // deixar ProjectSettings/ sujo no CI (o build define o número real via -version/-manifest).
+            // Snapshot of the numbers auto-incremented below — restored in the post step so CI doesn't
+            // leave ProjectSettings/ dirty (the build sets the real number via -version/-manifest).
             context.ExtraData[OrigAndroidBvc] = PlayerSettings.Android.bundleVersionCode;
             context.ExtraData[OrigIosBuild] = PlayerSettings.iOS.buildNumber;
             context.ExtraData[OrigMacBuild] = PlayerSettings.macOS.buildNumber;
@@ -83,9 +83,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                         || (context.PublisherProfile != null && context.PublisherProfile.macAppStoreValidation);
                     PlayerSettings.useMacAppStoreValidation = enableMasValidation;
                     if (enableMasValidation)
-                        context.LogWarning("⚠️ PlayerSettings.useMacAppStoreValidation=true: o app falhará com erro 173 se executado fora da Mac App Store!");
+                        context.LogWarning("⚠️ PlayerSettings.useMacAppStoreValidation=true: the app will fail with error 173 if run outside the Mac App Store!");
                     else
-                        context.Log("🛡️ PlayerSettings.useMacAppStoreValidation=false (evita crash com erro 173 em testes locais)");
+                        context.Log("🛡️ PlayerSettings.useMacAppStoreValidation=false (avoids a crash with error 173 during local testing)");
 
                     // Apple rejects Mac App Store uploads that carry only the arm64 slice unless the
                     // Info.plist minimum OS is 13.0+ (error 90981). Forcing Universal here means an
@@ -146,10 +146,11 @@ namespace Wagenheimer.BuildPipeline.Editor
                     }
                     else
                     {
-                        // Símbolos nativos habilitados por padrão em todo build Android de release: a Play
-                        // Store usa pra simbolizar ANRs/crashes (aviso "não enviou os símbolos de depuração").
-                        // Em .aab eles vão embutidos no bundle (sem upload extra) e também em zip ao lado do
-                        // artefato — ver ExportAndroidSymbolsStep e o antigo androidCreateSymbols abaixo.
+                        // Native symbols are enabled by default on every Android release build: the Play
+                        // Store uses them to symbolicate ANRs/crashes (otherwise it warns about missing
+                        // native debug symbols). In .aab they're embedded in the bundle (no extra upload)
+                        // and also packaged into a zip next to the artifact — see ExportAndroidSymbolsStep
+                        // and the legacy androidCreateSymbols fallback below.
                         ApplyAndroidDebugSymbols(true, context.AppBundle);
                         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64;
                     }
@@ -176,13 +177,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         /// <summary>
-        /// Configura a geração de símbolos nativos do Android.
-        /// No Unity 6 a propriedade obsoleta <see cref="EditorUserBuildSettings.androidCreateSymbols"/>
-        /// foi substituída por <c>UnityEditor.Android.UserBuildSettings.DebugSymbols</c> e deixou de ter
-        /// efeito — era por isso que os builds saíam sem <c>*.symbols.zip</c> e a Play Store reclamava
-        /// de "símbolos de depuração nativos" ausentes. Quando <paramref name="embedInBundle"/> é true
-        /// e o artefato é .aab, os símbolos vão embutidos no próprio bundle (a Play os recebe junto do
-        /// .aab, sem upload separado) e também empacotados num zip com extensão .so legada.
+        /// Configures Android native debug symbol generation.
+        /// In Unity 6 the obsolete <see cref="EditorUserBuildSettings.androidCreateSymbols"/> property
+        /// was replaced by <c>UnityEditor.Android.UserBuildSettings.DebugSymbols</c> and stopped having
+        /// any effect — that's why builds came out without <c>*.symbols.zip</c> and the Play Store
+        /// complained about missing native debug symbols. When <paramref name="embedInBundle"/> is true
+        /// and the artifact is .aab, the symbols are embedded directly in the bundle (Play receives them
+        /// with the .aab, no separate upload) and also packaged into a zip with the legacy .so extension.
         /// </summary>
         private static void ApplyAndroidDebugSymbols(bool create, bool embedInBundle)
         {
@@ -210,7 +211,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public bool ExecutePostBuild(BuildContext context, BuildReport report)
         {
-            // Salva as alterações de PlayerSettings e assets no projeto para que o incremento persista
+            // Saves PlayerSettings and asset changes to the project so the increment persists
             AssetDatabase.SaveAssets();
             return true;
         }

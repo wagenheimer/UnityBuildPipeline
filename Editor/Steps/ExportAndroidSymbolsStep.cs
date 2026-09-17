@@ -7,16 +7,16 @@ using UnityEditor.Build.Reporting;
 namespace Wagenheimer.BuildPipeline.Editor
 {
     /// <summary>
-    /// Post-build: reúne os artefatos de depuração que a Play Store pede junto do App Bundle e os
-    /// deixa ao lado do .aab com nomes determinísticos, para o CI (AppDeployHub.Forge) enviá-los sem
-    /// precisar adivinhar caminhos:
-    ///  - <c>&lt;aab&gt;.symbols.zip</c>  → símbolos nativos (aviso "contém código nativo e você não
-    ///    fez upload dos símbolos de depuração"). Unity gera como
+    /// Post-build: gathers the debug artifacts the Play Store expects alongside the App Bundle and
+    /// leaves them next to the .aab with deterministic names, so CI (AppDeployHub.Forge) can upload
+    /// them without having to guess paths:
+    ///  - <c>&lt;aab&gt;.symbols.zip</c>  → native symbols (avoids the "contains native code and you
+    ///    haven't uploaded debug symbols" warning). Unity generates it as
     ///    <c>&lt;aabbase&gt;-&lt;version&gt;-v&lt;bundleVersionCode&gt;-IL2CPP.symbols.zip</c>.
-    ///  - <c>&lt;aab&gt;_mapping.txt</c>   → arquivo de desofuscação do R8/ProGuard, quando o Minify
-    ///    de release está ligado (aviso "não há um arquivo de desofuscação associado"). Sem minify
-    ///    não existe mapping.txt e nada é copiado.
-    /// Os caminhos ficam em <see cref="BuildContext.ExtraData"/> e saem no unity-manifest.json.
+    ///  - <c>&lt;aab&gt;_mapping.txt</c>   → R8/ProGuard deobfuscation file, when release Minify is
+    ///    on (avoids the "no deobfuscation file associated" warning). Without minify there is no
+    ///    mapping.txt and nothing is copied.
+    /// The paths end up in <see cref="BuildContext.ExtraData"/> and are exposed in unity-manifest.json.
     /// </summary>
     public class ExportAndroidSymbolsStep : IPostBuildStep
     {
@@ -64,8 +64,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var source = FindNewestSymbolsZip(aabDir, baseName);
                 if (string.IsNullOrEmpty(source))
                 {
-                    context.LogWarning("Símbolos nativos: nenhum *.symbols.zip encontrado ao lado do artefato. " +
-                                       "Confira Debug Symbols (Public/Debugging) no build profile do Android.");
+                    context.LogWarning("Native symbols: no *.symbols.zip found next to the artifact. " +
+                                       "Check Debug Symbols (Public/Debugging) in the Android build profile.");
                     return null;
                 }
 
@@ -73,18 +73,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
                 {
                     File.Copy(source, dest, true);
-                    context.Log($"Símbolos nativos exportados: {dest}");
+                    context.Log($"Native symbols exported: {dest}");
                 }
                 else
                 {
-                    context.Log($"Símbolos nativos já no lugar: {dest}");
+                    context.Log($"Native symbols already in place: {dest}");
                 }
 
                 return dest;
             }
             catch (Exception ex)
             {
-                context.LogWarning($"Falha ao exportar os símbolos nativos: {ex.Message}");
+                context.LogWarning($"Failed to export native symbols: {ex.Message}");
                 return null;
             }
         }
@@ -105,14 +105,14 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 try
                 {
-                    // Prioriza o zip nomeado pelo próprio artefato; depois qualquer *.symbols.zip.
+                    // Prefer the zip named after the artifact itself; then fall back to any *.symbols.zip.
                     candidates.AddRange(Directory.GetFiles(root, baseName + "*.symbols.zip", SearchOption.TopDirectoryOnly));
                     candidates.AddRange(Directory.GetFiles(root, "*.symbols.zip", SearchOption.TopDirectoryOnly));
                     candidates.AddRange(Directory.GetFiles(root, "*.symbols.zip", SearchOption.AllDirectories));
                 }
                 catch
                 {
-                    // Pastas de backup podem ter caminhos longos/permissões — segue com o que achou.
+                    // Backup folders can have long paths/permission issues — proceed with what was found.
                 }
             }
 
@@ -135,14 +135,14 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
                 {
                     File.Copy(source, dest, true);
-                    context.Log($"Arquivo de desofuscação (mapping.txt) exportado: {dest}");
+                    context.Log($"Deobfuscation file (mapping.txt) exported: {dest}");
                 }
 
                 return dest;
             }
             catch (Exception ex)
             {
-                context.LogWarning($"Falha ao exportar o mapping.txt: {ex.Message}");
+                context.LogWarning($"Failed to export mapping.txt: {ex.Message}");
                 return null;
             }
         }
@@ -151,7 +151,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var candidates = new List<string>();
 
-            // Projeto Gradle gerado pelo Unity durante o build (R8/ProGuard escreve aqui).
+            // Gradle project generated by Unity during the build (R8/ProGuard writes here).
             var projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName;
             if (!string.IsNullOrEmpty(projectRoot))
             {
@@ -159,7 +159,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (Directory.Exists(gradleOut))
                 {
                     try { candidates.AddRange(Directory.GetFiles(gradleOut, "mapping.txt", SearchOption.AllDirectories)); }
-                    catch { /* ignora pastas ilegíveis */ }
+                    catch { /* ignore unreadable folders */ }
                 }
             }
 

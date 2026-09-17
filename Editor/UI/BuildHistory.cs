@@ -436,10 +436,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static string TryDownloadBundletool()
         {
             if (!EditorUtility.DisplayDialog("bundletool.jar",
-                    "Nenhum bundletool.jar completo (com aapt2 embutido) foi encontrado no sistema.\n\n" +
-                    "Baixar bundletool-all.jar automaticamente da release oficial do GitHub?\n" +
-                    "(será salvo em %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline, compartilhado entre projetos)",
-                    "BAIXAR", "CANCELAR"))
+                    "No full bundletool.jar (with embedded aapt2) was found on this system.\n\n" +
+                    "Download bundletool-all.jar automatically from the official GitHub release?\n" +
+                    "(it will be saved to %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline, shared across projects)",
+                    "DOWNLOAD", "CANCEL"))
                 return null;
 
             var destDir = StableBundletoolDir;
@@ -635,9 +635,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (bundletool == null)
             {
                 EditorUtility.DisplayDialog("Run Build (AAB)",
-                    "bundletool.jar não encontrado.\n\n" +
-                    "Baixe em https://github.com/google/bundletool/releases e selecione o arquivo na próxima janela " +
-                    "(ou coloque bundletool-all.jar em %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline).", "OK");
+                    "bundletool.jar not found.\n\n" +
+                    "Download it from https://github.com/google/bundletool/releases and select the file in the next window " +
+                    "(or place bundletool-all.jar in %LOCALAPPDATA%\\Wagenheimer\\BuildPipeline).", "OK");
                 return;
             }
 

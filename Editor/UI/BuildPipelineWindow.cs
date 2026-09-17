@@ -208,7 +208,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var projName = _config != null && !string.IsNullOrEmpty(_config.projectName)
                 ? _config.projectName
                 : (!string.IsNullOrEmpty(Application.productName) ? Application.productName : "Untitled Project");
-            string gameConfigName = "Nenhum vinculado";
+            string gameConfigName = "None linked";
             try
             {
                 if (_config != null && _config.gameConfig != null)
@@ -216,9 +216,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             catch
             {
-                gameConfigName = "Nenhum vinculado";
+                gameConfigName = "None linked";
             }
-            var subTitle = new Label($"📁 Projeto: {projName}    •    🎮 GameConfig: {gameConfigName}");
+            var subTitle = new Label($"📁 Project: {projName}    •    🎮 GameConfig: {gameConfigName}");
             subTitle.style.fontSize = 11;
             subTitle.style.marginTop = 2;
             subTitle.style.color = ColDim;
@@ -228,15 +228,15 @@ namespace Wagenheimer.BuildPipeline.Editor
             var headerButtons = new VisualElement();
             headerButtons.style.flexDirection = FlexDirection.Row;
 
-            var guideBtn = new Button(() => BuildPipelineGuideWindow.Open()) { text = "📖 Guia" };
-            guideBtn.tooltip = "Documentação completa: arquitetura, CLI, matriz de builds, vault de keystore.";
+            var guideBtn = new Button(() => BuildPipelineGuideWindow.Open()) { text = "📖 Guide" };
+            guideBtn.tooltip = "Full documentation: architecture, CLI, build matrix, keystore vault.";
             guideBtn.style.height = 26;
             guideBtn.style.marginRight = 6;
             guideBtn.style.fontSize = 11;
             headerButtons.Add(guideBtn);
 
-            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true)) { text = "🔄 Atualizações" };
-            updateBtn.tooltip = "Verifica se há uma versão mais nova do pacote UnityBuildPipeline.";
+            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true)) { text = "🔄 Check Updates" };
+            updateBtn.tooltip = "Checks whether a newer version of the UnityBuildPipeline package is available.";
             updateBtn.style.height = 26;
             updateBtn.style.fontSize = 11;
             headerButtons.Add(updateBtn);
@@ -269,8 +269,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             bar.style.backgroundColor = isDirty ? ColWarnBg : ColOkBg;
 
             var label = new Label(isDirty
-                ? "⚠ Alterações em memória — ainda NÃO gravadas em disco (não aparecem no 'git status')."
-                : "✔ Tudo salvo em disco.");
+                ? "⚠ Changes in memory — NOT yet written to disk (won't show up in 'git status')."
+                : "✔ Everything saved to disk.");
             label.style.fontSize = 11;
             label.style.unityFontStyleAndWeight = FontStyle.Bold;
             label.style.color = Color.white;
@@ -283,10 +283,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                     AssetDatabase.SaveAssetIfDirty(_config.gameConfig);
                     if (_config != null) AssetDatabase.SaveAssetIfDirty(_config);
                     AssetDatabase.SaveAssets();
-                    Debug.Log("[BuildPipeline] Configuração salva em disco. Confira o 'git status' agora.");
+                    Debug.Log("[BuildPipeline] Configuration saved to disk. Check 'git status' now.");
                     RebuildUI();
                 })
-                { text = "💾  Salvar Agora" };
+                { text = "💾  Save Now" };
                 saveBtn.style.height = 22;
                 saveBtn.style.fontSize = 11;
                 saveBtn.style.backgroundColor = ColWarnAccent;
@@ -397,7 +397,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // Row 1: section title + live summary
             var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
-            var sectionTitle = new Label("📦 Versão & Build Numbers");
+            var sectionTitle = new Label("📦 Version & Build Numbers");
             sectionTitle.style.fontSize = 11;
             sectionTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             sectionTitle.style.color = ColDim;
@@ -427,7 +427,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Major", tooltip = "Incrementa a versão principal (X.0.0) e zera Minor/Build." };
+            { text = "+ Major", tooltip = "Increments the major version (X.0.0) and resets Minor/Build." };
             btnMajor.style.width = 58;
 
             var btnMinor = new Button(() =>
@@ -440,7 +440,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Minor", tooltip = "Incrementa a versão secundária (x.X.0) e zera Build." };
+            { text = "+ Minor", tooltip = "Increments the minor version (x.X.0) and resets Build." };
             btnMinor.style.width = 58;
 
             var btnBuild = new Button(() =>
@@ -452,7 +452,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "+ Build", tooltip = "Incrementa apenas o número de build (x.x.X)." };
+            { text = "+ Build", tooltip = "Increments only the build number (x.x.X)." };
             btnBuild.style.width = 58;
 
             var btnToday = new Button(() =>
@@ -467,10 +467,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                     RebuildUI();
                 }
             })
-            { text = "📅 Hoje", tooltip = "Define a data de release como hoje." };
+            { text = "📅 Today", tooltip = "Sets the release date to today." };
             btnToday.style.width = 58;
 
-            row.Add(CreateButtonGroup("VERSÃO DO JOGO", btnMajor, btnMinor, btnBuild, btnToday));
+            row.Add(CreateButtonGroup("GAME VERSION", btnMajor, btnMinor, btnBuild, btnToday));
             row.Add(CreateVerticalSeparator());
 
             var btnAnd = new Button(() =>
@@ -484,7 +484,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
                 RebuildUI();
             })
-            { text = "+1 Android", tooltip = "Incrementa AndroidBundleVersionCode (obrigatório subir a cada release na Google Play)." };
+            { text = "+1 Android", tooltip = "Increments AndroidBundleVersionCode (must go up with every Google Play release)." };
             btnAnd.style.width = 82;
             row.Add(CreateButtonGroup("🤖 ANDROID BUNDLE CODE", btnAnd));
             row.Add(CreateVerticalSeparator());
@@ -507,16 +507,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             row.Add(CreateButtonGroup("🍎 iOS / macOS BUILD", btnIos));
             row.Add(CreateVerticalSeparator());
 
-            var autoBumpToggle = new Toggle("Auto +1 ao buildar")
+            var autoBumpToggle = new Toggle("Auto +1 on build")
             {
                 value = EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false),
-                tooltip = "Incrementa automaticamente o build number (Android/iOS/macOS) sempre que um build for gerado por esta janela."
+                tooltip = "Automatically increments the build number (Android/iOS/macOS) whenever a build is produced from this window."
             };
             autoBumpToggle.RegisterValueChangedCallback(evt =>
             {
                 EditorPrefs.SetBool("BuildPipeline_AutoBumpOnBuild", evt.newValue);
             });
-            row.Add(CreateButtonGroup("AUTOMAÇÃO", autoBumpToggle));
+            row.Add(CreateButtonGroup("AUTOMATION", autoBumpToggle));
 
             card.Add(row);
             return card;
@@ -1111,8 +1111,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             banner.Add(bannerTitle);
 
             var bannerDesc = new Label(
-                "Gerencie e valide as credenciais de assinatura para builds Android (.apk e .aab). " +
-                "O modo padrão recomendado é o Keystore Vault Centralizado (as chaves e senhas ficam na nuvem segura e nunca vão para o Git).");
+                "Manage and validate signing credentials for Android builds (.apk and .aab). " +
+                "The recommended default mode is the Centralized Keystore Vault (keys and passwords stay in a secure cloud and never reach Git).");
             bannerDesc.style.fontSize = 11;
             bannerDesc.style.color = new Color(0.75f, 0.8f, 0.85f);
             bannerDesc.style.whiteSpace = WhiteSpace.Normal;
@@ -1148,7 +1148,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var openWebBtn = new Button(() => Application.OpenURL("https://wagenheimer.com/admin/keystores"))
             {
-                text = "Abrir Portal Web ↗"
+                text = "Open Web Portal ↗"
             };
             openWebBtn.style.height = 24;
             openWebBtn.style.fontSize = 10;
@@ -1162,7 +1162,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             vaultStatus.style.flexDirection = FlexDirection.Row;
             vaultStatus.style.marginBottom = 8;
 
-            var tokenBadge = new Label(hasToken ? "● Token Ativo" : "○ Sem Token");
+            var tokenBadge = new Label(hasToken ? "● Token Active" : "○ No Token");
             tokenBadge.style.fontSize = 11;
             tokenBadge.style.color = hasToken ? new Color(0.3f, 0.9f, 0.4f) : new Color(0.9f, 0.6f, 0.2f);
             tokenBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -1174,8 +1174,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             vaultUrlLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
             vaultStatus.Add(vaultUrlLabel);
 
-            var profileIdText = _config != null && !string.IsNullOrEmpty(_config.vaultProfileId) ? _config.vaultProfileId : "(auto por bundle id)";
-            var profileIdLabel = new Label($"  |  Perfil: {profileIdText}");
+            var profileIdText = _config != null && !string.IsNullOrEmpty(_config.vaultProfileId) ? _config.vaultProfileId : "(auto by bundle id)";
+            var profileIdLabel = new Label($"  |  Profile: {profileIdText}");
             profileIdLabel.style.fontSize = 11;
             profileIdLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
             vaultStatus.Add(profileIdLabel);
@@ -1183,7 +1183,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var testVaultBtn = new Button(async () =>
             {
-                EditorUtility.DisplayProgressBar("Vault Connection", "Consultando servidor de credenciais...", 0.5f);
+                EditorUtility.DisplayProgressBar("Vault Connection", "Querying credentials server...", 0.5f);
                 try
                 {
                     var effectiveUrl = _config != null && !string.IsNullOrEmpty(_config.vaultUrl) ? _config.vaultUrl : "https://wagenheimer.com/api/vault/keystore";
@@ -1199,18 +1199,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorUtility.ClearProgressBar();
                     if (result.Success && result.Credentials != null)
                     {
-                        EditorUtility.DisplayDialog("Sucesso - Conexão com Vault",
-                            $"✅ Conexão com o Vault estabelecida com sucesso!\n\n" +
-                            $"Perfil ID: {result.Credentials.ProfileId}\n" +
-                            $"Arquivo: {result.Credentials.KeystoreFileName}\n" +
+                        EditorUtility.DisplayDialog("Success - Vault Connection",
+                            $"✅ Vault connection established successfully!\n\n" +
+                            $"Profile ID: {result.Credentials.ProfileId}\n" +
+                            $"File: {result.Credentials.KeystoreFileName}\n" +
                             $"Key Alias: {result.Credentials.KeyAliasName}\n" +
-                            $"Status: Autenticado e pronto para builds headless!", "OK");
+                            $"Status: Authenticated and ready for headless builds!", "OK");
                     }
                     else
                     {
-                        EditorUtility.DisplayDialog("Aviso - Vault",
-                            $"Não foi possível obter as credenciais do Vault:\n\n{result.Message}\n\n" +
-                            $"Dica: Verifique se o perfil '{profId}' está cadastrado no portal wagenheimer.com/admin/keystores e se o Token está correto.", "OK");
+                        EditorUtility.DisplayDialog("Warning - Vault",
+                            $"Could not retrieve credentials from the Vault:\n\n{result.Message}\n\n" +
+                            $"Tip: Check that profile '{profId}' is registered at wagenheimer.com/admin/keystores and that the token is correct.", "OK");
                     }
                 }
                 finally
@@ -1219,7 +1219,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             })
             {
-                text = "⚡ Testar Conexão com o Vault Remoto"
+                text = "⚡ Test Remote Vault Connection"
             };
             testVaultBtn.style.height = 30;
             testVaultBtn.style.backgroundColor = new Color(0.15f, 0.45f, 0.65f);
@@ -1261,8 +1261,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 pathExists = false;
             }
 
-            var localAlias = _config != null && !string.IsNullOrEmpty(_config.androidKeyAlias) ? _config.androidKeyAlias : "(vazio)";
-            var localInfo = new Label($"Arquivo: {(string.IsNullOrEmpty(ksPath) ? "(não configurado)" : ksPath)}\nAlias: {localAlias}");
+            var localAlias = _config != null && !string.IsNullOrEmpty(_config.androidKeyAlias) ? _config.androidKeyAlias : "(empty)";
+            var localInfo = new Label($"File: {(string.IsNullOrEmpty(ksPath) ? "(not configured)" : ksPath)}\nAlias: {localAlias}");
             localInfo.style.fontSize = 11;
             localInfo.style.color = pathExists ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.7f, 0.7f, 0.7f);
             localInfo.style.marginBottom = 8;
@@ -1280,15 +1280,15 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 if (val.Success)
                 {
-                    EditorUtility.DisplayDialog("Validação do Keystore Local", $"✅ {val.Message}", "OK");
+                    EditorUtility.DisplayDialog("Local Keystore Validation", $"✅ {val.Message}", "OK");
                 }
                 else
                 {
-                    EditorUtility.DisplayDialog("Falha na Validação do Keystore Local", $"❌ {val.Message}", "OK");
+                    EditorUtility.DisplayDialog("Local Keystore Validation Failed", $"❌ {val.Message}", "OK");
                 }
             })
             {
-                text = "🔍 Testar & Validar Keystore Local (keytool.exe)"
+                text = "🔍 Test & Validate Local Keystore (keytool.exe)"
             };
             testLocalBtn.style.height = 30;
             testLocalBtn.style.backgroundColor = new Color(0.25f, 0.4f, 0.25f);
@@ -1310,7 +1310,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             infoCard.style.borderBottomLeftRadius = 4;
             infoCard.style.borderBottomRightRadius = 4;
 
-            var tipTitle = new Label("💡 Boas Práticas de Segurança & CI/CD:");
+            var tipTitle = new Label("💡 Security & CI/CD Best Practices:");
             tipTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             tipTitle.style.fontSize = 11;
             tipTitle.style.marginBottom = 4;
@@ -1318,10 +1318,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             infoCard.Add(tipTitle);
 
             var tipText = new Label(
-                "• O Keystore Vault injeta credenciais em tempo de build diretamente nos PlayerSettings em memória.\n" +
-                "• Nenhuma senha ou arquivo binário sensível de keystore precisa ser comitado nos repositórios Git.\n" +
-                "• No CI/CD (GitHub Actions / Jenkins), defina a variável de ambiente VAULT_SECRET_TOKEN.\n" +
-                "• No Unity Editor, você pode configurar o token em Configurações do Projeto ou salvá-lo com segurança nos EditorPrefs locais da sua máquina.");
+                "• The Keystore Vault injects credentials at build time directly into PlayerSettings, in memory.\n" +
+                "• No password or sensitive keystore binary needs to be committed to Git repositories.\n" +
+                "• In CI/CD (GitHub Actions / Jenkins), set the VAULT_SECRET_TOKEN environment variable.\n" +
+                "• In the Unity Editor, you can set the token in Project Settings or store it securely in your machine's local EditorPrefs.");
             tipText.style.fontSize = 10;
             tipText.style.color = new Color(0.65f, 0.65f, 0.65f);
             tipText.style.whiteSpace = WhiteSpace.Normal;

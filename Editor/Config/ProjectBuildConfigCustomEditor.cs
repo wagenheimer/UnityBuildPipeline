@@ -53,7 +53,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             DrawKeystoreVaultSection(config);
             EditorGUILayout.Space(6);
 
-            // 4. Publishers & Lojas (Human-readable cards instead of Element 0..17)
+            // 4. Publishers & Stores (Human-readable cards instead of Element 0..17)
             DrawPublishersSection(config);
             EditorGUILayout.Space(6);
 
@@ -70,23 +70,23 @@ namespace Wagenheimer.BuildPipeline.Editor
         #region Section: Quick Build
         private void DrawQuickBuildSection(ProjectBuildConfig config)
         {
-            _foldQuick = DrawSectionHeader("🚀 0. Executar Build Agora (Quick Build)", _foldQuick, "ProjectBuildConfig_FoldQuick");
+            _foldQuick = DrawSectionHeader("🚀 0. Run Build Now (Quick Build)", _foldQuick, "ProjectBuildConfig_FoldQuick");
             if (!_foldQuick) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             EditorGUILayout.HelpBox(
-                "Dispara um build imediato sem abrir o Build Pipeline Window.\n" +
-                "Usa o perfil da publicadora (pasta de saída, splash, ZIP) e o GameConfig vinculado.\n" +
-                "Observação: .aab não é executável — para testar no device use .apk (desmarque '.aab').",
+                "Triggers an immediate build without opening the Build Pipeline Window.\n" +
+                "Uses the publisher's profile (output folder, splash, ZIP) and the linked GameConfig.\n" +
+                "Note: .aab is not executable — to test on device, use .apk (uncheck '.aab').",
                 MessageType.Info);
 
             EditorGUILayout.BeginHorizontal();
-            _quickPlatform = (PlatformType)EditorGUILayout.EnumPopup("Plataforma", _quickPlatform);
-            _quickPublisher = (Publisher)EditorGUILayout.EnumPopup("Publicadora", _quickPublisher);
+            _quickPlatform = (PlatformType)EditorGUILayout.EnumPopup("Platform", _quickPlatform);
+            _quickPublisher = (Publisher)EditorGUILayout.EnumPopup("Publisher", _quickPublisher);
             EditorGUILayout.EndHorizontal();
 
-            _quickLanguage = (GameLanguage)EditorGUILayout.EnumPopup("Idioma", _quickLanguage);
+            _quickLanguage = (GameLanguage)EditorGUILayout.EnumPopup("Language", _quickLanguage);
 
             EditorGUILayout.BeginHorizontal();
             _quickCheat = EditorGUILayout.ToggleLeft("Cheat", _quickCheat, GUILayout.Width(70));
@@ -99,7 +99,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorGUILayout.Space(4);
 
             GUI.backgroundColor = new Color(0.25f, 0.70f, 0.45f);
-            if (GUILayout.Button("▶️  RODAR BUILD AGORA", GUILayout.Height(32)))
+            if (GUILayout.Button("▶️  RUN BUILD NOW", GUILayout.Height(32)))
             {
                 RunQuickBuild(config);
             }
@@ -115,7 +115,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             if (config.publishers == null || config.publishers.Count == 0)
             {
-                EditorUtility.DisplayDialog("Quick Build", "Nenhuma lista de publicadoras configurada.\nUse 'Restaurar Lista Padrão de Publicadoras' na seção de Publicadoras.", "OK");
+                EditorUtility.DisplayDialog("Quick Build", "No publisher list configured.\nUse 'Restore Default Publisher List' in the Publishers section.", "OK");
                 return;
             }
 
@@ -140,11 +140,11 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (res.Success)
             {
                 var choice = EditorUtility.DisplayDialogComplex(
-                    "Build Concluído",
-                    $"Build finalizado em {res.Duration:mm\\:ss}!\n\nCaminho: {res.OutputPath}",
-                    "▶️ Executar",
+                    "Build Complete",
+                    $"Build finished in {res.Duration:mm\\:ss}!\n\nPath: {res.OutputPath}",
+                    "▶️ Run",
                     "OK",
-                    "📂 Abrir Pasta");
+                    "📂 Open Folder");
 
                 var entry = BuildHistory.LastSuccessful;
                 if (choice == 0 && entry != null)
@@ -154,7 +154,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             else
             {
-                EditorUtility.DisplayDialog("Build Falhou", $"Build falhou com {res.TotalErrors} erro(s).\nVerifique o Console para detalhes.", "OK");
+                EditorUtility.DisplayDialog("Build Failed", $"Build failed with {res.TotalErrors} error(s).\nCheck the Console for details.", "OK");
             }
         }
 
@@ -166,20 +166,20 @@ namespace Wagenheimer.BuildPipeline.Editor
             var sizeMb = last.totalSize > 0 ? $"{last.totalSize / (1024.0 * 1024.0):F1} MB" : "";
             var info = $"{last.Time:dd/MM HH:mm}  |  {last.platform}  |  {last.publisher}  |  {last.language}{(last.cheatMode ? " | CHEAT" : "")}  {(string.IsNullOrEmpty(sizeMb) ? "" : $"|  {sizeMb}")}";
 
-            EditorGUILayout.LabelField("Último Build:", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Last Build:", EditorStyles.boldLabel);
             EditorGUILayout.LabelField(info, EditorStyles.miniLabel);
             EditorGUILayout.LabelField(last.outputPath, EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.BeginHorizontal();
             GUI.backgroundColor = new Color(0.18f, 0.60f, 0.90f);
-            if (GUILayout.Button("📂 Abrir Pasta", GUILayout.Height(24)))
+            if (GUILayout.Button("📂 Open Folder", GUILayout.Height(24)))
             {
                 BuildHistory.OpenFolder(last);
             }
             GUI.backgroundColor = new Color(0.25f, 0.70f, 0.45f);
             using (new EditorGUI.DisabledScope(!BuildHistory.CanRun(last)))
             {
-                var runLabel = last.platform == "Android" ? "▶️ Instalar & Rodar" : "▶️ Executar";
+                var runLabel = last.platform == "Android" ? "▶️ Install & Run" : "▶️ Run";
                 if (GUILayout.Button(runLabel, GUILayout.Height(24)))
                 {
                     BuildHistory.Run(last);
@@ -190,7 +190,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (last.IsAab)
             {
-                EditorGUILayout.HelpBox("ℹ️ O último build é um .aab (formato de upload da Play Store). Ele não pode ser executado diretamente. Para testar no device, gere um .apk (desmarque '.aab' no Quick Build).", MessageType.None);
+                EditorGUILayout.HelpBox("ℹ️ The last build is a .aab (Play Store upload format). It cannot be run directly. To test on device, produce a .apk (uncheck '.aab' in Quick Build).", MessageType.None);
             }
         }
         #endregion
@@ -219,8 +219,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = isPro ? new Color(0.65f, 0.70f, 0.75f) : new Color(0.35f, 0.40f, 0.45f) }
             };
-            var linkedName = config.gameConfig != null ? config.gameConfig.name : "Nenhum (Clique em Migrar)";
-            EditorGUILayout.LabelField($"CONFIGURAÇÃO GERAL DE BUILDS  •  GameConfig: {linkedName}", subStyle);
+            var linkedName = config.gameConfig != null ? config.gameConfig.name : "None (click Migrate)";
+            EditorGUILayout.LabelField($"GENERAL BUILD CONFIGURATION  •  GameConfig: {linkedName}", subStyle);
 
             GUILayout.Space(6);
 
@@ -232,9 +232,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 fontSize = 12,
                 fixedHeight = 32
             };
-            if (GUILayout.Button("🚀  ABRIR JANELA DE BUILDS (BUILD PIPELINE WINDOW)", btnStyle))
+            if (GUILayout.Button("🚀  OPEN BUILD WINDOW (BUILD PIPELINE WINDOW)", btnStyle))
             {
-                Debug.Log("[BuildPipeline] 'ABRIR JANELA DE BUILDS' button clicked from ProjectBuildConfig Inspector.");
+                Debug.Log("[BuildPipeline] 'OPEN BUILD WINDOW' button clicked from ProjectBuildConfig Inspector.");
                 BuildPipelineWindow.ShowWindow();
             }
             GUI.backgroundColor = Color.white;
@@ -244,14 +244,14 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             GUILayout.Space(4);
             EditorGUILayout.HelpBox(
-                "📌 Este arquivo é só INFRAESTRUTURA de build (caminhos, keystore, publishers, idiomas).\n" +
-                "Versão do jogo, Android Bundle Code e iOS Build Number NÃO ficam aqui — eles ficam no GameConfig (" +
-                linkedName + "), listado acima.",
+                "📌 This file is build INFRASTRUCTURE only (paths, keystore, publishers, languages).\n" +
+                "Game version, Android Bundle Code and iOS Build Number are NOT here — they live on GameConfig (" +
+                linkedName + "), listed above.",
                 MessageType.Info);
 
             if (config.gameConfig != null)
             {
-                if (GUILayout.Button($"📂 Abrir GameConfig ({linkedName})", EditorStyles.miniButton, GUILayout.Height(20)))
+                if (GUILayout.Button($"📂 Open GameConfig ({linkedName})", EditorStyles.miniButton, GUILayout.Height(20)))
                 {
                     Selection.activeObject = config.gameConfig;
                     EditorGUIUtility.PingObject(config.gameConfig);
@@ -286,20 +286,20 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (isDirty)
             {
-                EditorGUILayout.LabelField("⚠ Alterações NÃO gravadas em disco ainda — não aparecem no 'git status'.", textStyle);
+                EditorGUILayout.LabelField("⚠ Changes NOT saved to disk yet — they won't show up in 'git status'.", textStyle);
                 GUILayout.FlexibleSpace();
                 GUI.backgroundColor = new Color(0.90f, 0.55f, 0.15f);
-                if (GUILayout.Button("💾  Salvar Agora", GUILayout.Width(140), GUILayout.Height(24)))
+                if (GUILayout.Button("💾  Save Now", GUILayout.Width(140), GUILayout.Height(24)))
                 {
                     AssetDatabase.SaveAssetIfDirty(config);
                     AssetDatabase.SaveAssets();
-                    Debug.Log("[BuildPipeline] ProjectBuildConfig salvo em disco.");
+                    Debug.Log("[BuildPipeline] ProjectBuildConfig saved to disk.");
                 }
                 GUI.backgroundColor = Color.white;
             }
             else
             {
-                EditorGUILayout.LabelField("✔ Tudo salvo em disco.", textStyle);
+                EditorGUILayout.LabelField("✔ Everything saved to disk.", textStyle);
             }
 
             GUILayout.Space(2);
@@ -310,27 +310,27 @@ namespace Wagenheimer.BuildPipeline.Editor
         #region Section: Keystore Vault
         private void DrawKeystoreVaultSection(ProjectBuildConfig config)
         {
-            _foldVault = DrawSectionHeader("🔐 1. Android Keystore & Central de Credenciais (Vault)", _foldVault, "ProjectBuildConfig_FoldVault");
+            _foldVault = DrawSectionHeader("🔐 1. Android Keystore & Central Credentials (Vault)", _foldVault, "ProjectBuildConfig_FoldVault");
             if (!_foldVault) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-            config.keystoreSource = (KeystoreSource)EditorGUILayout.EnumPopup("Modo de Keystore", config.keystoreSource);
+            config.keystoreSource = (KeystoreSource)EditorGUILayout.EnumPopup("Keystore Mode", config.keystoreSource);
 
             if (config.keystoreSource == KeystoreSource.RemoteVault)
             {
                 EditorGUILayout.HelpBox(
-                    "🌐 MODO REMOTE VAULT ATIVO:\n" +
-                    "Nenhum certificado ou senha é versionado no Git.\n" +
-                    "O pipeline consulta o servidor seguro via HTTPS Bearer token, baixa o .keystore em memória no cache temporário local (Library/KeystoreCache/) e apaga as senhas do PlayerSettings.Android imediatamente após o build.",
+                    "🌐 REMOTE VAULT MODE ACTIVE:\n" +
+                    "No certificate or password is versioned in Git.\n" +
+                    "The pipeline queries the secure server via HTTPS Bearer token, downloads the .keystore into memory in a local temp cache (Library/KeystoreCache/), and wipes the passwords from PlayerSettings.Android immediately after the build.",
                     MessageType.Info);
 
                 EditorGUILayout.Space(4);
-                config.vaultUrl = EditorGUILayout.TextField("URL da API do Vault", config.vaultUrl);
+                config.vaultUrl = EditorGUILayout.TextField("Vault API URL", config.vaultUrl);
 
                 EditorGUILayout.BeginHorizontal();
-                config.vaultProfileId = EditorGUILayout.TextField("ID do Perfil no Vault", config.vaultProfileId);
-                if (GUILayout.Button("Auto-Detectar", GUILayout.Width(95)))
+                config.vaultProfileId = EditorGUILayout.TextField("Vault Profile ID", config.vaultProfileId);
+                if (GUILayout.Button("Auto-Detect", GUILayout.Width(95)))
                 {
                     config.vaultProfileId = "";
                     EditorUtility.SetDirty(config);
@@ -339,15 +339,15 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 EditorGUILayout.BeginHorizontal();
                 if (_showVaultToken)
-                    config.vaultTokenFallback = EditorGUILayout.TextField("Token de Acesso / API Key", config.vaultTokenFallback);
+                    config.vaultTokenFallback = EditorGUILayout.TextField("Access Token / API Key", config.vaultTokenFallback);
                 else
-                    config.vaultTokenFallback = EditorGUILayout.PasswordField("Token de Acesso / API Key", config.vaultTokenFallback);
+                    config.vaultTokenFallback = EditorGUILayout.PasswordField("Access Token / API Key", config.vaultTokenFallback);
 
-                if (GUILayout.Button(_showVaultToken ? "Ocultar" : "Mostrar", GUILayout.Width(65)))
+                if (GUILayout.Button(_showVaultToken ? "Hide" : "Show", GUILayout.Width(65)))
                     _showVaultToken = !_showVaultToken;
                 EditorGUILayout.EndHorizontal();
 
-                config.vaultTokenEnvVar = EditorGUILayout.TextField("Variável de Ambiente (CI/CD)", config.vaultTokenEnvVar);
+                config.vaultTokenEnvVar = EditorGUILayout.TextField("Environment Variable (CI/CD)", config.vaultTokenEnvVar);
 
                 EditorGUILayout.Space(6);
 
@@ -356,13 +356,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (viewWidth < 450)
                 {
                     GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f);
-                    if (GUILayout.Button("🔌 Testar Conexão com o Vault & Baixar Keystore", GUILayout.Height(28)))
+                    if (GUILayout.Button("🔌 Test Vault Connection & Download Keystore", GUILayout.Height(28)))
                     {
                         TestVaultConnection(config);
                     }
                     GUI.backgroundColor = Color.white;
 
-                    if (GUILayout.Button("🌐 Abrir Painel Web (/admin/keystores)", GUILayout.Height(26)))
+                    if (GUILayout.Button("🌐 Open Web Panel (/admin/keystores)", GUILayout.Height(26)))
                     {
                         Application.OpenURL("https://wagenheimer.com/admin/keystores");
                     }
@@ -371,13 +371,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     EditorGUILayout.BeginHorizontal();
                     GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f);
-                    if (GUILayout.Button("🔌 Testar Conexão com o Vault & Baixar Keystore", GUILayout.Height(28)))
+                    if (GUILayout.Button("🔌 Test Vault Connection & Download Keystore", GUILayout.Height(28)))
                     {
                         TestVaultConnection(config);
                     }
                     GUI.backgroundColor = Color.white;
 
-                    if (GUILayout.Button("🌐 Abrir Painel Web (/admin/keystores)", GUILayout.Height(28), GUILayout.Width(220)))
+                    if (GUILayout.Button("🌐 Open Web Panel (/admin/keystores)", GUILayout.Height(28), GUILayout.Width(220)))
                     {
                         Application.OpenURL("https://wagenheimer.com/admin/keystores");
                     }
@@ -391,13 +391,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             else
             {
-                EditorGUILayout.HelpBox("💾 MODO LOCAL DISK ATIVO: Utiliza arquivo de keystore físico armazenado em seu computador.", MessageType.None);
+                EditorGUILayout.HelpBox("💾 LOCAL DISK MODE ACTIVE: Uses a physical keystore file stored on your computer.", MessageType.None);
 
                 EditorGUILayout.BeginHorizontal();
-                config.androidKeystorePath = EditorGUILayout.TextField("Caminho do Keystore (Win)", config.androidKeystorePath);
-                if (GUILayout.Button("Procurar...", GUILayout.Width(75)))
+                config.androidKeystorePath = EditorGUILayout.TextField("Keystore Path (Win)", config.androidKeystorePath);
+                if (GUILayout.Button("Browse...", GUILayout.Width(75)))
                 {
-                    var file = EditorUtility.OpenFilePanel("Selecione o arquivo .keystore", Path.GetDirectoryName(config.androidKeystorePath), "keystore,jks");
+                    var file = EditorUtility.OpenFilePanel("Select the .keystore file", Path.GetDirectoryName(config.androidKeystorePath), "keystore,jks");
                     if (!string.IsNullOrEmpty(file))
                     {
                         config.androidKeystorePath = file;
@@ -406,20 +406,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
                 EditorGUILayout.EndHorizontal();
 
-                config.androidKeyAlias = EditorGUILayout.TextField("Nome do Key Alias", config.androidKeyAlias);
+                config.androidKeyAlias = EditorGUILayout.TextField("Key Alias Name", config.androidKeyAlias);
 
                 EditorGUILayout.BeginHorizontal();
                 if (_showLocalPass)
                 {
-                    config.androidKeystorePassFallback = EditorGUILayout.TextField("Senha do Keystore", config.androidKeystorePassFallback);
-                    config.androidKeyaliasPassFallback = EditorGUILayout.TextField("Senha do Alias", config.androidKeyaliasPassFallback);
+                    config.androidKeystorePassFallback = EditorGUILayout.TextField("Keystore Password", config.androidKeystorePassFallback);
+                    config.androidKeyaliasPassFallback = EditorGUILayout.TextField("Alias Password", config.androidKeyaliasPassFallback);
                 }
                 else
                 {
-                    config.androidKeystorePassFallback = EditorGUILayout.PasswordField("Senha do Keystore", config.androidKeystorePassFallback);
-                    config.androidKeyaliasPassFallback = EditorGUILayout.PasswordField("Senha do Alias", config.androidKeyaliasPassFallback);
+                    config.androidKeystorePassFallback = EditorGUILayout.PasswordField("Keystore Password", config.androidKeystorePassFallback);
+                    config.androidKeyaliasPassFallback = EditorGUILayout.PasswordField("Alias Password", config.androidKeyaliasPassFallback);
                 }
-                if (GUILayout.Button(_showLocalPass ? "Ocultar" : "Mostrar", GUILayout.Width(65)))
+                if (GUILayout.Button(_showLocalPass ? "Hide" : "Show", GUILayout.Width(65)))
                     _showLocalPass = !_showLocalPass;
                 EditorGUILayout.EndHorizontal();
 
@@ -427,7 +427,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 // Validation Button for Local Disk
                 GUI.backgroundColor = new Color(0.2f, 0.6f, 0.85f);
-                if (GUILayout.Button("🔍 Validar Arquivo Keystore Local (Integridade e Senhas)", GUILayout.Height(28)))
+                if (GUILayout.Button("🔍 Validate Local Keystore File (Integrity and Passwords)", GUILayout.Height(28)))
                 {
                     var val = KeystoreVaultClient.ValidateLocalKeystore(
                         config.GetEffectiveKeystorePath(),
@@ -437,13 +437,13 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                     if (val.Success)
                     {
-                        _localStatus = $"✓ Keystore Local Válido!\n{val.Message}";
-                        EditorUtility.DisplayDialog("Validação Local: Sucesso!", _localStatus, "OK");
+                        _localStatus = $"✓ Local Keystore Valid!\n{val.Message}";
+                        EditorUtility.DisplayDialog("Local Validation: Success!", _localStatus, "OK");
                     }
                     else
                     {
-                        _localStatus = $"✗ Erro na validação local:\n{val.Message}";
-                        EditorUtility.DisplayDialog("Validação Local: Erro", _localStatus, "OK");
+                        _localStatus = $"✗ Local validation error:\n{val.Message}";
+                        EditorUtility.DisplayDialog("Local Validation: Error", _localStatus, "OK");
                     }
                 }
                 GUI.backgroundColor = Color.white;
@@ -464,13 +464,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             var res = KeystoreVaultClient.FetchCredentialsSync(config.vaultUrl, config.vaultProfileId, bundle, token);
             if (res.Success && res.Credentials != null)
             {
-                _vaultStatus = $"✓ Conexão bem-sucedida com o Vault!\nCertificado: {res.Credentials.KeystoreFileName}\nSalvo em cache: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
-                EditorUtility.DisplayDialog("Teste do Vault: Sucesso!", _vaultStatus, "OK");
+                _vaultStatus = $"✓ Vault connection successful!\nCertificate: {res.Credentials.KeystoreFileName}\nCached at: {res.Credentials.KeystorePath}\nAlias: {res.Credentials.KeyAliasName}";
+                EditorUtility.DisplayDialog("Vault Test: Success!", _vaultStatus, "OK");
             }
             else
             {
-                _vaultStatus = $"✗ Falha ao consultar o Vault:\n{res.Message}";
-                EditorUtility.DisplayDialog("Teste do Vault: Erro", _vaultStatus, "OK");
+                _vaultStatus = $"✗ Failed to query the Vault:\n{res.Message}";
+                EditorUtility.DisplayDialog("Vault Test: Error", _vaultStatus, "OK");
             }
         }
         #endregion
@@ -479,20 +479,20 @@ namespace Wagenheimer.BuildPipeline.Editor
         private void DrawPublishersSection(ProjectBuildConfig config)
         {
             var count = config.publishers != null ? config.publishers.Count : 0;
-            _foldPublishers = DrawSectionHeader($"🏬 2. Publicadoras & Lojas ({count} configuradas)", _foldPublishers, "ProjectBuildConfig_FoldPublishers");
+            _foldPublishers = DrawSectionHeader($"🏬 2. Publishers & Stores ({count} configured)", _foldPublishers, "ProjectBuildConfig_FoldPublishers");
             if (!_foldPublishers) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             EditorGUILayout.HelpBox(
-                "💡 PARA QUE SERVE ESTA SEÇÃO?\n" +
-                "Cada loja (Steam, Big Fish, Google Play, etc.) possui requisitos específicos: pasta de saída, logos splash de distribuidora e criação automática de arquivos .ZIP.\n" +
-                "O pipeline usa esses perfis para gerar automaticamente os builds corretos no 'Quick Build' e no 'Matrix Batch Builder'.",
+                "💡 WHAT IS THIS SECTION FOR?\n" +
+                "Each store (Steam, Big Fish, Google Play, etc.) has specific requirements: output folder, publisher splash logos, and automatic .ZIP creation.\n" +
+                "The pipeline uses these profiles to automatically generate the correct builds in 'Quick Build' and 'Matrix Batch Builder'.",
                 MessageType.Info);
 
             if (config.publishers == null || config.publishers.Count == 0)
             {
-                if (GUILayout.Button("Restaurar Lista Padrão de Publicadoras", GUILayout.Height(26)))
+                if (GUILayout.Button("Restore Default Publisher List", GUILayout.Height(26)))
                 {
                     config.PopulateDefaults();
                     EditorUtility.SetDirty(config);
@@ -502,15 +502,15 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             // Desktop Windows Stores
-            DrawPublisherGroup("🖥️ Lojas Desktop (Windows)", config, PlatformType.Windows64);
+            DrawPublisherGroup("🖥️ Desktop Stores (Windows)", config, PlatformType.Windows64);
             EditorGUILayout.Space(4);
 
             // Mobile Stores
-            DrawPublisherGroup("📱 Lojas Mobile (Android & iOS)", config, PlatformType.Android, PlatformType.iOS);
+            DrawPublisherGroup("📱 Mobile Stores (Android & iOS)", config, PlatformType.Android, PlatformType.iOS);
             EditorGUILayout.Space(4);
 
             // Mac Stores
-            DrawPublisherGroup("🍏 Lojas Mac (macOS)", config, PlatformType.macOS);
+            DrawPublisherGroup("🍏 Mac Stores (macOS)", config, PlatformType.macOS);
 
             EditorGUILayout.EndVertical();
         }
@@ -536,14 +536,14 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorGUILayout.LabelField(title, EditorStyles.boldLabel, GUILayout.Width(170));
 
                 pub.requiresSplash = EditorGUILayout.ToggleLeft("Splash Logo", pub.requiresSplash, GUILayout.Width(95));
-                pub.zipAfterBuild = EditorGUILayout.ToggleLeft("Gerar ZIP", pub.zipAfterBuild, GUILayout.Width(85));
+                pub.zipAfterBuild = EditorGUILayout.ToggleLeft("Create ZIP", pub.zipAfterBuild, GUILayout.Width(85));
                 pub.isFullGame = EditorGUILayout.ToggleLeft("Full", pub.isFullGame, GUILayout.Width(50));
 
                 EditorGUILayout.EndHorizontal();
 
                 EditorGUILayout.BeginHorizontal();
                 EditorGUIUtility.labelWidth = 100;
-                pub.outputSubfolder = EditorGUILayout.TextField("Pasta de Saída", pub.outputSubfolder);
+                pub.outputSubfolder = EditorGUILayout.TextField("Output Folder", pub.outputSubfolder);
                 if (pub.platform == PlatformType.Android || pub.platform == PlatformType.iOS)
                 {
                     EditorGUIUtility.labelWidth = 70;
@@ -562,20 +562,20 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var enabledCount = config.languages != null ? config.languages.Count(l => l.enabled) : 0;
             var totalCount = config.languages != null ? config.languages.Count : 0;
-            _foldLanguages = DrawSectionHeader($"🌐 3. Matriz de Idiomas ({enabledCount}/{totalCount} ativos)", _foldLanguages, "ProjectBuildConfig_FoldLanguages");
+            _foldLanguages = DrawSectionHeader($"🌐 3. Language Matrix ({enabledCount}/{totalCount} active)", _foldLanguages, "ProjectBuildConfig_FoldLanguages");
             if (!_foldLanguages) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             EditorGUILayout.HelpBox(
-                "💡 PARA QUE SERVE ESTA SEÇÃO?\n" +
-                "Define quais idiomas estão habilitados para este jogo.\n" +
-                "O 'Matrix Batch Builder' usará os idiomas com checkbox marcado como 'Ativo' para compilar automaticamente todos os executáveis localizados.",
+                "💡 WHAT IS THIS SECTION FOR?\n" +
+                "Defines which languages are enabled for this game.\n" +
+                "The 'Matrix Batch Builder' will use the languages checked as 'Active' to automatically compile all localized executables.",
                 MessageType.Info);
 
             if (config.languages == null || config.languages.Count == 0)
             {
-                if (GUILayout.Button("Restaurar Idiomas Padrão", GUILayout.Height(26)))
+                if (GUILayout.Button("Restore Default Languages", GUILayout.Height(26)))
                 {
                     config.PopulateDefaults();
                     EditorUtility.SetDirty(config);
@@ -586,17 +586,17 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // Quick Selection Toolbar
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Marcar Todos", EditorStyles.miniButtonLeft))
+            if (GUILayout.Button("Select All", EditorStyles.miniButtonLeft))
             {
                 foreach (var l in config.languages) l.enabled = true;
                 EditorUtility.SetDirty(config);
             }
-            if (GUILayout.Button("Desmarcar Todos", EditorStyles.miniButtonMid))
+            if (GUILayout.Button("Deselect All", EditorStyles.miniButtonMid))
             {
                 foreach (var l in config.languages) l.enabled = false;
                 EditorUtility.SetDirty(config);
             }
-            if (GUILayout.Button("Apenas EFIGS (EN, FR, IT, DE, ES)", EditorStyles.miniButtonRight))
+            if (GUILayout.Button("EFIGS Only (EN, FR, IT, DE, ES)", EditorStyles.miniButtonRight))
             {
                 var efigs = new[] { GameLanguage.English, GameLanguage.French, GameLanguage.Italian, GameLanguage.German, GameLanguage.Spanish };
                 foreach (var l in config.languages)
@@ -629,29 +629,29 @@ namespace Wagenheimer.BuildPipeline.Editor
         #region Section: Paths & Scenes
         private void DrawPathsAndScenesSection(ProjectBuildConfig config)
         {
-            _foldPaths = DrawSectionHeader("📁 4. Pastas de Saída, Cenas & Compactação", _foldPaths, "ProjectBuildConfig_FoldPaths");
+            _foldPaths = DrawSectionHeader("📁 4. Output Folders, Scenes & Archiving", _foldPaths, "ProjectBuildConfig_FoldPaths");
             if (!_foldPaths) return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-            config.projectName = EditorGUILayout.TextField("Nome do Projeto", config.projectName);
-            config.buildOutputRoot = EditorGUILayout.TextField("Pasta Raiz de Builds (Windows)", config.buildOutputRoot);
-            config.macBuildOutputRoot = EditorGUILayout.TextField("Pasta Raiz de Builds (macOS)", config.macBuildOutputRoot);
-            config.splashMasterFolder = EditorGUILayout.TextField("Pasta Mestre de Logos Splash", config.splashMasterFolder);
+            config.projectName = EditorGUILayout.TextField("Project Name", config.projectName);
+            config.buildOutputRoot = EditorGUILayout.TextField("Build Output Root (Windows)", config.buildOutputRoot);
+            config.macBuildOutputRoot = EditorGUILayout.TextField("Build Output Root (macOS)", config.macBuildOutputRoot);
+            config.splashMasterFolder = EditorGUILayout.TextField("Splash Logos Master Folder", config.splashMasterFolder);
 
             EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Cenas Utilizadas no Build:", EditorStyles.boldLabel);
-            config.publisherSplashScenePath = EditorGUILayout.TextField("  Cena Publisher Splash", config.publisherSplashScenePath);
-            config.defaultSplashScenePath = EditorGUILayout.TextField("  Cena Splash Padrão", config.defaultSplashScenePath);
-            config.levelEditorScenePath = EditorGUILayout.TextField("  Cena Level Editor", config.levelEditorScenePath);
+            EditorGUILayout.LabelField("Scenes Used in the Build:", EditorStyles.boldLabel);
+            config.publisherSplashScenePath = EditorGUILayout.TextField("  Publisher Splash Scene", config.publisherSplashScenePath);
+            config.defaultSplashScenePath = EditorGUILayout.TextField("  Default Splash Scene", config.defaultSplashScenePath);
+            config.levelEditorScenePath = EditorGUILayout.TextField("  Level Editor Scene", config.levelEditorScenePath);
 
             EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Compactação e Arquivamento:", EditorStyles.boldLabel);
-            config.enableZipArchiving = EditorGUILayout.Toggle("Habilitar Compactação ZIP", config.enableZipArchiving);
-            config.useExternalSevenZip = EditorGUILayout.Toggle("Usar 7-Zip Externo", config.useExternalSevenZip);
+            EditorGUILayout.LabelField("Compression and Archiving:", EditorStyles.boldLabel);
+            config.enableZipArchiving = EditorGUILayout.Toggle("Enable ZIP Archiving", config.enableZipArchiving);
+            config.useExternalSevenZip = EditorGUILayout.Toggle("Use External 7-Zip", config.useExternalSevenZip);
             if (config.useExternalSevenZip)
             {
-                config.sevenZipExecutable = EditorGUILayout.TextField("Executável do 7-Zip", config.sevenZipExecutable);
+                config.sevenZipExecutable = EditorGUILayout.TextField("7-Zip Executable", config.sevenZipExecutable);
             }
 
             EditorGUILayout.EndVertical();

@@ -184,20 +184,20 @@ namespace Wagenheimer.BuildPipeline.Editor
             string keyAliasPass)
         {
             if (string.IsNullOrWhiteSpace(path))
-                return (false, "O caminho do arquivo Keystore está vazio.");
+                return (false, "The Keystore file path is empty.");
 
             if (!File.Exists(path))
-                return (false, $"Arquivo não encontrado no disco:\n'{path}'");
+                return (false, $"File not found on disk:\n'{path}'");
 
             var fileInfo = new FileInfo(path);
             if (fileInfo.Length < 100)
-                return (false, $"O arquivo de keystore é muito pequeno ou está corrompido ({fileInfo.Length} bytes).");
+                return (false, $"The keystore file is too small or corrupted ({fileInfo.Length} bytes).");
 
             if (string.IsNullOrWhiteSpace(alias))
-                return (false, "O nome do Key Alias não foi informado.");
+                return (false, "The Key Alias name was not provided.");
 
             if (string.IsNullOrWhiteSpace(keystorePass))
-                return (false, "A senha do Keystore não foi informada.");
+                return (false, "The Keystore password was not provided.");
 
             try
             {
@@ -223,12 +223,12 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                         if (proc.ExitCode == 0)
                         {
-                            return (true, $"Keystore e Alias '{alias}' validados com sucesso via OpenJDK keytool!\nTamanho: {fileInfo.Length:N0} bytes\nLocal: {path}");
+                            return (true, $"Keystore and Alias '{alias}' validated successfully via OpenJDK keytool!\nSize: {fileInfo.Length:N0} bytes\nLocation: {path}");
                         }
                         else
                         {
                             var err = !string.IsNullOrEmpty(stdErr) ? stdErr : stdOut;
-                            return (false, $"Falha na validação do Keystore/Senha/Alias:\n{err.Trim()}");
+                            return (false, $"Keystore/Password/Alias validation failed:\n{err.Trim()}");
                         }
                     }
                 }
@@ -238,7 +238,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Debug.LogWarning($"[BuildPipeline] Keytool validation fallback: {ex.Message}");
             }
 
-            return (true, $"Arquivo Keystore encontrado e íntegro no disco!\nTamanho: {fileInfo.Length:N0} bytes\nAlias: {alias}\nCaminho: {path}");
+            return (true, $"Keystore file found and intact on disk!\nSize: {fileInfo.Length:N0} bytes\nAlias: {alias}\nPath: {path}");
         }
     }
 }

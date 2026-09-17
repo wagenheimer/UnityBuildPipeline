@@ -219,12 +219,12 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (isDirty)
             {
                 EditorGUILayout.LabelField(
-                    "⚠ Alterações em memória, ainda NÃO gravadas em disco — não vão aparecer no 'git status' até você salvar.",
+                    "⚠ Changes in memory, not yet written to disk — they won't show up in 'git status' until you save.",
                     textStyle);
 
                 GUILayout.FlexibleSpace();
                 GUI.backgroundColor = new Color(0.90f, 0.55f, 0.15f);
-                if (GUILayout.Button("💾  Salvar Agora", GUILayout.Width(140), GUILayout.Height(24)))
+                if (GUILayout.Button("💾  Save Now", GUILayout.Width(140), GUILayout.Height(24)))
                 {
                     AssetDatabase.SaveAssetIfDirty(config);
                     AssetDatabase.SaveAssets();
@@ -234,7 +234,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             else
             {
-                EditorGUILayout.LabelField("✔ Tudo salvo em disco — o que estiver diferente aqui já aparece no 'git status'.", textStyle);
+                EditorGUILayout.LabelField("✔ Everything is saved to disk — anything different here already shows up in 'git status'.", textStyle);
             }
 
             GUILayout.Space(2);
@@ -512,7 +512,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             GUILayout.Space(2);
             EditorGUILayout.HelpBox(
-                "Fonte da verdade: ESTE asset (GameConfig). O ProjectBuildConfig NÃO tem esses campos — ele só guarda config de pipeline (caminhos, keystore, publishers).",
+                "Source of truth: THIS asset (GameConfig). ProjectBuildConfig has NO such fields — it only holds pipeline config (paths, keystore, publishers).",
                 MessageType.Info);
 
             GUILayout.Space(4);
