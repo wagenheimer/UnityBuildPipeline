@@ -97,6 +97,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use `DisplayCancelableProgressBar`; the adb/bundletool process is killed and the operation
   aborts cleanly when Cancel is pressed.
 
+## [1.2.1] - 2026-09-16
+
+### Added
+
+- **AsGameLanguage / AsFlagSprite** moved from per-project GameUtils into the shared
+  `LanguageExtensions` (Runtime), including Korean support, so legacy projects can delete
+  their local duplicates.
 ## [1.2.0] - 2026-09-16
 
 ### Added
