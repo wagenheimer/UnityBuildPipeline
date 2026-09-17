@@ -460,6 +460,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 normal = { textColor = isPro ? new Color(0.70f, 0.75f, 0.80f) : new Color(0.35f, 0.40f, 0.45f) }
             };
             EditorGUILayout.LabelField("Google Play bundleVersionCode & Apple App Store CFBundleVersion", hintStyle);
+            EditorGUILayout.LabelField("Source of truth: THIS asset (GameConfig). Not ProjectBuildConfig — that only holds pipeline settings (paths, keystore, publishers).", hintStyle);
+            EditorGUILayout.LabelField("⚠ Changes here are in-memory only until you Save Project (Ctrl+S) — that's when they reach the .asset files and show up in git.", hintStyle);
 
             GUILayout.Space(4);
 

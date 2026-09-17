@@ -35,9 +35,12 @@ public class GameConfig : ScriptableObject
     public GameBuildDate VersionDate = new GameBuildDate();
 
     [Header("Mobile Store Build Numbers")]
-    [Tooltip("Android bundleVersionCode for Google Play (must be strictly incremented for each APK/AAB release).")]
+    [Tooltip("Android bundleVersionCode for Google Play (must be strictly incremented for each APK/AAB release). " +
+             "This asset is the source of truth — NOT ProjectBuildConfig.asset, which has no version fields. " +
+             "Editing this also updates PlayerSettings.Android.bundleVersionCode live, but the change only reaches disk (and git) when you Save Project (Ctrl+S).")]
     public int AndroidBundleVersionCode = 1;
-    [Tooltip("iOS / macOS build number (CFBundleVersion) for Apple App Store & TestFlight.")]
+    [Tooltip("iOS / macOS build number (CFBundleVersion) for Apple App Store & TestFlight. " +
+             "Same rule: this asset is the source of truth, and you must Save Project (Ctrl+S) for the change to be committable.")]
     public string iOSBuildNumber = "1";
 
     [Header("Icons")]

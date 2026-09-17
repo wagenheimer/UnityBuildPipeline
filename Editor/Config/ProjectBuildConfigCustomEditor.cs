@@ -221,6 +221,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             };
             var linkedName = config.gameConfig != null ? config.gameConfig.name : "Nenhum (Clique em Migrar)";
             EditorGUILayout.LabelField($"CONFIGURAÇÃO GERAL DE BUILDS  •  GameConfig: {linkedName}", subStyle);
+            EditorGUILayout.LabelField("ℹ Versão / Android Bundle Code / iOS Build Number NÃO ficam aqui — edite em cima do asset GameConfig acima ↑", subStyle);
 
             GUILayout.Space(6);
 
