@@ -28,7 +28,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorApplication.delayCall += () => CheckForUpdate(force: false);
         }
 
-        [MenuItem("Tools/Build Pipeline/Check for Updates...", priority = 100)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Check for Updates...", priority = 100)]
         static void CheckForUpdateMenuItem() => CheckForUpdate(force: true);
 
         internal static void CheckForUpdate(bool force)
@@ -135,28 +135,84 @@ namespace Wagenheimer.BuildPipeline.Editor
             op.completed += _ =>
             {
                 string notes = null;
-                if (request.result == UnityWebRequest.Result.Success)
-                    notes = ExtractVersionNotes(request.downloadHandler.text, remoteVersion);
+                if (request.result == UnityWebRequest.Result.Success && request.downloadHandler != null)
+                    notes = ExtractVersionNotes(request.downloadHandler.text, remoteVersion, localVersion);
 
                 request.Dispose();
                 UpdateAvailableWindow.Show("Unity Build Pipeline", localVersion, remoteVersion, RepoUrl, GitUrl, notes, PrefSkipVersion);
             };
         }
 
-        static string ExtractVersionNotes(string changelog, string version)
+        static string ExtractVersionNotes(string changelog, string remoteVersion, string localVersion = null)
         {
-            var marker = $"## [{version}]";
-            var start = changelog.IndexOf(marker, StringComparison.Ordinal);
+            if (string.IsNullOrEmpty(changelog))
+                return null;
+
+            string CleanVer(string v) => string.IsNullOrEmpty(v) ? "" : v.Trim().TrimStart('v', 'V');
+            var cleanRemote = CleanVer(remoteVersion);
+            var cleanLocal = CleanVer(localVersion);
+
+            // Possible header markers for the target version
+            var candidates = new[]
+            {
+                $"## [{cleanRemote}]",
+                $"## [v{cleanRemote}]",
+                $"## {cleanRemote}",
+                $"## v{cleanRemote}"
+            };
+
+            int start = -1;
+            foreach (var c in candidates)
+            {
+                start = changelog.IndexOf(c, StringComparison.OrdinalIgnoreCase);
+                if (start >= 0) break;
+            }
+
+            // Fallback: search for first "## [" or "## "
             if (start < 0)
-                return null;
+            {
+                start = changelog.IndexOf("## [", StringComparison.Ordinal);
+                if (start < 0)
+                    start = changelog.IndexOf("## ", StringComparison.Ordinal);
+            }
 
+            if (start < 0)
+                return changelog.Length > 800 ? changelog.Substring(0, 800) + "..." : changelog;
+
+            // Find where this release section starts (after the ## line)
             var bodyStart = changelog.IndexOf('\n', start);
-            if (bodyStart < 0)
-                return null;
+            if (bodyStart < 0) bodyStart = start;
 
-            var next = changelog.IndexOf("\n## [", bodyStart, StringComparison.Ordinal);
-            var end = next >= 0 ? next : changelog.Length;
-            return changelog.Substring(bodyStart, end - bodyStart).Trim();
+            // If we know localVersion, try to include all changes up to localVersion!
+            int end = -1;
+            if (!string.IsNullOrEmpty(cleanLocal) && cleanLocal != cleanRemote)
+            {
+                var localCandidates = new[]
+                {
+                    $"## [{cleanLocal}]",
+                    $"## [v{cleanLocal}]",
+                    $"## {cleanLocal}",
+                    $"## v{cleanLocal}"
+                };
+
+                foreach (var lc in localCandidates)
+                {
+                    end = changelog.IndexOf(lc, bodyStart, StringComparison.OrdinalIgnoreCase);
+                    if (end >= 0) break;
+                }
+            }
+
+            // If localVersion not found or not given, find the next section boundary
+            if (end < 0)
+            {
+                end = changelog.IndexOf("\n## [", bodyStart, StringComparison.Ordinal);
+                if (end < 0) end = changelog.IndexOf("\n## ", bodyStart, StringComparison.Ordinal);
+            }
+
+            var length = (end >= 0 ? end : changelog.Length) - bodyStart;
+            if (length <= 0) return null;
+
+            return changelog.Substring(bodyStart, length).Trim();
         }
 
         static string GetLocalVersion()
