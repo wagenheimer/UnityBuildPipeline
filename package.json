@@ -21,6 +21,6 @@
   ],
   "category": "Tools",
   "dependencies": {
-    "com.wagenheimer.packagehub": "https://github.com/wagenheimer/UnityPackageHub.git#v1.0.0"
+    "com.wagenheimer.packagehub": "https://github.com/wagenheimer/UnityPackageHub.git#v1.0.1"
   }
 }
