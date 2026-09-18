@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-09-18
+
+### Changed
+- **Menu Hierarchy**: Consolidated all Build Pipeline editor menu items under `Tools > Wagenheimer > Build Pipeline` for clean grouping with other Wagenheimer packages.
+- **Update Window Redesign**: Complete visual overhaul of `UpdateAvailableWindow` with modern header banner, pill badges, version diff card, rich-text markdown release notes parser (`✦ Added`, `✔ Fixed`, `⚡ Changed`, styled bullets), and fixed scrollview text truncation.
+- **Multi-Version Release Notes**: Enhanced `ExtractVersionNotes` in `UpdateChecker` to extract notes across intermediate versions (e.g. 1.3.0 -> 1.5.1) and gracefully fallback to latest changelog section instead of showing empty notes.
+
 ## [1.5.0] - 2026-09-18
 
 ### Added
