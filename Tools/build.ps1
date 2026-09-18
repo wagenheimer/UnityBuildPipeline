@@ -11,9 +11,10 @@
 
 param (
     [string]$projectPath = ".",
+    [string]$buildProfile = "",
     [string]$publisher = "Default",
     [string]$language = "AutoDetect",
-    [string]$platform = "Windows64",
+    [string]$platform = "",
     [switch]$matrix,
     [string]$matrixPublishers = "",
     [string]$matrixLanguages = "",
@@ -95,12 +96,18 @@ if ($matrix) {
 } else {
     $argsList += "-executeMethod"
     $argsList += "Wagenheimer.BuildPipeline.Editor.BuildCLI.Build"
+    if (![string]::IsNullOrEmpty($buildProfile)) {
+        $argsList += "-buildProfile"
+        $argsList += "$buildProfile"
+    }
     $argsList += "-publisher"
     $argsList += "$publisher"
     $argsList += "-language"
     $argsList += "$language"
-    $argsList += "-platform"
-    $argsList += "$platform"
+    if (![string]::IsNullOrEmpty($platform)) {
+        $argsList += "-platform"
+        $argsList += "$platform"
+    }
     $argsList += "-cheat"
     $argsList += "$([bool]$cheat)"
     $argsList += "-development"

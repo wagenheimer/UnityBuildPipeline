@@ -5,10 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-18
+
+### Added
+- **BuildDebugOverlay (`BuildDebugOverlay.cs`)**: In-game runtime verification overlay for Development Builds and Unity Editor.
+  - Automatically activates in Editor and Development Builds via `[RuntimeInitializeOnLoadMethod]` (zero manual setup).
+  - Floating on-screen `"BUILD DBG"` button (positioned without overlapping IAP DBG / RATE DBG) and hotkey `F7`.
+  - Real-time display of active Publisher, FullGame status (Free vs Full), Demo, CheatMode, Language, and build numbers.
+  - Automatic Platform & Package Verification: checks `Application.identifier` against the expected package for the active publisher and alerts of any mismatch.
+  - Quick actions: Copy full diagnostic report, log to console, and toggle CheatMode at runtime.
+  - Added Editor menu item: `Tools > Build Pipeline > Add Build Debug Overlay to Scene`.
+
+### Fixed
+- **CLI Platform Default in `build.ps1`**: Fixed a critical bug where `build.ps1` defaulted `-platform` to `"Windows64"`, overriding the publisher profile's platform (`Android`/`iOS`) and causing mobile builds to compile for Windows unless explicitly overridden.
+- **Publisher & Profile Resolution in `BuildCLI`**: Added `FindPublisherProfile` with fuzzy matching, display name resolution, and common aliases (e.g. `GoogleFree`, `Google Play (Free)` -> `GoogleAndroidFree`), preventing silent fallbacks to `Publisher.Default`.
+- Added `-buildProfile` CLI parameter support to `build.ps1`.
+
 ## [1.4.1] - 2026-09-17
 
 ### Changed
 - chore(i18n): translate all UI strings, comments and docs to English
+
 
 ## [1.4.0] - 2026-09-17
 

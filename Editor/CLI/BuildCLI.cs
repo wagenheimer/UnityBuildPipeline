@@ -70,24 +70,43 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Debug.Log($"[BuildCLI] Keystore Android via CLI: {ksPath} (alias: {config.androidKeyAlias})");
             }
 
-            // Resolve profile: -buildProfile <id> takes precedence over -publisher <enum>
+            // Resolve profile: -buildProfile <id> takes precedence over -publisher
             var buildProfileId = CommandLineArgs.Get("buildProfile", "");
-            PublisherProfile profileById = null;
+            var pubStr = CommandLineArgs.Get("publisher", "");
+
+            PublisherProfile profile = null;
+            Publisher publisher = Publisher.Default;
+
             if (!string.IsNullOrEmpty(buildProfileId))
             {
-                profileById = config.publishers.FirstOrDefault(p =>
-                    string.Equals(p.EffectiveId, buildProfileId, StringComparison.OrdinalIgnoreCase));
-                if (profileById == null)
-                    Debug.LogWarning($"[BuildCLI] -buildProfile '{buildProfileId}' not found in ProjectBuildConfig; falling back to -publisher.");
+                profile = FindPublisherProfile(config, buildProfileId, out publisher);
+                if (profile == null)
+                    Debug.LogWarning($"[BuildCLI] -buildProfile '{buildProfileId}' not found in ProjectBuildConfig; attempting resolution via -publisher.");
             }
 
-            // Parse Publisher
-            var pubStr = CommandLineArgs.Get("publisher", "Default");
-            Publisher publisher;
-            if (profileById != null)
-                publisher = profileById.publisher;
-            else if (!Enum.TryParse(pubStr, true, out publisher))
-                publisher = Publisher.Default;
+            if (profile == null && !string.IsNullOrEmpty(pubStr))
+            {
+                profile = FindPublisherProfile(config, pubStr, out publisher);
+            }
+
+            if (profile != null)
+            {
+                publisher = profile.publisher;
+                Debug.Log($"[BuildCLI] ✅ Resolved Profile: '{profile.displayName}' (Publisher: {publisher}, Platform: {profile.platform}, FullGame: {profile.isFullGame}, BundleId: {profile.bundleIdentifier})");
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(pubStr) && Enum.TryParse(pubStr, true, out Publisher parsedPub))
+                {
+                    publisher = parsedPub;
+                    profile = config.publishers.FirstOrDefault(p => p.publisher == publisher);
+                }
+                else if (!string.IsNullOrEmpty(pubStr))
+                {
+                    Debug.LogError($"[BuildCLI] ❌ Could not resolve publisher from '{pubStr}'! Falling back to Default ({publisher}). Available in ProjectBuildConfig: " +
+                        string.Join(", ", config.publishers.Select(p => $"{p.publisher} ('{p.displayName}')")));
+                }
+            }
 
             // Parse Language
             var langStr = CommandLineArgs.Get("language", "AutoDetect");
@@ -102,17 +121,25 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             }
 
-            // Parse Platform
+            // Parse Platform: explicit CLI argument takes precedence, otherwise use profile's platform
             var platStr = CommandLineArgs.Get("platform", "");
-            var profile = profileById ?? config.publishers.FirstOrDefault(p => p.publisher == publisher);
+            if (string.IsNullOrEmpty(platStr))
+                platStr = CommandLineArgs.Get("buildTarget", "");
+
             var platform = PlatformType.Windows64;
             if (!string.IsNullOrEmpty(platStr) && Enum.TryParse(platStr, true, out PlatformType pt))
             {
                 platform = pt;
+                Debug.Log($"[BuildCLI] Platform explicitly set via CLI: {platform}");
             }
             else if (profile != null)
             {
                 platform = profile.platform;
+                Debug.Log($"[BuildCLI] Platform resolved from profile '{profile.displayName}': {platform}");
+            }
+            else
+            {
+                Debug.LogWarning($"[BuildCLI] No platform specified and no profile matched; defaulting to {platform}.");
             }
 
             // Extra scripting defines: profile defines + CLI -defines override (merged in the step)
@@ -206,11 +233,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var pubNames = pubArg.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var name in pubNames)
                 {
-                    if (Enum.TryParse(name.Trim(), true, out Publisher pub))
+                    var prof = FindPublisherProfile(config, name.Trim(), out var pub);
+                    if (prof != null)
                     {
-                        var prof = config.publishers.FirstOrDefault(p => p.publisher == pub)
-                            ?? new PublisherProfile(pub, pub.ToString(), PlatformType.Windows64);
                         pubsToBuild.Add(prof);
+                    }
+                    else if (pub != Publisher.Default)
+                    {
+                        pubsToBuild.Add(new PublisherProfile(pub, pub.ToString(), PlatformType.Windows64));
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[BuildCLI] matrixPublishers: could not resolve publisher or profile '{name.Trim()}'.");
                     }
                 }
             }
@@ -291,6 +325,94 @@ namespace Wagenheimer.BuildPipeline.Editor
             var res = BuildPipelineRunner.Execute(ctx);
             manifest.Add(BuildManifestEntry.From(ctx, res));
             return res.Success;
+        }
+
+        public static PublisherProfile FindPublisherProfile(ProjectBuildConfig config, string identifier, out Publisher resolvedPublisher)
+        {
+            resolvedPublisher = Publisher.Default;
+            if (config == null || config.publishers == null || config.publishers.Count == 0)
+                return null;
+
+            if (string.IsNullOrEmpty(identifier))
+                return null;
+
+            // 1. Exact match on EffectiveId or id
+            var match = config.publishers.FirstOrDefault(p =>
+                string.Equals(p.EffectiveId, identifier, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.id, identifier, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                resolvedPublisher = match.publisher;
+                return match;
+            }
+
+            // 2. Exact match on enum name or integer value
+            if (Enum.TryParse<Publisher>(identifier, true, out var parsedEnum))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == parsedEnum);
+                resolvedPublisher = parsedEnum;
+                return match;
+            }
+
+            // 3. Match on displayName (e.g. "Google Play (Free)")
+            match = config.publishers.FirstOrDefault(p =>
+                string.Equals(p.displayName, identifier, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                resolvedPublisher = match.publisher;
+                return match;
+            }
+
+            // 4. Normalized match (strip non-alphanumeric and compare lowercase)
+            string Clean(string s) => string.IsNullOrEmpty(s) ? "" : new string(s.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+            var cleanId = Clean(identifier);
+
+            match = config.publishers.FirstOrDefault(p =>
+                Clean(p.EffectiveId) == cleanId ||
+                Clean(p.displayName) == cleanId ||
+                Clean(p.publisher.ToString()) == cleanId);
+
+            if (match != null)
+            {
+                resolvedPublisher = match.publisher;
+                return match;
+            }
+
+            // 5. Common aliases / shorthand:
+            // "googlefree" -> GoogleAndroidFree
+            // "googlefull" -> GoogleAndroidFull
+            if (cleanId.Contains("google") && cleanId.Contains("free"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.GoogleAndroidFree);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+            if (cleanId.Contains("google") && cleanId.Contains("full"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.GoogleAndroidFull);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+            if (cleanId.Contains("amazon") && cleanId.Contains("free"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.AmazonAndroidFree);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+            if (cleanId.Contains("amazon") && cleanId.Contains("full"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.AmazonAndroidFull);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+            if (cleanId.Contains("ios") && cleanId.Contains("free"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.iOSFree);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+            if (cleanId.Contains("ios") && cleanId.Contains("full"))
+            {
+                match = config.publishers.FirstOrDefault(p => p.publisher == Publisher.iOSFull);
+                if (match != null) { resolvedPublisher = match.publisher; return match; }
+            }
+
+            return null;
         }
 
         private static void ApplyVersionAndBuildNumberOverrides(ProjectBuildConfig config)
