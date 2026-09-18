@@ -6,7 +6,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public static class LegacyGameConfigMigrator
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config", priority = 40)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config", priority = 113)]
         public static void MigrateOrCreate()
         {
             var config = FindOrCreateProjectBuildConfig();

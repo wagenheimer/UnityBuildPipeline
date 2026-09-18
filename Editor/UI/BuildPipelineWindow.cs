@@ -10,7 +10,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public class BuildPipelineWindow : EditorWindow
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Window", priority = 10)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Window", priority = 110)]
         [MenuItem("Window/Wagenheimer/Build Pipeline", priority = 205)]
         public static void ShowWindow()
         {
@@ -52,7 +52,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Reset Window Position (Center Screen)", priority = 50)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Reset Window Position (Center Screen)", priority = 114)]
         public static void ResetPosition()
         {
             var win = GetWindow<BuildPipelineWindow>(utility: false, title: "Build Pipeline", focus: true);
