@@ -2,7 +2,8 @@
   "name": "Wagenheimer.BuildPipeline.Editor",
   "rootNamespace": "Wagenheimer.BuildPipeline.Editor",
   "references": [
-    "Wagenheimer.BuildPipeline.Runtime"
+    "Wagenheimer.BuildPipeline.Runtime",
+    "Wagenheimer.PackageHub.Editor"
   ],
   "includePlatforms": [
     "Editor"
