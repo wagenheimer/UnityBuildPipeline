@@ -7,7 +7,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     [CustomEditor(typeof(BuildDebugOverlay))]
     public class BuildDebugOverlayEditor : UnityEditor.Editor
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Add Build Debug Overlay to Scene", priority = 30)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Add Build Debug Overlay to Scene", priority = 112)]
         public static void AddOverlayToScene()
         {
             var existing = Object.FindObjectOfType<BuildDebugOverlay>();
