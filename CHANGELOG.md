@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-09-18
+
+### Fixed
+- Removed `com.wagenheimer.packagehub` from `dependencies` in package.json: UPM does not support a git URL as a dependency version, which made this package fail to resolve/update in any consuming project. PackageHub must still be added directly to the consumer's manifest.json.
+
 ## [1.9.0] - 2026-09-18
 
 ## [1.8.1] - 2026-09-18
