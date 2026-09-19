@@ -5,10 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.1] - 2026-09-19
-
-### Fixed
-- Added missing `.meta` files for `Runtime/UI/BuildDebugOverlay.cs`, `Editor/UI/BuildDebugOverlayEditor.cs`, and the `Runtime/UI` folder. Without them, Unity ignores these assets in a package (immutable folder), so `BuildDebugOverlay` silently never worked for consumers.
+## [1.11.0] - 2026-09-19
 
 ## [1.10.0] - 2026-09-19
 
