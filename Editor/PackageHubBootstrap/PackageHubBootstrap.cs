@@ -14,7 +14,7 @@ namespace Wagenheimer.BuildPipeline.PackageHubBootstrap
     internal static class PackageHubBootstrap
     {
         private const string PackageHubId = "com.wagenheimer.packagehub";
-        private const string PackageHubGitUrl = "https://github.com/wagenheimer/UnityPackageHub.git#v1.0.4";
+        private const string PackageHubGitUrl = "https://github.com/wagenheimer/UnityPackageHub.git#v1.0.5";
         private const string StartedSessionKey = "Wagenheimer.PackageHubBootstrap.Started";
 
         private static AddRequest _addRequest;
