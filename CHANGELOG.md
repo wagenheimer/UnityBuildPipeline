@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-09-24
+
+### Fixed
+- **Immutable PackageCache Resolution**: Consolidated `BuildPipelineConfigView` directly inside `BuildPipelineWindow.cs`, completely eliminating separate file/meta dependencies and permanently preventing Unity's `Asset has no meta file, but it's in an immutable folder` warning and `CS0246` compilation errors.
+- **TagGroup Horizontal Tabs**: Enforced strict inline flex styling (`FlexDirection.Row`, `flexGrow = 1`, `height = 30`, `border-radius: 4px`) to guarantee side-by-side pill tabs with instant visual response and dark contrast.
+
 ## [1.18.1] - 2026-09-24
 
 ## [1.18.0] - 2026-09-24
