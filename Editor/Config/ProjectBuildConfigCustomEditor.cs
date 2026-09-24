@@ -25,6 +25,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             BuildPipelineUIStyle.Apply(root);
 
             var config = (ProjectBuildConfig)target;
+            if (config != null)
+            {
+                _quickLanguage = config.defaultLanguage;
+            }
 
             // 1. Hero Header
             var headerCard = BuildPipelineUIStyle.CreateCard("Project Build Configuration", "Global project-level paths, keystores, and store publisher definitions");
@@ -198,10 +202,84 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             root.Add(pubsCard);
 
-            // 8. Languages Matrix
-            var langsCard = BuildPipelineUIStyle.CreateCard("Languages & Localizations");
+            // 8. Languages & Localizations
+            var langsCard = BuildPipelineUIStyle.CreateCard("Languages & Localizations", "Default build language and optional batch matrix configuration");
+
+            var defLangProp = serializedObject.FindProperty("defaultLanguage");
+            if (defLangProp != null)
+            {
+                var defLangField = new PropertyField(defLangProp, "Default Build Language");
+                defLangField.tooltip = "Primary language used for builds. Auto Detect produces a multi-language build (standard for mobile stores and modern Steam).";
+                langsCard.Add(defLangField);
+            }
+
+            var langHint = BuildPipelineUIStyle.CreateCallout(
+                "💡 Auto Detect compiles a single multi-language build where the game auto-detects device language or lets the player switch in-game. Select a specific language only when making a dedicated regional or portal-exclusive build.",
+                "info");
+            langHint.style.marginTop = 6;
+            langHint.style.marginBottom = 10;
+            langsCard.Add(langHint);
+
+            // Optional Batch Matrix Foldout
             var langProp = serializedObject.FindProperty("languages");
-            langsCard.Add(new PropertyField(langProp, "Configured Languages"));
+            var matrixFoldout = new Foldout
+            {
+                text = "Batch Matrix Languages (Optional / Multi-Builds)",
+                value = false
+            };
+            matrixFoldout.style.marginTop = 4;
+            matrixFoldout.style.paddingTop = 6;
+            matrixFoldout.style.borderTopWidth = 1;
+            matrixFoldout.style.borderTopColor = new Color(1f, 1f, 1f, 0.1f);
+
+            var matrixDesc = new Label("Select which languages will be generated when running automated batch runs from the Matrix tab.");
+            matrixDesc.style.fontSize = 11;
+            matrixDesc.style.color = new Color(0.7f, 0.7f, 0.7f);
+            matrixDesc.style.whiteSpace = WhiteSpace.Normal;
+            matrixDesc.style.marginBottom = 8;
+            matrixFoldout.Add(matrixDesc);
+
+            // Toolbar: Select All / None / Reset
+            var actionsRow = new VisualElement();
+            actionsRow.style.flexDirection = FlexDirection.Row;
+            actionsRow.style.alignItems = Align.Center;
+            actionsRow.style.marginBottom = 8;
+
+            var selAllBtn = new Button(() =>
+            {
+                if (config.languages != null)
+                {
+                    foreach (var l in config.languages) l.enabled = true;
+                    EditorUtility.SetDirty(config);
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    serializedObject.Update();
+                }
+            }) { text = "Select All" };
+            selAllBtn.AddToClassList("bp-btn");
+            selAllBtn.style.height = 22;
+            selAllBtn.style.paddingLeft = 8;
+            selAllBtn.style.paddingRight = 8;
+            selAllBtn.style.fontSize = 11;
+            selAllBtn.style.marginRight = 4;
+            actionsRow.Add(selAllBtn);
+
+            var selNoneBtn = new Button(() =>
+            {
+                if (config.languages != null)
+                {
+                    foreach (var l in config.languages) l.enabled = false;
+                    EditorUtility.SetDirty(config);
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    serializedObject.Update();
+                }
+            }) { text = "Select None" };
+            selNoneBtn.AddToClassList("bp-btn");
+            selNoneBtn.style.height = 22;
+            selNoneBtn.style.paddingLeft = 8;
+            selNoneBtn.style.paddingRight = 8;
+            selNoneBtn.style.fontSize = 11;
+            selNoneBtn.style.marginRight = 4;
+            actionsRow.Add(selNoneBtn);
 
             var restoreLangsBtn = new Button(() =>
             {
@@ -210,13 +288,100 @@ namespace Wagenheimer.BuildPipeline.Editor
                     config.languages = LanguageProfile.GetDefaultLanguages();
                     EditorUtility.SetDirty(config);
                     AssetDatabase.SaveAssetIfDirty(config);
+                    serializedObject.Update();
                 }
-            })
-            { text = "↺ Restore Default Languages List" };
+            }) { text = "↺ Reset Presets" };
             restoreLangsBtn.AddToClassList("bp-btn");
-            restoreLangsBtn.style.marginTop = 6;
-            langsCard.Add(restoreLangsBtn);
+            restoreLangsBtn.style.height = 22;
+            restoreLangsBtn.style.paddingLeft = 8;
+            restoreLangsBtn.style.paddingRight = 8;
+            restoreLangsBtn.style.fontSize = 11;
+            actionsRow.Add(restoreLangsBtn);
 
+            matrixFoldout.Add(actionsRow);
+
+            // Tags / Pills Container
+            var tagsContainer = new VisualElement();
+            tagsContainer.style.flexDirection = FlexDirection.Row;
+            tagsContainer.style.flexWrap = Wrap.Wrap;
+            tagsContainer.style.marginBottom = 10;
+
+            void RefreshTags()
+            {
+                tagsContainer.Clear();
+                if (config.languages == null) return;
+
+                for (int i = 0; i < config.languages.Count; i++)
+                {
+                    var lp = config.languages[i];
+                    var tagBtn = new Button();
+                    tagBtn.AddToClassList("bp-btn");
+                    tagBtn.style.flexDirection = FlexDirection.Row;
+                    tagBtn.style.alignItems = Align.Center;
+                    tagBtn.style.paddingLeft = 8;
+                    tagBtn.style.paddingRight = 8;
+                    tagBtn.style.paddingTop = 3;
+                    tagBtn.style.paddingBottom = 3;
+                    tagBtn.style.marginRight = 6;
+                    tagBtn.style.marginBottom = 6;
+                    tagBtn.style.borderTopLeftRadius = 4;
+                    tagBtn.style.borderTopRightRadius = 4;
+                    tagBtn.style.borderBottomLeftRadius = 4;
+                    tagBtn.style.borderBottomRightRadius = 4;
+
+                    void UpdateTagVisual()
+                    {
+                        if (lp.enabled)
+                        {
+                            tagBtn.text = $"✓  {lp.Name}";
+                            tagBtn.style.backgroundColor = new Color(0.18f, 0.45f, 0.72f, 0.85f);
+                            tagBtn.style.borderTopColor = new Color(0.25f, 0.6f, 0.95f, 1f);
+                            tagBtn.style.borderBottomColor = new Color(0.25f, 0.6f, 0.95f, 1f);
+                            tagBtn.style.borderLeftColor = new Color(0.25f, 0.6f, 0.95f, 1f);
+                            tagBtn.style.borderRightColor = new Color(0.25f, 0.6f, 0.95f, 1f);
+                            tagBtn.style.color = Color.white;
+                        }
+                        else
+                        {
+                            tagBtn.text = $"✕  {lp.Name}";
+                            tagBtn.style.backgroundColor = new Color(0.22f, 0.22f, 0.25f, 0.6f);
+                            tagBtn.style.borderTopColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
+                            tagBtn.style.borderBottomColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
+                            tagBtn.style.borderLeftColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
+                            tagBtn.style.borderRightColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
+                            tagBtn.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+                        }
+                    }
+
+                    UpdateTagVisual();
+
+                    tagBtn.clicked += () =>
+                    {
+                        lp.enabled = !lp.enabled;
+                        UpdateTagVisual();
+                        EditorUtility.SetDirty(config);
+                        AssetDatabase.SaveAssetIfDirty(config);
+                    };
+
+                    tagsContainer.Add(tagBtn);
+                }
+            }
+
+            RefreshTags();
+
+            selAllBtn.clicked += RefreshTags;
+            selNoneBtn.clicked += RefreshTags;
+            restoreLangsBtn.clicked += RefreshTags;
+
+            matrixFoldout.Add(tagsContainer);
+
+            // Raw list foldout for edge cases
+            var rawListFoldout = new Foldout { text = "Customize Languages List (Raw Reorderable Array)", value = false };
+            rawListFoldout.style.opacity = 0.85f;
+            rawListFoldout.Add(new PropertyField(langProp, "Languages Array"));
+            matrixFoldout.Add(rawListFoldout);
+
+            langsCard.Add(matrixFoldout);
             root.Add(langsCard);
 
             // 9. Archiving & Compression

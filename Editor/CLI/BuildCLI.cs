@@ -109,7 +109,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             // Parse Language
-            var langStr = CommandLineArgs.Get("language", "AutoDetect");
+            var defaultCliLang = config != null ? config.defaultLanguage.ToString() : "AutoDetect";
+            var langStr = CommandLineArgs.Get("language", defaultCliLang);
             var language = GameLanguage.AutoDetect;
             foreach (GameLanguage gl in Enum.GetValues(typeof(GameLanguage)))
             {

@@ -5,8 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.23.0] - 2026-09-24
+## [1.24.0] - 2026-09-24
 
+### Added
+- **Default Build Language Selector**: Added `defaultLanguage` to `ProjectBuildConfig` and exposed a clean `Default Build Language` dropdown (defaulting to `Auto Detect`) in both `ProjectBuildConfigCustomEditor` and `BuildPipelineQuickBuildView`. Quick builds and single builds now use this target language.
+- **Modern Tag-Based Matrix Localizations UI**: Replaced raw, vertical 13-element `ReorderableList` in `ProjectBuildConfigCustomEditor` with a collapsible "Batch Matrix Languages (Optional)" section featuring interactive side-by-side toggle chips (`[✓ English]`, `[✓ German]`, etc.) with quick actions ("Select All", "Select None", "↺ Reset Presets") and an optional collapsed raw array for advanced customization.
+- **Explanatory Guidance**: Added informative callouts explaining the distinction between modern multi-language `Auto Detect` builds and single fixed language builds.
+
+## [1.23.0] - 2026-09-24
 ## [1.22.0] - 2026-09-24
 
 ### Changed

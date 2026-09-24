@@ -25,11 +25,12 @@ namespace Wagenheimer.BuildPipeline.Editor
             var descCallout = BuildPipelineUIStyle.CreateCallout("Execute standard release and debug builds with a single click. PlayerSettings, keystores, and splash screens are applied automatically.", "info");
             Root.Add(descCallout);
 
-            // Auto-bump toggle row
-            var bumpRow = new VisualElement();
-            bumpRow.style.flexDirection = FlexDirection.Row;
-            bumpRow.style.alignItems = Align.Center;
-            bumpRow.style.marginBottom = 10;
+            // Options row: Auto-bump toggle and Quick Build Language
+            var optionsRow = new VisualElement();
+            optionsRow.style.flexDirection = FlexDirection.Row;
+            optionsRow.style.alignItems = Align.Center;
+            optionsRow.style.justifyContent = Justify.SpaceBetween;
+            optionsRow.style.marginBottom = 10;
 
             bool autoBump = EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false);
             var bumpToggle = new Toggle("Auto-increment Build Code / Number on Quick Build") { value = autoBump };
@@ -37,8 +38,34 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 EditorPrefs.SetBool("BuildPipeline_AutoBumpOnBuild", e.newValue);
             });
-            bumpRow.Add(bumpToggle);
-            Root.Add(bumpRow);
+            optionsRow.Add(bumpToggle);
+
+            var langContainer = new VisualElement();
+            langContainer.style.flexDirection = FlexDirection.Row;
+            langContainer.style.alignItems = Align.Center;
+
+            var langLabel = new Label("Target Language:");
+            langLabel.style.fontSize = 11;
+            langLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            langLabel.style.marginRight = 6;
+            langContainer.Add(langLabel);
+
+            var currentLang = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect;
+            var langField = new EnumField(currentLang);
+            langField.style.minWidth = 120;
+            langField.RegisterValueChangedCallback(e =>
+            {
+                if (_config != null)
+                {
+                    _config.defaultLanguage = (GameLanguage)e.newValue;
+                    EditorUtility.SetDirty(_config);
+                    AssetDatabase.SaveAssetIfDirty(_config);
+                }
+            });
+            langContainer.Add(langField);
+            optionsRow.Add(langContainer);
+
+            Root.Add(optionsRow);
 
             // Desktop Platform Section
             var desktopCard = BuildPipelineUIStyle.CreateCard("Desktop Targets (Windows & macOS)", "Standard desktop targets for PC distribution channels");
@@ -130,7 +157,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Config = _config,
                 Publisher = pub,
                 PublisherProfile = prof,
-                Language = GameLanguage.AutoDetect,
+                Language = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect,
                 Platform = plat,
                 CheatMode = cheat,
                 DevelopmentBuild = devBuild,

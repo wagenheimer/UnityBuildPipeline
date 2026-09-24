@@ -67,6 +67,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         public List<PublisherProfile> publishers = new List<PublisherProfile>();
 
         [Header("Languages")]
+        [Tooltip("Default build language for single and Quick Builds. AutoDetect is recommended for modern multi-language games.")]
+        public GameLanguage defaultLanguage = GameLanguage.AutoDetect;
         public List<LanguageProfile> languages = new List<LanguageProfile>();
 
         public string GetEffectiveKeystorePassword()
