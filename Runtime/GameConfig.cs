@@ -73,9 +73,6 @@ public class GameConfig : ScriptableObject
     public string SamsungFull = "";
     public string SamsungFree = "";
 
-    [Header("Mac App Store")]
-    public string MacAppStoreID = "";
-
     public bool PublisherIsGoogleAndroid => Publisher is Publisher.GoogleAndroidFree or Publisher.GoogleAndroidFull;
     public bool PublisherIsiOS => Publisher is Publisher.iOSFree or Publisher.iOSFull;
     public bool PublisherIsAmazonAndroid => Publisher is Publisher.AmazonAndroidFree or Publisher.AmazonAndroidFull;

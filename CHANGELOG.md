@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-09-24
+
+### Added
+- **Manual Version & Build Number Editing**: Introduced direct, delayed input fields (`Version` text field, `Android Code` integer field, and `iOS Build #` text field) in `GameConfigCustomEditor`. Developers can now type and restore arbitrary or past versions directly, with robust parsing (`GameVersion.TryParse`) that automatically synchronizes `Major`, `Minor`, and `Build`.
+- **Bidirectional Live Synchronization**: Typing into the version fields updates the status badge and `PlayerSettings` live, and clicking any stepper button (`+ Major`, `+ Minor`, `+ Build`, `Today`, `Code +1`, `iOS +1`) immediately reflects inside the input fields.
+
+### Fixed
+- **Cheat Mode Multi-Checkbox UI Glitch**: Resolved UI layout bug in `GameConfigCustomEditor` where four separate boolean flags (`CheatMode`, `FullGame`, `Demo`, `UseAchievements`) were crammed into a single flex row, causing labels to truncate to a single dot `.` and making it appear as if Cheat Mode had four checkboxes. Each flag is now rendered on its own clearly labeled row.
+
+### Removed
+- **Unused `MacAppStoreID`**: Removed legacy, unreferenced `MacAppStoreID` field from `GameConfig.cs` and the custom inspector card.
+
 ## [1.19.1] - 2026-09-24
 
 ### Fixed

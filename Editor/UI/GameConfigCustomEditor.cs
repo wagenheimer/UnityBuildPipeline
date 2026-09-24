@@ -70,10 +70,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             coreCard.Add(new PropertyField(serializedObject.FindProperty("Publisher"), "Target Publisher"));
             coreCard.Add(new PropertyField(serializedObject.FindProperty("GameLanguage"), "Default Game Language"));
 
-            var flagsBox = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
-            flagsBox.Add(new PropertyField(serializedObject.FindProperty("CheatMode"), "Cheat Mode") { style = { marginRight = 12 } });
-            flagsBox.Add(new PropertyField(serializedObject.FindProperty("FullGame"), "Full Game") { style = { marginRight = 12 } });
-            flagsBox.Add(new PropertyField(serializedObject.FindProperty("Demo"), "Demo Build") { style = { marginRight = 12 } });
+            var flagsBox = new VisualElement { style = { marginTop = 6 } };
+            flagsBox.Add(new PropertyField(serializedObject.FindProperty("CheatMode"), "Cheat Mode"));
+            flagsBox.Add(new PropertyField(serializedObject.FindProperty("FullGame"), "Full Game"));
+            flagsBox.Add(new PropertyField(serializedObject.FindProperty("Demo"), "Demo Build"));
             flagsBox.Add(new PropertyField(serializedObject.FindProperty("UseAchievements"), "Achievements"));
             coreCard.Add(flagsBox);
             root.Add(coreCard);
@@ -91,7 +91,6 @@ namespace Wagenheimer.BuildPipeline.Editor
             storesCard.Add(new PropertyField(serializedObject.FindProperty("AmazonFree"), "Amazon (Free Package)"));
             storesCard.Add(new PropertyField(serializedObject.FindProperty("SamsungFull"), "Samsung Galaxy (Full Package)"));
             storesCard.Add(new PropertyField(serializedObject.FindProperty("SamsungFree"), "Samsung Galaxy (Free Package)"));
-            storesCard.Add(new PropertyField(serializedObject.FindProperty("MacAppStoreID"), "Mac App Store ID"));
             root.Add(storesCard);
 
             // 6. Visual Assets & Sprite Atlases
@@ -122,15 +121,86 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var card = BuildPipelineUIStyle.CreateCard("📦 Version & Build Numbers (Single Source of Truth)");
 
-            var verText = config.GameVersion != null ? $"v{config.GameVersion.GameVersionAsTextWithBetaLabel}" : "v1.0.0";
-            var dateText = config.VersionDate != null ? config.VersionDate.AsText : DateTime.Now.ToString("MMM dd, yyyy");
-
             var statusRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 8 } };
-            var badge = BuildPipelineUIStyle.CreateBadge($"{verText}  •  {dateText}  •  🤖 #{config.AndroidBundleVersionCode}  •  🍎 #{config.iOSBuildNumber}", "ok");
+            var badge = BuildPipelineUIStyle.CreateBadge("", "ok");
             badge.style.fontSize = 11;
             statusRow.Add(badge);
             card.Add(statusRow);
 
+            void RefreshBadge()
+            {
+                var verText = config.GameVersion != null ? $"v{config.GameVersion.GameVersionAsTextWithBetaLabel}" : "v1.0.0";
+                var dateText = config.VersionDate != null ? config.VersionDate.AsText : DateTime.Now.ToString("MMM dd, yyyy");
+                badge.text = $"{verText}  •  {dateText}  •  🤖 #{config.AndroidBundleVersionCode}  •  🍎 #{config.iOSBuildNumber}";
+            }
+            RefreshBadge();
+
+            // Direct editable input fields row
+            var inputsRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 8 } };
+
+            var verField = new TextField("Version")
+            {
+                value = config.GameVersion != null ? config.GameVersion.GameVersionAsText : "1.0",
+                tooltip = "Type semantic version (e.g. 3.0, 2.4.1, 1.0). Updates Major, Minor, and Build on commit.",
+                style = { flexGrow = 1, minWidth = 140, marginRight = 8 }
+            };
+            verField.isDelayed = true;
+            verField.RegisterValueChangedCallback(evt =>
+            {
+                if (config.GameVersion == null) config.GameVersion = new GameVersion();
+                if (GameVersion.TryParse(evt.newValue, out var parsed))
+                {
+                    config.GameVersion.Major = parsed.Major;
+                    config.GameVersion.Minor = parsed.Minor;
+                    config.GameVersion.Build = parsed.Build;
+                }
+                else if (int.TryParse(evt.newValue.Trim(), out int majorOnly))
+                {
+                    config.GameVersion.Major = majorOnly;
+                    config.GameVersion.Minor = 0;
+                    config.GameVersion.Build = 0;
+                }
+                verField.SetValueWithoutNotify(config.GameVersion.GameVersionAsText);
+                RefreshBadge();
+                EditorUtility.SetDirty(config);
+            });
+            inputsRow.Add(verField);
+
+            var andField = new IntegerField("Android Code")
+            {
+                value = config.AndroidBundleVersionCode,
+                tooltip = "Google Play bundleVersionCode. Type directly to set an arbitrary or previous build number.",
+                style = { width = 160, marginRight = 8 }
+            };
+            andField.isDelayed = true;
+            andField.RegisterValueChangedCallback(evt =>
+            {
+                config.AndroidBundleVersionCode = Mathf.Max(1, evt.newValue);
+                PlayerSettings.Android.bundleVersionCode = config.AndroidBundleVersionCode;
+                RefreshBadge();
+                EditorUtility.SetDirty(config);
+            });
+            inputsRow.Add(andField);
+
+            var iosField = new TextField("iOS Build #")
+            {
+                value = config.iOSBuildNumber,
+                tooltip = "Apple App Store / TestFlight build number. Type directly to set an arbitrary or previous build number.",
+                style = { width = 150 }
+            };
+            iosField.isDelayed = true;
+            iosField.RegisterValueChangedCallback(evt =>
+            {
+                config.iOSBuildNumber = string.IsNullOrWhiteSpace(evt.newValue) ? "1" : evt.newValue.Trim();
+                PlayerSettings.iOS.buildNumber = config.iOSBuildNumber;
+                RefreshBadge();
+                EditorUtility.SetDirty(config);
+            });
+            inputsRow.Add(iosField);
+
+            card.Add(inputsRow);
+
+            // Quick steppers row
             var stepperRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, alignItems = Align.Center } };
 
             AddStepperBtn(stepperRow, "+ Major", () =>
@@ -139,6 +209,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.GameVersion.Major++;
                 config.GameVersion.Minor = 0;
                 config.GameVersion.Build = 0;
+                verField.SetValueWithoutNotify(config.GameVersion.GameVersionAsText);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
@@ -147,6 +219,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (config.GameVersion == null) config.GameVersion = new GameVersion();
                 config.GameVersion.Minor++;
                 config.GameVersion.Build = 0;
+                verField.SetValueWithoutNotify(config.GameVersion.GameVersionAsText);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
@@ -154,27 +228,34 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 if (config.GameVersion == null) config.GameVersion = new GameVersion();
                 config.GameVersion.Build++;
+                verField.SetValueWithoutNotify(config.GameVersion.GameVersionAsText);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
             AddStepperBtn(stepperRow, "📅 Today", () =>
             {
                 config.VersionDate = new GameBuildDate(DateTime.Now);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
             AddStepperBtn(stepperRow, "🤖 Code +1", () =>
             {
-                config.AndroidBundleVersionCode++;
+                config.AndroidBundleVersionCode = Mathf.Max(1, config.AndroidBundleVersionCode + 1);
                 PlayerSettings.Android.bundleVersionCode = config.AndroidBundleVersionCode;
+                andField.SetValueWithoutNotify(config.AndroidBundleVersionCode);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
             AddStepperBtn(stepperRow, "🍎 iOS +1", () =>
             {
                 int.TryParse(config.iOSBuildNumber, out int cur);
-                config.iOSBuildNumber = (cur + 1).ToString();
+                config.iOSBuildNumber = Mathf.Max(1, cur + 1).ToString();
                 PlayerSettings.iOS.buildNumber = config.iOSBuildNumber;
+                iosField.SetValueWithoutNotify(config.iOSBuildNumber);
+                RefreshBadge();
                 EditorUtility.SetDirty(config);
             });
 
