@@ -1,0 +1,407 @@
+/* Unity Build Pipeline Common UI Toolkit Stylesheet */
+
+.bp-root {
+    flex-grow: 1;
+    padding: 10px 12px;
+}
+
+/* Header */
+.bp-header {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.bp-header-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bp-header-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.bp-header-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #3498db;
+}
+
+.bp-header-version {
+    font-size: 11px;
+    color: #aaaaaa;
+    margin-left: 8px;
+    padding: 2px 7px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+}
+
+.bp-header-meta {
+    font-size: 11px;
+    color: #888888;
+    margin-top: 3px;
+}
+
+.bp-toolbar-actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.bp-toolbar-btn {
+    height: 24px;
+    padding: 0 10px;
+    font-size: 11px;
+    margin-left: 5px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #dddddd;
+}
+
+.bp-toolbar-btn:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+/* Save Status Bar */
+.bp-save-status {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: rgba(46, 204, 113, 0.12);
+    border-width: 1px;
+    border-color: rgba(46, 204, 113, 0.3);
+}
+
+.bp-save-status--dirty {
+    background-color: rgba(230, 126, 34, 0.15);
+    border-color: rgba(230, 126, 34, 0.4);
+}
+
+.bp-save-status-text {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #e6e6e6;
+}
+
+/* Version & Stepper Bar */
+.bp-version-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    background-color: rgba(0, 0, 0, 0.22);
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.07);
+}
+
+.bp-version-group {
+    flex-direction: row;
+    align-items: center;
+}
+
+.bp-version-label {
+    font-size: 11px;
+    color: #aaaaaa;
+    margin-right: 6px;
+}
+
+.bp-version-val {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #3498db;
+    margin-right: 8px;
+}
+
+.bp-step-btn {
+    width: 22px;
+    height: 20px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    padding: 0;
+    margin-left: 2px;
+}
+
+/* Tab Bar */
+.bp-tab-bar {
+    flex-direction: row;
+    margin-bottom: 10px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    padding: 3px;
+}
+
+.bp-tab-button {
+    flex-grow: 1;
+    height: 28px;
+    border-radius: 4px;
+    border-width: 0;
+    background-color: transparent;
+    color: #bbbbbb;
+    font-size: 12px;
+    -unity-font-style: bold;
+    transition-property: background-color, color;
+    transition-duration: 0.15s;
+}
+
+.bp-tab-button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}
+
+.bp-tab-button--active {
+    background-color: rgba(52, 152, 219, 0.35);
+    color: #ffffff;
+    border-bottom-width: 2px;
+    border-bottom-color: #3498db;
+}
+
+/* Cards */
+.bp-card {
+    background-color: rgba(0, 0, 0, 0.18);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.bp-card-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.bp-card-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #ffffff;
+}
+
+.bp-card-subtitle {
+    font-size: 11px;
+    color: #888888;
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+/* Action Rows */
+.bp-actions-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 6px;
+    margin-bottom: 4px;
+}
+
+.bp-btn {
+    height: 26px;
+    padding: 0 12px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    border-radius: 4px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #e0e0e0;
+}
+
+.bp-btn:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+
+.bp-btn--primary {
+    background-color: #2980b9;
+    border-color: #3498db;
+    color: #ffffff;
+}
+
+.bp-btn--primary:hover {
+    background-color: #3498db;
+}
+
+.bp-btn--success {
+    background-color: #27ae60;
+    border-color: #2ecc71;
+    color: #ffffff;
+}
+
+.bp-btn--success:hover {
+    background-color: #2ecc71;
+}
+
+.bp-btn--danger {
+    background-color: #c0392b;
+    border-color: #e74c3c;
+    color: #ffffff;
+}
+
+.bp-btn--danger:hover {
+    background-color: #e74c3c;
+}
+
+/* Badges */
+.bp-badge {
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.bp-badge--ok {
+    background-color: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border-width: 1px;
+    border-color: rgba(46, 204, 113, 0.4);
+}
+
+.bp-badge--warn {
+    background-color: rgba(241, 196, 15, 0.2);
+    color: #f1c40f;
+    border-width: 1px;
+    border-color: rgba(241, 196, 15, 0.4);
+}
+
+.bp-badge--fail {
+    background-color: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border-width: 1px;
+    border-color: rgba(231, 76, 60, 0.4);
+}
+
+.bp-badge--info {
+    background-color: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+    border-width: 1px;
+    border-color: rgba(52, 152, 219, 0.4);
+}
+
+/* Callouts */
+.bp-callout {
+    padding: 8px 10px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+    border-left-width: 3px;
+}
+
+.bp-callout--info {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-left-color: #3498db;
+}
+
+.bp-callout--warn {
+    background-color: rgba(241, 196, 15, 0.1);
+    border-left-color: #f1c40f;
+}
+
+.bp-callout--ok {
+    background-color: rgba(46, 204, 113, 0.1);
+    border-left-color: #2ecc71;
+}
+
+.bp-callout-text {
+    font-size: 11px;
+    color: #dddddd;
+    white-space: normal;
+}
+
+/* Tables */
+.bp-table-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+.bp-table-row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.bp-table-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 8px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.bp-table-header-cell {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #aaaaaa;
+}
+
+/* Quick Build Grid */
+.bp-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.bp-quick-card {
+    width: 230px;
+    padding: 8px 10px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.09);
+    align-items: flex-start;
+}
+
+.bp-quick-card:hover {
+    background-color: rgba(52, 152, 219, 0.18);
+    border-color: rgba(52, 152, 219, 0.4);
+}
+
+.bp-quick-card--highlight {
+    background-color: rgba(39, 174, 96, 0.18);
+    border-color: rgba(39, 174, 96, 0.45);
+}
+
+.bp-quick-card--highlight:hover {
+    background-color: rgba(39, 174, 96, 0.32);
+    border-color: #2ecc71;
+}
+
+.bp-quick-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #ffffff;
+    margin-bottom: 3px;
+}
+
+.bp-quick-subtitle {
+    font-size: 10px;
+    color: #999999;
+}
+
+/* Code Console Box */
+.bp-code-box {
+    background-color: #181818;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #a6e22e;
+    white-space: normal;
+    margin-top: 6px;
+    margin-bottom: 6px;
+}

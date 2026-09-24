@@ -1,5 +1,7 @@
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Wagenheimer.BuildPipeline;
 
 namespace Wagenheimer.BuildPipeline.Editor
@@ -26,16 +28,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorUtility.DisplayDialog("Build Pipeline", "BuildDebugOverlay added to scene. It will automatically activate in Editor and Development Builds.", "OK");
         }
 
-        public override void OnInspectorGUI()
+        public override VisualElement CreateInspectorGUI()
         {
-            DrawDefaultInspector();
+            var root = new VisualElement();
+            BuildPipelineUIStyle.Apply(root);
 
-            EditorGUILayout.Space(8);
-            EditorGUILayout.HelpBox(
+            var card = BuildPipelineUIStyle.CreateCard("🔍 Build Debug Overlay", "In-game diagnostic HUD showing live publisher, SKU, version, and cheat mode.");
+            InspectorElement.FillDefaultInspector(card, serializedObject, this);
+
+            var callout = BuildPipelineUIStyle.CreateCallout(
                 "BuildDebugOverlay automatically appears in the Unity Editor and Development Builds via [RuntimeInitializeOnLoadMethod].\n\n" +
-                "Press F7 or click the 'BUILD DBG' on-screen button during Play Mode to inspect the runtime Publisher, FullGame status, Package ID, and build numbers.",
-                MessageType.Info);
+                "Press F7 or tap the on-screen 'BUILD DBG' badge during Play Mode to inspect runtime Publisher, FullGame status, Package ID, and build numbers.",
+                "info");
+            callout.style.marginTop = 8;
+            card.Add(callout);
+
+            root.Add(card);
+            return root;
         }
     }
 }
-

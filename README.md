@@ -13,8 +13,14 @@ A modular, multi-project build automation pipeline for Unity. Designed for multi
 - **Language Matrix Batch Generator**: Automatically compile dozens or hundreds of target combinations (Publishers × Languages × Cheat Mode ON/OFF × Dev Builds) with real-time progress and cancellation.
 - **Headless Unity CLI & CI/CD**: 100% callable outside Unity via `-executeMethod` and PowerShell. Never hangs on `EditorUtility.DisplayDialog`. Returns proper exit codes (`0` on success, `1` on error).
 - **Post-Processing Lifecycle**: Built-in splash screen copying (`splash_{publisher}.jpg` into `StreamingAssets/splash1.jpg`), obsolete file cleanup (`UnityCrashHandler*.exe`), and automatic ZIP archiving (.NET `ZipFile` or 7-Zip).
-- **Modern UI Toolkit Window**: Clean, responsive EditorWindow with Quick Build action cards, Matrix configuration, and live CLI command generator.
-- **Unified Runtime `GameConfig`**: Single centralized ScriptableObject for versioning, date stamps, publisher/language enums, cursor textures, and flags, completely backward compatible with existing gameplay code (`MainBase.cs`, etc.).
+- **Modern UI Toolkit Window & Hub**: 100% UI Toolkit interface with custom USS stylesheet (`BuildPipelineCommon.uss`), digital version stepper controls (+Major, +Minor, +Build, release date, bundle code, iOS build number), and 6 dedicated hubs:
+  - ⚡ **Quick Build**: 1-click execution for desktop (Windows/macOS) and mobile (Android/iOS) store targets.
+  - 🏭 **Matrix Batch**: Multi-publisher × Multi-language localized batch compilation with live progress tracking.
+  - 🕘 **Recent Builds**: Build history with size calculation, folder reveal shortcuts, and ADB/bundletool install triggers.
+  - 🔐 **Keystore & Vault**: Android signing keys and remote HTTPS credential vault tester.
+  - 💻 **CLI & Automation**: Interactive headless command generator for PowerShell, Bash, and batchmode Unity CLI.
+  - ⚙️ **Project Config**: Native UI Toolkit inspector data-binding with live dirty-state tracking.
+- **Native UI Toolkit Inspectors**: `ProjectBuildConfigCustomEditor`, `GameConfigCustomEditor`, and `BuildDebugOverlayEditor` are fully converted to `CreateInspectorGUI()`, replacing legacy IMGUI completely.
 
 ---
 

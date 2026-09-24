@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-09-23
+
+### Added
+- **UI Toolkit Design System**: Modernized interface with `BuildPipelineCommon.uss` and `BuildPipelineUIStyle.cs` featuring dark theme styling, card containers, status badges (`ok`, `warn`, `fail`, `info`), and callouts.
+- **Modular View Architecture**: Decomposed monolithic 1,400+ line window into dedicated views:
+  - `BuildPipelineHeaderView`: Live version banner, digital stepper controls (+Major, +Minor, +Build, Today, Android bundle code, iOS build number), and dirty state tracking.
+  - `BuildPipelineQuickBuildView`: Responsive desktop & mobile targets grid with 1-click execution.
+  - `BuildPipelineMatrixView`: Multi-publisher x Multi-language batch generation with live progress bar.
+  - `BuildPipelineHistoryView`: Recent builds table, disk size calculation, folder reveals, and ADB/bundletool install triggers.
+  - `BuildPipelineVaultView`: Android keystore and remote vault connection testing, secret token status, and keystore browser.
+  - `BuildPipelineCliView`: Headless CLI command generator (PowerShell, Bash, Unity `-batchmode`) with copy-to-clipboard.
+- **UI Toolkit Custom Inspectors**: Converted `ProjectBuildConfigCustomEditor`, `GameConfigCustomEditor`, and `BuildDebugOverlayEditor` to native `CreateInspectorGUI()` using `SerializedObject` data binding.
+- **UI Toolkit Guide Window**: Fully converted `BuildPipelineGuideWindow` from legacy `OnGUI()` to UI Toolkit `CreateGUI()` with cards and syntax-highlighted code blocks.
+
 ## [1.11.2] - 2026-09-21
 
 ### Changed
