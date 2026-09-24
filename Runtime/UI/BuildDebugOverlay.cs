@@ -447,7 +447,7 @@ namespace Wagenheimer.BuildPipeline
             {
                 CreateRow(card, "Demo Mode", cfg.Demo ? "YES" : "NO");
                 CreateRow(card, "Free to Play", cfg.FreeToPlay ? "YES" : "NO");
-                CreateRow(card, "Language", cfg.GameLanguage);
+                CreateRow(card, "Language", cfg.GameLanguage.ToString());
                 CreateRow(card, "Achievements Enabled", cfg.UseAchievements ? "YES" : "NO");
                 CreateRow(card, "Level Editor", cfg.LevelEditor ? "YES" : "NO");
             }
@@ -708,7 +708,7 @@ namespace Wagenheimer.BuildPipeline
             return card;
         }
 
-        private Label CreateRow(VisualElement parent, string key, string value)
+        private Label CreateRow(VisualElement parent, string key, object value)
         {
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
@@ -721,7 +721,7 @@ namespace Wagenheimer.BuildPipeline
             keyLbl.style.color = new StyleColor(new Color(0.68f, 0.70f, 0.76f));
             row.Add(keyLbl);
 
-            var valLbl = new Label(value);
+            var valLbl = new Label(value != null ? value.ToString() : "");
             valLbl.style.fontSize = 11;
             valLbl.style.color = new StyleColor(Color.white);
             valLbl.style.unityFontStyleAndWeight = FontStyle.Bold;

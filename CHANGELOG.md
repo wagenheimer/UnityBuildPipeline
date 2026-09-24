@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.15.0] - 2026-09-24
 
+### Fixed
+- Fixed `GameLanguage` to string conversion error in `BuildDebugOverlay` and updated `CreateRow` to accept object values.
+
 ## [1.14.0] - 2026-09-24
 
 ### Added
