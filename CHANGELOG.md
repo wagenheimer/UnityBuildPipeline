@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-09-24
+
+### Added
+- **UI Toolkit In-Game Overlay (`BuildDebugOverlay`)**: Fully migrated the runtime debug HUD from legacy IMGUI (`OnGUI()`) to native UI Toolkit (`UIDocument`).
+  - Sleek dark-slate design system with draggable floating window and minimize controls.
+  - Interactive floating launcher badge (`🔨 BUILD DBG`) anchored at bottom-left.
+  - Real-time Publisher and FullGame SKU verification with match/mismatch status banners.
+  - Complete version and build code inspector (Application.version, GameVersion, AndroidBundleVersionCode, iOSBuildNumber).
+  - Store package identifiers audit table with 1-click clipboard copy buttons.
+  - Runtime environment stats (display resolution, refresh rate, device model, graphics memory, active scenes).
+  - Quick action controls: toggle cheats live, copy full diagnostic markdown report, log to Console/Logcat.
+
 ## [1.13.1] - 2026-09-24
 
 ## [1.13.0] - 2026-09-24
