@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.27.0] - 2026-09-24
+
+### Fixed
+- **Font Overlap on Subheaders**: Removed raw Unicode emojis from `GameConfigCustomEditor` section titles (`DEVELOPMENT & TESTING TOOLS` and `FEATURES & LOCALIZATION`) to eliminate Unity's UI Toolkit font fallback glitch where the icon and text were overlapping on Windows.
+- **Toggle Label Truncation**: Replaced two-column `PropertyField` with full-width `Toggle` elements in `AddDescriptiveToggle`, preventing toggle labels from being clamped to 45% width and truncated with ellipsis (`...`).
+- **Removed Unused `FreeToPlay`**: Completely removed obsolete `FreeToPlay` flag from `GameConfig.cs`, `GameConfigCustomEditor.cs`, and `BuildDebugOverlay.cs`.
+
 ## [1.26.1] - 2026-09-24
 
 ## [1.26.0] - 2026-09-24

@@ -20,9 +20,6 @@ public class GameConfig : ScriptableObject
     public bool UseAchievements = true;
 
     [Header("Extra Settings & Developer Options")]
-    [Tooltip("Tags the build as Free-to-Play monetization model (ads/energy loop) instead of Premium paywall.")]
-    public bool FreeToPlay = false;
-
     [Tooltip("Forces the native OS cursor instead of rendering the custom game cursor texture.")]
     public bool NoCustomCursor = false;
 

@@ -109,12 +109,12 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "Shared framework flags for level editor testing, telemetry, profile bypass, and localization behavior"
             );
 
-            var devHeader = new Label("🛠 Development & Testing Tools");
-            devHeader.style.fontSize = 11;
+            var devHeader = new Label("DEVELOPMENT & TESTING TOOLS");
+            devHeader.style.fontSize = 10;
             devHeader.style.unityFontStyleAndWeight = FontStyle.Bold;
-            devHeader.style.marginTop = 2;
-            devHeader.style.marginBottom = 6;
-            devHeader.style.color = new StyleColor(new Color(0.7f, 0.75f, 0.85f));
+            devHeader.style.marginTop = 4;
+            devHeader.style.marginBottom = 8;
+            devHeader.style.color = new StyleColor(new Color(0.45f, 0.7f, 0.95f));
             extraCard.Add(devHeader);
 
             AddDescriptiveToggle(extraCard, serializedObject.FindProperty("LevelEditor"),
@@ -129,12 +129,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "Use Only Editor Player",
                 "Bypasses profile selection in Editor and auto-loads a fixed 'Editor (Testing)' profile on Play.");
 
-            var gameHeader = new Label("🌍 Features & Localization");
-            gameHeader.style.fontSize = 11;
+            var gameHeader = new Label("FEATURES & LOCALIZATION");
+            gameHeader.style.fontSize = 10;
             gameHeader.style.unityFontStyleAndWeight = FontStyle.Bold;
-            gameHeader.style.marginTop = 10;
-            gameHeader.style.marginBottom = 6;
-            gameHeader.style.color = new StyleColor(new Color(0.7f, 0.75f, 0.85f));
+            gameHeader.style.marginTop = 12;
+            gameHeader.style.marginBottom = 8;
+            gameHeader.style.paddingTop = 8;
+            gameHeader.style.borderTopWidth = 1;
+            gameHeader.style.borderTopColor = new StyleColor(new Color(1f, 1f, 1f, 0.08f));
+            gameHeader.style.color = new StyleColor(new Color(0.45f, 0.7f, 0.95f));
             extraCard.Add(gameHeader);
 
             AddDescriptiveToggle(extraCard, serializedObject.FindProperty("ExternalTranslation"),
@@ -144,10 +147,6 @@ namespace Wagenheimer.BuildPipeline.Editor
             AddDescriptiveToggle(extraCard, serializedObject.FindProperty("NoCustomCursor"),
                 "Disable Custom Cursor",
                 "Forces the operating system's native cursor instead of the custom in-game cursor texture.");
-
-            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("FreeToPlay"),
-                "Free-to-Play Mode",
-                "Identifies this build as following a Free-to-Play economy (ads/energy) rather than Premium paywall.");
 
             root.Add(extraCard);
 
@@ -314,15 +313,26 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static void AddDescriptiveToggle(VisualElement container, SerializedProperty prop, string label, string description)
         {
             if (prop == null) return;
-            var box = new VisualElement { style = { marginBottom = 8 } };
-            var field = new PropertyField(prop, label);
+            var box = new VisualElement { style = { marginBottom = 10 } };
+
+            var toggle = new Toggle(label)
+            {
+                bindingPath = prop.propertyPath
+            };
+            toggle.BindProperty(prop);
+            toggle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            toggle.style.fontSize = 11;
+            toggle.style.marginLeft = 0;
+            toggle.style.marginBottom = 2;
+
             var desc = new Label(description);
             desc.style.fontSize = 10;
-            desc.style.color = new StyleColor(new Color(0.55f, 0.55f, 0.6f));
+            desc.style.color = new StyleColor(new Color(0.6f, 0.6f, 0.65f));
             desc.style.whiteSpace = WhiteSpace.Normal;
-            desc.style.marginLeft = 4;
-            desc.style.marginTop = 1;
-            box.Add(field);
+            desc.style.marginLeft = 20;
+            desc.style.marginTop = 0;
+
+            box.Add(toggle);
             box.Add(desc);
             container.Add(box);
         }

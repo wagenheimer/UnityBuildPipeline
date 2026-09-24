@@ -446,7 +446,6 @@ namespace Wagenheimer.BuildPipeline
             if (cfg != null)
             {
                 CreateRow(card, "Demo Mode", cfg.Demo ? "YES" : "NO");
-                CreateRow(card, "Free to Play", cfg.FreeToPlay ? "YES" : "NO");
                 CreateRow(card, "Language", cfg.GameLanguage.ToString());
                 CreateRow(card, "Achievements Enabled", cfg.UseAchievements ? "YES" : "NO");
                 CreateRow(card, "Level Editor", cfg.LevelEditor ? "YES" : "NO");
