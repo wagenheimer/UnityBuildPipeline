@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-09-24
+
+### Fixed
+- **Added Missing `.meta` File**: Generated and committed `BuildPipelineConfigView.cs.meta`, fixing `error CS0246` where Roslyn ignored the new config view file in package cache and prevented assembly reload.
+- **Side-by-Side TagGroup Tab Bar**: Restructured `CreateTabBar` with explicit horizontal inline flex layout (`flexDirection = Row`, `flexGrow = 1`, `height = 30`), dark pill container, and prominent active tag styling, guaranteeing side-by-side TagGroup tabs across all Unity Editor display environments.
+
 ## [1.17.1] - 2026-09-24
 
 ## [1.17.0] - 2026-09-24

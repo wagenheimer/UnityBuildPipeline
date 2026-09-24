@@ -172,7 +172,24 @@ namespace Wagenheimer.BuildPipeline.Editor
             tabRow.AddToClassList("bp-tab-bar");
             tabRow.style.flexDirection = FlexDirection.Row;
             tabRow.style.flexShrink = 0;
-            tabRow.style.marginBottom = 10;
+            tabRow.style.backgroundColor = new Color(0.12f, 0.12f, 0.15f, 1f);
+            tabRow.style.borderTopWidth = 1;
+            tabRow.style.borderBottomWidth = 1;
+            tabRow.style.borderLeftWidth = 1;
+            tabRow.style.borderRightWidth = 1;
+            tabRow.style.borderTopColor = new Color(0.2f, 0.2f, 0.25f, 1f);
+            tabRow.style.borderBottomColor = new Color(0.2f, 0.2f, 0.25f, 1f);
+            tabRow.style.borderLeftColor = new Color(0.2f, 0.2f, 0.25f, 1f);
+            tabRow.style.borderRightColor = new Color(0.2f, 0.2f, 0.25f, 1f);
+            tabRow.style.borderTopLeftRadius = 6;
+            tabRow.style.borderTopRightRadius = 6;
+            tabRow.style.borderBottomLeftRadius = 6;
+            tabRow.style.borderBottomRightRadius = 6;
+            tabRow.style.paddingTop = 3;
+            tabRow.style.paddingBottom = 3;
+            tabRow.style.paddingLeft = 3;
+            tabRow.style.paddingRight = 3;
+            tabRow.style.marginBottom = 12;
 
             (string icon, string label)[] tabs =
             {
@@ -199,11 +216,45 @@ namespace Wagenheimer.BuildPipeline.Editor
                 tabBtn.AddToClassList("bp-tab-button");
                 tabBtn.style.flexGrow = 1;
                 tabBtn.style.flexShrink = 0;
-                tabBtn.style.height = 32;
+                tabBtn.style.height = 30;
+                tabBtn.style.marginLeft = 2;
+                tabBtn.style.marginRight = 2;
+                tabBtn.style.marginTop = 0;
+                tabBtn.style.marginBottom = 0;
+                tabBtn.style.paddingLeft = 6;
+                tabBtn.style.paddingRight = 6;
+                tabBtn.style.paddingTop = 0;
+                tabBtn.style.paddingBottom = 0;
+                tabBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+                tabBtn.style.fontSize = 11;
+                tabBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+                tabBtn.style.borderTopLeftRadius = 4;
+                tabBtn.style.borderTopRightRadius = 4;
+                tabBtn.style.borderBottomLeftRadius = 4;
+                tabBtn.style.borderBottomRightRadius = 4;
 
                 if (isSelected)
                 {
                     tabBtn.AddToClassList("bp-tab-button--active");
+                    tabBtn.style.backgroundColor = new Color(0.17f, 0.24f, 0.36f, 1f);
+                    tabBtn.style.color = Color.white;
+                    tabBtn.style.borderBottomWidth = 2;
+                    tabBtn.style.borderBottomColor = new Color(0.2f, 0.6f, 0.86f, 1f);
+                    tabBtn.style.borderTopWidth = 1;
+                    tabBtn.style.borderLeftWidth = 1;
+                    tabBtn.style.borderRightWidth = 1;
+                    tabBtn.style.borderTopColor = new Color(0.24f, 0.35f, 0.5f, 1f);
+                    tabBtn.style.borderLeftColor = new Color(0.24f, 0.35f, 0.5f, 1f);
+                    tabBtn.style.borderRightColor = new Color(0.24f, 0.35f, 0.5f, 1f);
+                }
+                else
+                {
+                    tabBtn.style.backgroundColor = Color.clear;
+                    tabBtn.style.color = new Color(0.63f, 0.63f, 0.67f, 1f);
+                    tabBtn.style.borderTopWidth = 0;
+                    tabBtn.style.borderBottomWidth = 0;
+                    tabBtn.style.borderLeftWidth = 0;
+                    tabBtn.style.borderRightWidth = 0;
                 }
 
                 tabRow.Add(tabBtn);
