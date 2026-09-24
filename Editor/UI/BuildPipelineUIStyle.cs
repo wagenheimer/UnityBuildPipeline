@@ -112,6 +112,66 @@ namespace Wagenheimer.BuildPipeline.Editor
             var btnContainer = new VisualElement();
             btnContainer.style.flexDirection = FlexDirection.Row;
             btnContainer.style.alignItems = Align.Center;
+
+            var discardBtn = new Button(() =>
+            {
+                var dirtyList = assetList.Where(a => a != null && EditorUtility.IsDirty(a)).ToList();
+                if (dirtyList.Count == 0) return;
+
+                string listText = string.Join("\n", dirtyList.Select(x => $"• {x.name} ({x.GetType().Name})"));
+                if (EditorUtility.DisplayDialog(
+                    "Discard Changes",
+                    $"Discard all unsaved in-memory changes for:\n\n{listText}\n\nAny unsaved edits will be lost and reverted from disk.",
+                    "Discard Changes",
+                    "Cancel"))
+                {
+                    foreach (var a in dirtyList)
+                    {
+                        if (a != null)
+                        {
+                            EditorUtility.ClearDirty(a);
+                            string path = AssetDatabase.GetAssetPath(a);
+                            if (!string.IsNullOrEmpty(path))
+                            {
+                                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                            }
+                        }
+                    }
+                    AssetDatabase.Refresh();
+                    Debug.Log("[BuildPipeline] Unsaved in-memory changes discarded and reloaded from disk.");
+                    onSave?.Invoke();
+                }
+            })
+            { text = "↺ Discard Changes" };
+            discardBtn.AddToClassList("bp-btn");
+            discardBtn.style.height = 22;
+            discardBtn.style.marginRight = 6;
+            discardBtn.style.marginBottom = 0;
+            btnContainer.Add(discardBtn);
+
+            var saveBtn = new Button(() =>
+            {
+                var dirtyList = assetList.Where(a => a != null && EditorUtility.IsDirty(a)).ToList();
+                foreach (var a in dirtyList)
+                {
+                    if (a != null)
+                    {
+                        EditorUtility.SetDirty(a);
+                        AssetDatabase.SaveAssetIfDirty(a);
+                    }
+                }
+                AssetDatabase.SaveAssets();
+                Debug.Log("[BuildPipeline] Changes saved to disk successfully.");
+                onSave?.Invoke();
+            })
+            { text = "💾 Save to Disk" };
+            saveBtn.AddToClassList("bp-btn");
+            saveBtn.AddToClassList("bp-btn--primary");
+            saveBtn.style.height = 22;
+            saveBtn.style.marginRight = 0;
+            saveBtn.style.marginBottom = 0;
+            btnContainer.Add(saveBtn);
+
             bar.Add(btnContainer);
 
             void RefreshState()
@@ -126,63 +186,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                     string dirtyNames = string.Join(", ", dirtyList.Select(x => x.name));
                     label.text = $"⚠ Changes in memory ({dirtyNames}) — NOT written to disk.";
-
-                    btnContainer.Clear();
-
-                    var discardBtn = new Button(() =>
-                    {
-                        string listText = string.Join("\n", dirtyList.Select(x => $"• {x.name} ({x.GetType().Name})"));
-                        if (EditorUtility.DisplayDialog(
-                            "Discard Changes",
-                            $"Discard all unsaved in-memory changes for:\n\n{listText}\n\nAny unsaved edits will be lost and reverted from disk.",
-                            "Discard Changes",
-                            "Cancel"))
-                        {
-                            foreach (var a in dirtyList)
-                            {
-                                if (a != null)
-                                {
-                                    EditorUtility.ClearDirty(a);
-                                    string path = AssetDatabase.GetAssetPath(a);
-                                    if (!string.IsNullOrEmpty(path))
-                                    {
-                                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-                                    }
-                                }
-                            }
-                            AssetDatabase.Refresh();
-                            Debug.Log("[BuildPipeline] Unsaved in-memory changes discarded and reloaded from disk.");
-                            onSave?.Invoke();
-                        }
-                    })
-                    { text = "↺ Discard Changes" };
-                    discardBtn.AddToClassList("bp-btn");
-                    discardBtn.style.height = 22;
-                    discardBtn.style.marginRight = 6;
-                    discardBtn.style.marginBottom = 0;
-                    btnContainer.Add(discardBtn);
-
-                    var saveBtn = new Button(() =>
-                    {
-                        foreach (var a in dirtyList)
-                        {
-                            if (a != null)
-                            {
-                                EditorUtility.SetDirty(a);
-                                AssetDatabase.SaveAssetIfDirty(a);
-                            }
-                        }
-                        AssetDatabase.SaveAssets();
-                        Debug.Log("[BuildPipeline] Changes saved to disk successfully.");
-                        onSave?.Invoke();
-                    })
-                    { text = "💾 Save to Disk" };
-                    saveBtn.AddToClassList("bp-btn");
-                    saveBtn.AddToClassList("bp-btn--primary");
-                    saveBtn.style.height = 22;
-                    saveBtn.style.marginRight = 0;
-                    saveBtn.style.marginBottom = 0;
-                    btnContainer.Add(saveBtn);
+                    btnContainer.style.display = DisplayStyle.Flex;
                 }
                 else
                 {
@@ -190,12 +194,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                         bar.RemoveFromClassList("bp-save-status--dirty");
 
                     label.text = "✔ Everything saved to disk.";
-                    btnContainer.Clear();
+                    btnContainer.style.display = DisplayStyle.None;
                 }
             }
 
             RefreshState();
-            bar.schedule.Execute(RefreshState).Every(500);
+            bar.RegisterCallback<AttachToPanelEvent>(e => RefreshState());
+            bar.schedule.Execute(RefreshState).Every(400);
 
             return bar;
         }

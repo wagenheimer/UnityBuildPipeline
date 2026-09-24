@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-09-24
+
+### Fixed
+- **Tab Bar Layout Stability**: Removed problematic `flex-basis: 0` and `justify-content: space-between` from `.bp-tab-bar` and `.bp-tab-button` USS rules, which caused Yoga layout engine in Unity to collapse all tab buttons to 0px width and overlap labels in the center. Enforced inline C# layout parameters (`FlexDirection.Row`, `flexGrow = 1`, `flexShrink = 0`, `height = 32`) to guarantee flawless horizontal distribution.
+- **Save & Discard Status Bar Robustness**: Refactored `CreateSaveStatusBar` to instantiate `↺ Discard Changes` and `💾 Save to Disk` as permanent UI elements with instantaneous display toggling instead of recreating DOM nodes every polling cycle, eliminating any possibility of UI flicker or dropped click events.
+
 ## [1.16.1] - 2026-09-24
 
 ### Fixed

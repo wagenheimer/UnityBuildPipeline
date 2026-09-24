@@ -170,6 +170,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var tabRow = new VisualElement();
             tabRow.AddToClassList("bp-tab-bar");
+            tabRow.style.flexDirection = FlexDirection.Row;
+            tabRow.style.flexShrink = 0;
+            tabRow.style.marginBottom = 10;
 
             (string icon, string label)[] tabs =
             {
@@ -194,6 +197,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 { text = $"{tabs[i].icon} {tabs[i].label}" };
 
                 tabBtn.AddToClassList("bp-tab-button");
+                tabBtn.style.flexGrow = 1;
+                tabBtn.style.flexShrink = 0;
+                tabBtn.style.height = 32;
+
                 if (isSelected)
                 {
                     tabBtn.AddToClassList("bp-tab-button--active");
