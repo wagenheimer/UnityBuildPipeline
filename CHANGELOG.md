@@ -5,8 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.21.0] - 2026-09-24
+## [1.22.0] - 2026-09-24
 
+### Changed
+- **Categorized Extra Settings**: Restructured the "Extra Settings & Options" inspector card into two logical sub-groups: "🛠 Development & Testing Tools" (`LevelEditor`, `LogLevelsInfo`, `UseOnlyEditorPlayer`) and "🌍 Features & Localization" (`CanChangeLanguage`, `ExternalTranslation`, `NoCustomCursor`, `FreeToPlay`).
+- **Descriptive Explanations**: Added permanent, clear descriptive subtitles under each setting and comprehensive field `[Tooltip]` attributes in `GameConfig.cs` detailing exact runtime behaviors, logging destinations, and developer workflows.
+
+## [1.21.0] - 2026-09-24
 ## [1.20.0] - 2026-09-24
 
 ### Added

@@ -104,14 +104,55 @@ namespace Wagenheimer.BuildPipeline.Editor
             root.Add(assetsCard);
 
             // 7. Extra Configuration Flags
-            var extraCard = BuildPipelineUIStyle.CreateCard("Extra Settings & Options");
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("FreeToPlay"), "Free To Play Mode"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("NoCustomCursor"), "Disable Custom Cursor"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("LogLevelsInfo"), "Log Levels Info"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("LevelEditor"), "Enable Level Editor"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("ExternalTranslation"), "External Translation"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("UseOnlyEditorPlayer"), "Use Only Editor Player"));
-            extraCard.Add(new PropertyField(serializedObject.FindProperty("CanChangeLanguage"), "Can Change Language In-Game"));
+            var extraCard = BuildPipelineUIStyle.CreateCard(
+                "Extra Developer & Gameplay Settings",
+                "Shared framework flags for level editor testing, telemetry, profile bypass, and localization behavior"
+            );
+
+            var devHeader = new Label("🛠 Development & Testing Tools");
+            devHeader.style.fontSize = 11;
+            devHeader.style.unityFontStyleAndWeight = FontStyle.Bold;
+            devHeader.style.marginTop = 2;
+            devHeader.style.marginBottom = 6;
+            devHeader.style.color = new StyleColor(new Color(0.7f, 0.75f, 0.85f));
+            extraCard.Add(devHeader);
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("LevelEditor"),
+                "Enable Level Editor",
+                "Shows the in-game board/puzzle level editor button in Main Menu to test and design levels.");
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("LogLevelsInfo"),
+                "Log Levels Telemetry",
+                "Generates level completion metrics (score, moves, time) to disk and sends telemetry to analytics servers.");
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("UseOnlyEditorPlayer"),
+                "Use Only Editor Player",
+                "Bypasses profile selection in Editor and auto-loads a fixed 'Editor (Testing)' profile on Play.");
+
+            var gameHeader = new Label("🌍 Features & Localization");
+            gameHeader.style.fontSize = 11;
+            gameHeader.style.unityFontStyleAndWeight = FontStyle.Bold;
+            gameHeader.style.marginTop = 10;
+            gameHeader.style.marginBottom = 6;
+            gameHeader.style.color = new StyleColor(new Color(0.7f, 0.75f, 0.85f));
+            extraCard.Add(gameHeader);
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("CanChangeLanguage"),
+                "Can Change Language In-Game",
+                "Enables in-game language switching via the flag selector in the Options menu.");
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("ExternalTranslation"),
+                "External Translation (StreamingAssets)",
+                "Dynamically loads external translations from StreamingAssets/{lang}.txt into I2 Localization at startup.");
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("NoCustomCursor"),
+                "Disable Custom Cursor",
+                "Forces the operating system's native cursor instead of the custom in-game cursor texture.");
+
+            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("FreeToPlay"),
+                "Free-to-Play Mode",
+                "Identifies this build as following a Free-to-Play economy (ads/energy) rather than Premium paywall.");
+
             root.Add(extraCard);
 
             return root;
@@ -272,6 +313,22 @@ namespace Wagenheimer.BuildPipeline.Editor
             btn.style.marginRight = 4;
             btn.style.marginBottom = 4;
             parent.Add(btn);
+        }
+
+        private static void AddDescriptiveToggle(VisualElement container, SerializedProperty prop, string label, string description)
+        {
+            if (prop == null) return;
+            var box = new VisualElement { style = { marginBottom = 8 } };
+            var field = new PropertyField(prop, label);
+            var desc = new Label(description);
+            desc.style.fontSize = 10;
+            desc.style.color = new StyleColor(new Color(0.55f, 0.55f, 0.6f));
+            desc.style.whiteSpace = WhiteSpace.Normal;
+            desc.style.marginLeft = 4;
+            desc.style.marginTop = 1;
+            box.Add(field);
+            box.Add(desc);
+            container.Add(box);
         }
 
         private void EnsureSubObjects(GameConfig config)

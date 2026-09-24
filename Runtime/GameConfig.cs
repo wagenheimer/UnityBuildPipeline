@@ -19,15 +19,26 @@ public class GameConfig : ScriptableObject
     public bool Demo = false;
     public bool UseAchievements = true;
 
-    [Header("Extra Settings")]
+    [Header("Extra Settings & Developer Options")]
+    [Tooltip("Tags the build as Free-to-Play monetization model (ads/energy loop) instead of Premium paywall.")]
     public bool FreeToPlay = false;
+
+    [Tooltip("Forces the native OS cursor instead of rendering the custom game cursor texture.")]
     public bool NoCustomCursor = false;
+
+    [Tooltip("Logs level completion metrics (score, moves, time) to disk and sends online telemetry to analytics servers.")]
     public bool LogLevelsInfo = true;
+
+    [Tooltip("Shows the in-game board/puzzle level editor button in Main Menu for designer testing and level creation.")]
     public bool LevelEditor = false;
+
+    [Tooltip("Loads translations dynamically from StreamingAssets/{languageCode}.txt into I2 Localization at runtime.")]
     public bool ExternalTranslation = false;
-    [Tooltip("Bypasses the multi-profile player list and loads the in-Editor player directly.")]
+
+    [Tooltip("Bypasses the multi-profile player list and loads the in-Editor player directly to speed up testing.")]
     public bool UseOnlyEditorPlayer = true;
-    [Tooltip("Whether the player can switch the game language from in-game UI.")]
+
+    [Tooltip("Allows players to switch language flags freely inside the in-game Options menu.")]
     public bool CanChangeLanguage = false;
 
     [Header("Version")]
