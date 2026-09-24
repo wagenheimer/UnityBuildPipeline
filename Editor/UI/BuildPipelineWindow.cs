@@ -169,7 +169,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private VisualElement CreateTabBar()
         {
             var tabRow = new VisualElement();
-            tabRow.AddToClassList("bp-tab-row");
+            tabRow.AddToClassList("bp-tab-bar");
 
             (string icon, string label)[] tabs =
             {
@@ -196,7 +196,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 tabBtn.AddToClassList("bp-tab-button");
                 if (isSelected)
                 {
-                    tabBtn.AddToClassList("active");
+                    tabBtn.AddToClassList("bp-tab-button--active");
                 }
 
                 tabRow.Add(tabBtn);
@@ -226,37 +226,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                     _contentContainer.Add(new BuildPipelineCliView().Root);
                     break;
                 case 5:
-                    BuildConfigTab();
+                    _contentContainer.Add(new BuildPipelineConfigView(_config, RebuildUI).Root);
                     break;
             }
-        }
-
-        private void BuildConfigTab()
-        {
-            var card = BuildPipelineUIStyle.CreateCard("⚙️ Project Build Configuration", "Configure output paths, target platforms, custom publishers, and remote vault endpoints.");
-
-            if (_config != null)
-            {
-                var editor = UnityEditor.Editor.CreateEditor(_config);
-                if (editor != null)
-                {
-                    var inspector = editor.CreateInspectorGUI();
-                    if (inspector != null)
-                    {
-                        card.Add(inspector);
-                    }
-                    else
-                    {
-                        card.Add(new IMGUIContainer(editor.OnInspectorGUI));
-                    }
-                }
-            }
-            else
-            {
-                card.Add(BuildPipelineUIStyle.CreateCallout("No ProjectBuildConfig asset found. Use Tools → Build Pipeline → Migrate or Create Project Config to generate one.", "warn"));
-            }
-
-            _contentContainer.Add(card);
         }
     }
 }

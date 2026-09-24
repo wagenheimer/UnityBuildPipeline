@@ -67,10 +67,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             Root.Add(header);
 
-            // 2. Save Status Bar
-            if (config != null && config.gameConfig != null)
+            // 2. Save Status Bar (tracks both ProjectBuildConfig and GameConfig)
+            if (config != null)
             {
-                Root.Add(BuildPipelineUIStyle.CreateSaveStatusBar(config.gameConfig, onRebuild));
+                Root.Add(BuildPipelineUIStyle.CreateSaveStatusBar(new UnityEngine.Object[] { config, config.gameConfig }, onRebuild));
             }
 
             // 3. Version & Build Numbers Bar

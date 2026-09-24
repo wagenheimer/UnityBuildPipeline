@@ -5,10 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-09-24
+
+### Added
+- **Discard Changes Action**: Added `↺ Discard Changes` button with safety confirmation dialog to the unsaved changes warning bar. Allows instant reverting of in-memory modifications and reloading pristine assets from disk via `AssetDatabase.ImportAsset`.
+- **Live Reactive Save Status Bar**: Save status bar now tracks multiple assets simultaneously (`ProjectBuildConfig` and `GameConfig`) and auto-refreshes state dynamically every 500ms using UI Toolkit scheduling.
+- **Dedicated Project Config View (`BuildPipelineConfigView`)**: Replaced raw inspector embedding with a dedicated clean UI Toolkit view. Eliminates redundant "Open Window" buttons, duplicate Quick Build runners, and nested cards inside the main window.
+
+### Fixed
+- **Horizontal Tab Navigation Toolbar**: Fixed broken CSS class binding (`bp-tab-row` -> `bp-tab-bar` and `active` -> `bp-tab-button--active`) that previously rendered the 6 tabs vertically stacked. Tabs now render as a sleek, modern segmented toolbar with equal button distribution, active accent underline, and smooth hover feedback.
+
 ## [1.15.1] - 2026-09-24
 
 ### Fixed
-- fix GameLanguage string conversion and make CreateRow accept object values
+- Fixed `GameLanguage` string conversion in `BuildDebugOverlay` and updated `CreateRow` to accept object values.
+
 
 ## [1.15.0] - 2026-09-24
 

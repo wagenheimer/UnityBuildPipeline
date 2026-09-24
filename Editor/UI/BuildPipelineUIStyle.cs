@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -93,41 +95,107 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public static VisualElement CreateSaveStatusBar(UnityEngine.Object asset, Action onSave = null)
         {
+            return CreateSaveStatusBar(asset != null ? new[] { asset } : Array.Empty<UnityEngine.Object>(), onSave);
+        }
+
+        public static VisualElement CreateSaveStatusBar(IEnumerable<UnityEngine.Object> assets, Action onSave = null)
+        {
+            var assetList = assets != null ? assets.Where(a => a != null).Distinct().ToList() : new List<UnityEngine.Object>();
             var bar = new VisualElement();
             bar.AddToClassList("bp-save-status");
 
-            bool isDirty = asset != null && EditorUtility.IsDirty(asset);
-            if (isDirty)
-            {
-                bar.AddToClassList("bp-save-status--dirty");
-            }
-
-            var label = new Label(isDirty
-                ? "⚠ Changes in memory — NOT yet written to disk (won't show up in git)."
-                : "✔ Everything saved to disk.");
+            var label = new Label();
             label.AddToClassList("bp-save-status-text");
+            label.style.flexGrow = 1;
             bar.Add(label);
 
-            if (isDirty)
+            var btnContainer = new VisualElement();
+            btnContainer.style.flexDirection = FlexDirection.Row;
+            btnContainer.style.alignItems = Align.Center;
+            bar.Add(btnContainer);
+
+            void RefreshState()
             {
-                var saveBtn = new Button(() =>
+                var dirtyList = assetList.Where(a => a != null && EditorUtility.IsDirty(a)).ToList();
+                bool isDirty = dirtyList.Count > 0;
+
+                if (isDirty)
                 {
-                    if (asset != null)
+                    if (!bar.ClassListContains("bp-save-status--dirty"))
+                        bar.AddToClassList("bp-save-status--dirty");
+
+                    string dirtyNames = string.Join(", ", dirtyList.Select(x => x.name));
+                    label.text = $"⚠ Changes in memory ({dirtyNames}) — NOT written to disk.";
+
+                    btnContainer.Clear();
+
+                    var discardBtn = new Button(() =>
                     {
-                        EditorUtility.SetDirty(asset);
-                        AssetDatabase.SaveAssetIfDirty(asset);
-                    }
-                    AssetDatabase.SaveAssets();
-                    onSave?.Invoke();
-                })
-                { text = "💾 Save to Disk" };
-                saveBtn.AddToClassList("bp-btn");
-                saveBtn.AddToClassList("bp-btn--primary");
-                saveBtn.style.height = 22;
-                saveBtn.style.marginRight = 0;
-                saveBtn.style.marginBottom = 0;
-                bar.Add(saveBtn);
+                        string listText = string.Join("\n", dirtyList.Select(x => $"• {x.name} ({x.GetType().Name})"));
+                        if (EditorUtility.DisplayDialog(
+                            "Discard Changes",
+                            $"Discard all unsaved in-memory changes for:\n\n{listText}\n\nAny unsaved edits will be lost and reverted from disk.",
+                            "Discard Changes",
+                            "Cancel"))
+                        {
+                            foreach (var a in dirtyList)
+                            {
+                                if (a != null)
+                                {
+                                    EditorUtility.ClearDirty(a);
+                                    string path = AssetDatabase.GetAssetPath(a);
+                                    if (!string.IsNullOrEmpty(path))
+                                    {
+                                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                                    }
+                                }
+                            }
+                            AssetDatabase.Refresh();
+                            Debug.Log("[BuildPipeline] Unsaved in-memory changes discarded and reloaded from disk.");
+                            onSave?.Invoke();
+                        }
+                    })
+                    { text = "↺ Discard Changes" };
+                    discardBtn.AddToClassList("bp-btn");
+                    discardBtn.style.height = 22;
+                    discardBtn.style.marginRight = 6;
+                    discardBtn.style.marginBottom = 0;
+                    btnContainer.Add(discardBtn);
+
+                    var saveBtn = new Button(() =>
+                    {
+                        foreach (var a in dirtyList)
+                        {
+                            if (a != null)
+                            {
+                                EditorUtility.SetDirty(a);
+                                AssetDatabase.SaveAssetIfDirty(a);
+                            }
+                        }
+                        AssetDatabase.SaveAssets();
+                        Debug.Log("[BuildPipeline] Changes saved to disk successfully.");
+                        onSave?.Invoke();
+                    })
+                    { text = "💾 Save to Disk" };
+                    saveBtn.AddToClassList("bp-btn");
+                    saveBtn.AddToClassList("bp-btn--primary");
+                    saveBtn.style.height = 22;
+                    saveBtn.style.marginRight = 0;
+                    saveBtn.style.marginBottom = 0;
+                    btnContainer.Add(saveBtn);
+                }
+                else
+                {
+                    if (bar.ClassListContains("bp-save-status--dirty"))
+                        bar.RemoveFromClassList("bp-save-status--dirty");
+
+                    label.text = "✔ Everything saved to disk.";
+                    btnContainer.Clear();
+                }
             }
+
+            RefreshState();
+            bar.schedule.Execute(RefreshState).Every(500);
 
             return bar;
         }

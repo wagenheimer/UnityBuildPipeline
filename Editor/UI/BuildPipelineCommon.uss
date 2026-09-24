@@ -134,33 +134,44 @@
 /* Tab Bar */
 .bp-tab-bar {
     flex-direction: row;
-    margin-bottom: 10px;
-    background-color: rgba(0, 0, 0, 0.25);
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    background-color: #1e1e24;
+    border-width: 1px;
+    border-color: #2e2e38;
     border-radius: 6px;
     padding: 3px;
+    flex-shrink: 0;
 }
 
 .bp-tab-button {
     flex-grow: 1;
-    height: 28px;
+    flex-basis: 0;
+    height: 30px;
     border-radius: 4px;
     border-width: 0;
     background-color: transparent;
-    color: #bbbbbb;
-    font-size: 12px;
+    color: #a0a0a8;
+    font-size: 11px;
     -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding: 0 4px;
+    margin: 0 1px;
     transition-property: background-color, color;
     transition-duration: 0.15s;
 }
 
 .bp-tab-button:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.08);
     color: #ffffff;
 }
 
 .bp-tab-button--active {
-    background-color: rgba(52, 152, 219, 0.35);
+    background-color: #2b3d5b;
     color: #ffffff;
+    border-width: 1px;
+    border-color: #3d5880;
     border-bottom-width: 2px;
     border-bottom-color: #3498db;
 }
