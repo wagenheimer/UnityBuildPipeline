@@ -53,6 +53,38 @@ namespace Wagenheimer.BuildPipeline.Editor
             isDemo = demo;
             outputSubfolder = $"Builds/Publishers/{pub}/";
         }
+
+        public static List<PublisherProfile> GetDefaultProfiles()
+        {
+            return new List<PublisherProfile>
+            {
+                // Desktop
+                new PublisherProfile(Publisher.GreenSauceGames, "Green Sauce Games", PlatformType.Windows64, false, true, false),
+                new PublisherProfile(Publisher.BigFish, "Big Fish Games", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.GameHouse, "GameHouse", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.IWIN, "iWin", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.Alawar, "Alawar", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.Wildtangent, "WildTangent", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.Denda, "Denda", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.LegacyGames, "Legacy Games", PlatformType.Windows64, true, true, false),
+                new PublisherProfile(Publisher.Steam, "Steam", PlatformType.Windows64, false, true, false),
+                new PublisherProfile(Publisher.ItchIO, "itch.io", PlatformType.Windows64, false, true, false),
+
+                // Mobile Android
+                new PublisherProfile(Publisher.GoogleAndroidFull, "Google Play (Full)", PlatformType.Android, false, true, false),
+                new PublisherProfile(Publisher.GoogleAndroidFree, "Google Play (Free)", PlatformType.Android, false, false, false),
+                new PublisherProfile(Publisher.AmazonAndroidFull, "Amazon (Full)", PlatformType.Android, false, true, false),
+                new PublisherProfile(Publisher.AmazonAndroidFree, "Amazon (Free)", PlatformType.Android, false, false, false),
+
+                // Mobile iOS
+                new PublisherProfile(Publisher.iOSFull, "iOS (Full)", PlatformType.iOS, false, true, false),
+                new PublisherProfile(Publisher.iOSFree, "iOS (Free)", PlatformType.iOS, false, false, false),
+
+                // macOS
+                new PublisherProfile(Publisher.MacAppStore, "Mac App Store", PlatformType.macOS, false, false, false),
+                new PublisherProfile(Publisher.MacGameStore, "Mac Game Store", PlatformType.macOS, true, true, false)
+            };
+        }
     }
 
     [Serializable]
@@ -71,5 +103,25 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public string Code => language.AsLanguageCode();
         public string Name => language.AsLanguageName();
+
+        public static List<LanguageProfile> GetDefaultLanguages()
+        {
+            return new List<LanguageProfile>
+            {
+                new LanguageProfile(GameLanguage.AutoDetect, true),
+                new LanguageProfile(GameLanguage.English, true),
+                new LanguageProfile(GameLanguage.French, true),
+                new LanguageProfile(GameLanguage.German, true),
+                new LanguageProfile(GameLanguage.Spanish, true),
+                new LanguageProfile(GameLanguage.Dutch, true),
+                new LanguageProfile(GameLanguage.Italian, true),
+                new LanguageProfile(GameLanguage.Portuguese, true),
+                new LanguageProfile(GameLanguage.Russian, true),
+                new LanguageProfile(GameLanguage.Polish, false),
+                new LanguageProfile(GameLanguage.Czech, false),
+                new LanguageProfile(GameLanguage.Japanese, false),
+                new LanguageProfile(GameLanguage.Chinese, false)
+            };
+        }
     }
 }
