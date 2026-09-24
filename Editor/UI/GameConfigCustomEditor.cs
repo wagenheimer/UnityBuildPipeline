@@ -137,10 +137,6 @@ namespace Wagenheimer.BuildPipeline.Editor
             gameHeader.style.color = new StyleColor(new Color(0.7f, 0.75f, 0.85f));
             extraCard.Add(gameHeader);
 
-            AddDescriptiveToggle(extraCard, serializedObject.FindProperty("CanChangeLanguage"),
-                "Can Change Language In-Game",
-                "Enables in-game language switching via the flag selector in the Options menu.");
-
             AddDescriptiveToggle(extraCard, serializedObject.FindProperty("ExternalTranslation"),
                 "External Translation (StreamingAssets)",
                 "Dynamically loads external translations from StreamingAssets/{lang}.txt into I2 Localization at startup.");

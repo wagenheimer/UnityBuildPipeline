@@ -38,9 +38,6 @@ public class GameConfig : ScriptableObject
     [Tooltip("Bypasses the multi-profile player list and loads the in-Editor player directly to speed up testing.")]
     public bool UseOnlyEditorPlayer = true;
 
-    [Tooltip("Allows players to switch language flags freely inside the in-game Options menu.")]
-    public bool CanChangeLanguage = false;
-
     [Header("Version")]
     public GameVersion GameVersion = new GameVersion();
     public GameBuildDate VersionDate = new GameBuildDate();
