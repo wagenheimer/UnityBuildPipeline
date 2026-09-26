@@ -8,7 +8,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public class BuildPipelineWindow : EditorWindow
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Window", priority = 110)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Dashboard...", priority = 0)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Window", priority = 10)]
         [MenuItem("Window/Wagenheimer/Build Pipeline", priority = 205)]
         public static void ShowWindow()
         {
