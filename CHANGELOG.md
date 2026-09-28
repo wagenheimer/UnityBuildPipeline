@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.29.0] - 2026-09-28
+
+### Added
+- **`ValidateGoogleDependenciesStep`**: Pre-build step that ensures Google dependencies (EDM4U, Play Common, Play Core, Play Review) are present and configured cleanly via Git when building for Android with `RateControl`, preventing Gradle build errors.
+
 ## [1.28.1] - 2026-09-26
 
 ### Changed

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -26,6 +26,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static readonly List<IPreBuildStep> PreSteps = new List<IPreBuildStep>
         {
             new SyncGameConfigStep(),
+            new ValidateGoogleDependenciesStep(),
             new ApplyScriptingDefinesStep(),
             new ApplyPlayerSettingsStep(),
             new SetupKeystoreStep(),
