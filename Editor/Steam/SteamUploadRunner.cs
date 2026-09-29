@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEditor;
@@ -247,15 +248,26 @@ $@"""appbuild""
             if (steamCmdMatch.Success)
                 cfg.steamCmdPath = Path.GetFullPath(Path.Combine(batDir, steamCmdMatch.Groups[1].Value.Trim()));
 
-            var appVdfPath = Path.GetFullPath(Path.Combine(batDir, appVdfMatch.Groups[1].Value.Trim('"')));
-            if (!File.Exists(appVdfPath))
-                return $"App build script referenced by the .bat wasn't found at '{appVdfPath}'.";
+            // steamcmd resolves a relative +run_app_build path against ITS OWN folder (e.g.
+            // ContentBuilder\builder\), not the .bat's folder — so "..\scripts\x.vdf" from a .bat in
+            // ContentBuilder\ really means ContentBuilder\scripts\x.vdf. Try steamcmd's folder first, then
+            // fall back to the .bat's folder for setups that launch steamcmd from the .bat's own directory.
+            var vdfRef = appVdfMatch.Groups[1].Value.Trim('"');
+            var steamCmdDir = Path.GetDirectoryName(cfg.steamCmdPath);
+            var candidates = Path.IsPathRooted(vdfRef)
+                ? new[] { vdfRef }
+                : new[] { Path.Combine(steamCmdDir ?? batDir, vdfRef), Path.Combine(batDir, vdfRef) };
+
+            var appVdfPath = candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+            if (appVdfPath == null)
+                return "App build script referenced by the .bat wasn't found. Looked in:\n  " +
+                       string.Join("\n  ", candidates.Select(Path.GetFullPath));
 
             var appVdfText = File.ReadAllText(appVdfPath);
-            var appIdMatch = Regex.Match(appVdfText, @"""appid""\s*""(\d+)""");
+            var appIdMatch = Regex.Match(appVdfText, @"""appid""\s*""(\d+)""", RegexOptions.IgnoreCase);
             if (appIdMatch.Success) cfg.appId = appIdMatch.Groups[1].Value;
 
-            var setLiveMatch = Regex.Match(appVdfText, @"""setlive""\s*""([^""]*)""");
+            var setLiveMatch = Regex.Match(appVdfText, @"""setlive""\s*""([^""]*)""", RegexOptions.IgnoreCase);
             if (setLiveMatch.Success) cfg.setLiveBranch = setLiveMatch.Groups[1].Value;
 
             var depotDir = Path.GetDirectoryName(appVdfPath);
@@ -267,7 +279,7 @@ $@"""appbuild""
                 if (!File.Exists(depotVdfPath)) continue;
 
                 var depotText = File.ReadAllText(depotVdfPath);
-                var contentRootMatch = Regex.Match(depotText, @"""contentroot""\s*""([^""]*)""");
+                var contentRootMatch = Regex.Match(depotText, @"""contentroot""\s*""([^""]*)""", RegexOptions.IgnoreCase);
                 var contentRoot = contentRootMatch.Success ? contentRootMatch.Groups[1].Value : null;
 
                 // No reliable per-platform field in a legacy depot vdf — infer from the folder name, which
