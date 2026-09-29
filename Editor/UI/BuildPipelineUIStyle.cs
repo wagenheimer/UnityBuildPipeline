@@ -113,6 +113,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             btnContainer.style.flexDirection = FlexDirection.Row;
             btnContainer.style.alignItems = Align.Center;
 
+            var viewBtn = new Button(() =>
+            {
+                foreach (var a in assetList.Where(a => a != null && EditorUtility.IsDirty(a)))
+                    AssetDiffWindow.Show(a);
+            })
+            { text = "👁 View Changes" };
+            viewBtn.AddToClassList("bp-btn");
+            viewBtn.style.height = 22;
+            viewBtn.style.marginRight = 6;
+            viewBtn.style.marginBottom = 0;
+            btnContainer.Add(viewBtn);
+
             var discardBtn = new Button(() =>
             {
                 var dirtyList = assetList.Where(a => a != null && EditorUtility.IsDirty(a)).ToList();

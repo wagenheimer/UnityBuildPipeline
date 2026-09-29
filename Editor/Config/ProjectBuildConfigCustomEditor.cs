@@ -237,13 +237,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var missingDefine = steamProfiles
                         .Where(p => !(p.scriptingDefines ?? new System.Collections.Generic.List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine))
                         .ToList();
-                    if (missingDefine.Count > 0)
-                    {
-                        var names = string.Join(", ", missingDefine.Select(p => p.displayName));
-                        var warning = BuildPipelineUIStyle.CreateCallout(
-                            $"⚠ {missingDefine.Count} Steam profile(s) ({names}) don't have '{PublisherProfile.NativeSocialSteamDefine}' in Scripting Defines. " +
+
+                    var defineStatus = missingDefine.Count == 0
+                        ? BuildPipelineUIStyle.CreateCallout(
+                            $"✔ '{PublisherProfile.NativeSocialSteamDefine}' is set on every Steam profile ({string.Join(", ", steamProfiles.Select(p => p.displayName))}). " +
+                            "Unity shares ONE scripting-define set across Windows/Mac/Linux (all three are the same \"Standalone\" build target group) — this single check already covers all three platforms, there is no separate per-OS define to verify.",
+                            "info")
+                        : BuildPipelineUIStyle.CreateCallout(
+                            $"⚠ {missingDefine.Count} Steam profile(s) ({string.Join(", ", missingDefine.Select(p => p.displayName))}) don't have '{PublisherProfile.NativeSocialSteamDefine}' in Scripting Defines. " +
+                            "Windows/Mac/Linux share ONE scripting-define set in Unity (the \"Standalone\" build target group), so fixing this once here covers all three — there is no separate Win/Mac/Linux define to add. " +
                             "The build pipeline auto-adds it at build time when Steamworks.NET is detected, but adding it here makes it explicit and keeps it working even without that safety net.",
                             "warning");
+
+                    if (missingDefine.Count > 0)
+                    {
                         var fixBtn = new Button(() =>
                         {
                             foreach (var p in missingDefine)
@@ -260,16 +267,39 @@ namespace Wagenheimer.BuildPipeline.Editor
                         fixBtn.AddToClassList("bp-btn");
                         fixBtn.AddToClassList("bp-btn--primary");
                         fixBtn.style.marginTop = 6;
-                        warning.Add(fixBtn);
-                        pubsBody.Add(warning);
+                        defineStatus.Add(fixBtn);
                     }
+                    pubsBody.Add(defineStatus);
 
                     foreach (var steamProfile in steamProfiles)
                         pubsBody.Add(BuildSteamFolderCard(config, steamProfile));
                 }
 
                 var pubProp = serializedObject.FindProperty("publishers");
-                pubsBody.Add(new PropertyField(pubProp, "Configured Publishers"));
+
+                var listHeader = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 10, marginBottom = 4 } };
+                listHeader.Add(new Label($"All Publishers ({config.publishers.Count})") { style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1 } });
+                var addPubBtn = new Button(() =>
+                {
+                    config.publishers.Add(new PublisherProfile(Publisher.Default, "New Publisher", PlatformType.Windows64));
+                    EditorUtility.SetDirty(config);
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    serializedObject.Update();
+                    RefreshPublishersBody();
+                })
+                { text = "➕ Add Publisher" };
+                addPubBtn.AddToClassList("bp-btn");
+                listHeader.Add(addPubBtn);
+                pubsBody.Add(listHeader);
+
+                for (int i = 0; i < config.publishers.Count; i++)
+                    pubsBody.Add(BuildPublisherCard(config, pubProp, i, RefreshPublishersBody));
+
+                var rawFoldout = new Foldout { text = "Customize Publishers List (Raw Reorderable Array)", value = false };
+                rawFoldout.style.opacity = 0.85f;
+                rawFoldout.style.marginTop = 6;
+                rawFoldout.Add(new PropertyField(pubProp, "Publishers Array"));
+                pubsBody.Add(rawFoldout);
 
                 var restorePubsBtn = new Button(() =>
                 {
@@ -588,6 +618,156 @@ namespace Wagenheimer.BuildPipeline.Editor
             btnRow.Add(resetBtn);
 
             card.Add(btnRow);
+            return card;
+        }
+
+        private static readonly HashSet<int> ExpandedPublisherIndices = new HashSet<int>();
+
+        /// <summary>
+        /// One publisher profile as a real summary card instead of Unity's default "Element 0/1/2..."
+        /// reorderable-array rendering, which shows nothing useful until every entry is expanded by hand.
+        /// The card shows name/publisher/platform/output folder/defines at a glance; the full field set is
+        /// still there, just collapsed behind a toggle, bound directly to the SerializedProperty so it stays
+        /// undo-friendly and multi-edit-safe like the raw list was.
+        /// </summary>
+        private VisualElement BuildPublisherCard(ProjectBuildConfig config, SerializedProperty pubProp, int index, Action onListChanged)
+        {
+            var profile = config.publishers[index];
+            var elementProp = pubProp.GetArrayElementAtIndex(index);
+
+            var card = new VisualElement { style = { marginBottom = 8, paddingTop = 8, paddingBottom = 8, paddingLeft = 10, paddingRight = 10, backgroundColor = new Color(0.15f, 0.18f, 0.24f, 0.5f) } };
+            card.style.borderTopLeftRadius = card.style.borderTopRightRadius = card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 4;
+
+            var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+
+            var isExpanded = ExpandedPublisherIndices.Contains(index);
+            var body = new VisualElement { style = { display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None, marginTop = 8, paddingTop = 8, borderTopWidth = 1, borderTopColor = new Color(1, 1, 1, 0.08f) } };
+
+            var expandBtn = new Button { text = isExpanded ? "▾" : "▸" };
+            expandBtn.AddToClassList("bp-btn");
+            expandBtn.style.width = 26;
+            expandBtn.style.marginRight = 6;
+            expandBtn.clicked += () =>
+            {
+                var nowExpanded = body.style.display == DisplayStyle.None;
+                body.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                expandBtn.text = nowExpanded ? "▾" : "▸";
+                if (nowExpanded) ExpandedPublisherIndices.Add(index); else ExpandedPublisherIndices.Remove(index);
+            };
+            header.Add(expandBtn);
+
+            var titleCol = new VisualElement { style = { flexGrow = 1 } };
+            var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap } };
+            titleRow.Add(new Label(string.IsNullOrEmpty(profile.displayName) ? "(unnamed)" : profile.displayName)
+                { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, marginRight = 8 } });
+            titleRow.Add(BuildPipelineUIStyle.CreateBadge(profile.publisher.ToString(), "info"));
+            var platBadge = BuildPipelineUIStyle.CreateBadge(profile.platform.ToString(), "ok");
+            platBadge.style.marginLeft = 4;
+            titleRow.Add(platBadge);
+            if (profile.IsSteamProfile)
+            {
+                var steamBadge = BuildPipelineUIStyle.CreateBadge("🎮 Steam", "info");
+                steamBadge.style.marginLeft = 4;
+                titleRow.Add(steamBadge);
+            }
+            if (profile.isDemo)
+            {
+                var demoBadge = BuildPipelineUIStyle.CreateBadge("Demo", "warn");
+                demoBadge.style.marginLeft = 4;
+                titleRow.Add(demoBadge);
+            }
+            var definesCount = profile.scriptingDefines?.Count ?? 0;
+            if (definesCount > 0)
+            {
+                var defBadge = BuildPipelineUIStyle.CreateBadge($"{definesCount} define(s)", "ok");
+                defBadge.style.marginLeft = 4;
+                defBadge.tooltip = string.Join(", ", profile.scriptingDefines);
+                titleRow.Add(defBadge);
+            }
+            titleCol.Add(titleRow);
+
+            var outPreview = ResolveQuickBuildOutputPreview(config, profile, profile.platform);
+            titleCol.Add(new Label($"📁 {outPreview}") { style = { fontSize = 10, color = new Color(0.6f, 0.65f, 0.7f), whiteSpace = WhiteSpace.Normal, marginTop = 2 } });
+            header.Add(titleCol);
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexShrink = 0 } };
+
+            var upBtn = new Button(() =>
+            {
+                if (index == 0) return;
+                pubProp.MoveArrayElement(index, index - 1);
+                serializedObject.ApplyModifiedProperties();
+                onListChanged();
+            })
+            { text = "▲" };
+            upBtn.AddToClassList("bp-btn");
+            upBtn.SetEnabled(index > 0);
+            upBtn.style.width = 24;
+            actions.Add(upBtn);
+
+            var downBtn = new Button(() =>
+            {
+                if (index >= config.publishers.Count - 1) return;
+                pubProp.MoveArrayElement(index, index + 1);
+                serializedObject.ApplyModifiedProperties();
+                onListChanged();
+            })
+            { text = "▼" };
+            downBtn.AddToClassList("bp-btn");
+            downBtn.SetEnabled(index < config.publishers.Count - 1);
+            downBtn.style.width = 24;
+            actions.Add(downBtn);
+
+            var dupBtn = new Button(() =>
+            {
+                pubProp.InsertArrayElementAtIndex(index);
+                serializedObject.ApplyModifiedProperties();
+                serializedObject.Update();
+                // InsertArrayElementAtIndex duplicates the element at 'index' into 'index+1' — rename the
+                // copy so two profiles don't silently share a display name.
+                config.publishers[index + 1].displayName += " (Copy)";
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssetIfDirty(config);
+                onListChanged();
+            })
+            { text = "⧉" };
+            dupBtn.tooltip = "Duplicate";
+            dupBtn.AddToClassList("bp-btn");
+            dupBtn.style.width = 24;
+            dupBtn.style.marginLeft = 4;
+            actions.Add(dupBtn);
+
+            var removeBtn = new Button(() =>
+            {
+                if (!EditorUtility.DisplayDialog("Remove Publisher", $"Remove '{profile.displayName}'?", "Remove", "Cancel"))
+                    return;
+                pubProp.DeleteArrayElementAtIndex(index);
+                serializedObject.ApplyModifiedProperties();
+                onListChanged();
+            })
+            { text = "✕" };
+            removeBtn.tooltip = "Remove";
+            removeBtn.AddToClassList("bp-btn");
+            removeBtn.AddToClassList("bp-btn--danger");
+            removeBtn.style.width = 24;
+            removeBtn.style.marginLeft = 4;
+            actions.Add(removeBtn);
+
+            header.Add(actions);
+            card.Add(header);
+
+            foreach (var fieldName in new[]
+            {
+                "id", "publisher", "displayName", "platform", "bundleIdentifier", "requiresSplash", "isFullGame",
+                "isDemo", "scriptingBackend", "macArchitecture", "macAppStoreValidation", "scriptingDefines",
+                "outputSubfolder", "zipAfterBuild", "zipDestinationTemplate"
+            })
+            {
+                var fieldProp = elementProp.FindPropertyRelative(fieldName);
+                if (fieldProp != null) body.Add(new PropertyField(fieldProp));
+            }
+            card.Add(body);
+
             return card;
         }
 
