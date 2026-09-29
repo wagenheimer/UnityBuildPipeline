@@ -201,15 +201,25 @@ namespace Wagenheimer.BuildPipeline.Editor
                 ("🔐", "Keystore & Vault"),
                 ("💻", "CLI & Automation"),
                 ("⚙️", "Project Config"),
+                ("🎮", "Steam Upload"),
             };
+            const int steamUploadTabIndex = 6;
 
             for (var i = 0; i < tabs.Length; i++)
             {
                 var tabIndex = i;
-                var isSelected = _selectedTab == tabIndex;
+                // Steam Upload isn't a local content tab — it opens the dedicated Steam Upload window
+                // (build vs. upload have different risk levels, see BuildPipelineQuickBuildView's Steam
+                // card), so this is a shortcut/launcher button, not a selection that changes _selectedTab.
+                var isSelected = tabIndex != steamUploadTabIndex && _selectedTab == tabIndex;
 
                 var tabBtn = new Button(() =>
                 {
+                    if (tabIndex == steamUploadTabIndex)
+                    {
+                        SteamUploadWindow.Open();
+                        return;
+                    }
                     _selectedTab = tabIndex;
                     RebuildUI();
                 })
