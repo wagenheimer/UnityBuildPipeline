@@ -66,6 +66,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         [Header("Publishers & Stores")]
         public List<PublisherProfile> publishers = new List<PublisherProfile>();
 
+        [Header("Steam Upload")]
+        public SteamUploadConfig steamUpload = new SteamUploadConfig();
+
         [Header("Languages")]
         [Tooltip("Default build language for single and Quick Builds. AutoDetect is recommended for modern multi-language games.")]
         public GameLanguage defaultLanguage = GameLanguage.AutoDetect;
