@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -100,7 +101,24 @@ namespace Wagenheimer.BuildPipeline.Editor
             flagsRow.Add(autoTog);
             quickCard.Add(flagsRow);
 
-            var runBtn = new Button(() => RunQuickBuild(config))
+            // Live status: which publisher profile this will actually use, its resolved output folder, and
+            // — specifically for a Steam profile — whether the NativeSocial scripting define is set, so this
+            // is visible right where the build is triggered instead of only inside the Publishers list or the
+            // separate Steam Upload window.
+            var statusBox = new VisualElement { style = { marginBottom = 8 } };
+            quickCard.Add(statusBox);
+
+            void RefreshQuickBuildStatus()
+            {
+                statusBox.Clear();
+                statusBox.Add(BuildQuickBuildStatus(config));
+            }
+
+            platField.RegisterValueChangedCallback(_ => RefreshQuickBuildStatus());
+            pubField.RegisterValueChangedCallback(_ => RefreshQuickBuildStatus());
+            RefreshQuickBuildStatus();
+
+            var runBtn = new Button(() => ConfirmAndRunQuickBuild(config))
             {
                 text = "▶️ RUN QUICK BUILD NOW"
             };
@@ -588,6 +606,98 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 return Path.Combine(root, sub);
             }
+        }
+
+        /// <summary>Live "what will actually happen" readout for the selected Quick Build publisher: which
+        /// profile it resolves to (or that none exists — a Quick Build with an unmatched Publisher enum
+        /// silently falls back to a generic profile-less build), its resolved output folder, and — the
+        /// specific visibility gap that was asked for — whether a Steam profile has the NativeSocial
+        /// scripting define set, with a direct shortcut to the Steam Upload window instead of having to go
+        /// find it in the raw Publishers list.</summary>
+        private VisualElement BuildQuickBuildStatus(ProjectBuildConfig config)
+        {
+            var box = new VisualElement();
+            var prof = config.publishers?.FirstOrDefault(p => p.publisher == _quickPublisher);
+
+            if (prof == null)
+            {
+                box.Add(BuildPipelineUIStyle.CreateCallout(
+                    $"⚠ No Publisher Profile matches '{_quickPublisher}' — this Quick Build will run with generic defaults (no per-publisher output folder, splash, or scripting defines).",
+                    "warning"));
+                return box;
+            }
+
+            var outDir = ResolveQuickBuildOutputPreview(config, prof, _quickPlatform);
+            box.Add(new Label($"📁 Profile: {prof.displayName}  →  {outDir}")
+            { style = { fontSize = 10, color = new Color(0.7f, 0.75f, 0.8f), whiteSpace = WhiteSpace.Normal, marginBottom = 2 } });
+
+            if (prof.IsSteamProfile)
+            {
+                var hasDefine = (prof.scriptingDefines ?? new List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine);
+                var steamRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap } };
+                steamRow.Add(new Label(hasDefine
+                    ? $"✔ Steam: '{PublisherProfile.NativeSocialSteamDefine}' is set on this profile."
+                    : $"⚠ Steam: '{PublisherProfile.NativeSocialSteamDefine}' is NOT in this profile's Scripting Defines (the pipeline auto-adds it at build time if Steamworks.NET is detected, but it's not explicit here).")
+                { style = { fontSize = 10, color = hasDefine ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.9f, 0.7f, 0.4f), whiteSpace = WhiteSpace.Normal, flexGrow = 1 } });
+
+                var openSteamBtn = new Button(SteamUploadWindow.Open) { text = "🎮 Steam Upload..." };
+                openSteamBtn.AddToClassList("bp-btn");
+                openSteamBtn.style.marginLeft = 6;
+                steamRow.Add(openSteamBtn);
+                box.Add(steamRow);
+            }
+
+            return box;
+        }
+
+        private static string ResolveQuickBuildOutputPreview(ProjectBuildConfig config, PublisherProfile prof, PlatformType platform)
+        {
+            var root = config.GetEffectiveBuildOutputRoot(platform);
+            var sub = (prof.outputSubfolder ?? "Builds/").Replace("{Publisher}", prof.publisher.ToString());
+            try { return Path.GetFullPath(Path.Combine(root, sub)); }
+            catch { return Path.Combine(root, sub); }
+        }
+
+        private void ConfirmAndRunQuickBuild(ProjectBuildConfig config)
+        {
+            if (config.publishers == null || config.publishers.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Quick Build", "No publisher list configured.\nUse 'Restore Default Publishers List' below.", "OK");
+                return;
+            }
+
+            var prof = config.publishers.FirstOrDefault(p => p.publisher == _quickPublisher);
+            var outDir = prof != null ? ResolveQuickBuildOutputPreview(config, prof, _quickPlatform) : "(no matching profile — generic defaults)";
+            var flags = string.Join(", ", new[]
+            {
+                _quickCheat ? "Cheat" : null,
+                _quickDevBuild ? "Development" : null,
+                _quickPlatform == PlatformType.Android ? (_quickAppBundle ? ".aab" : ".apk") : null,
+                _quickAutoRun ? "Auto Run" : null
+            }.Where(f => f != null));
+
+            var steamNote = "";
+            if (prof != null && prof.IsSteamProfile)
+            {
+                var hasDefine = (prof.scriptingDefines ?? new List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine);
+                steamNote = hasDefine
+                    ? $"\nSteam define: ✔ {PublisherProfile.NativeSocialSteamDefine} is set."
+                    : $"\nSteam define: ⚠ {PublisherProfile.NativeSocialSteamDefine} not explicit on this profile (auto-added at build time if Steamworks.NET is present).";
+            }
+
+            var message =
+                $"Platform: {_quickPlatform}\n" +
+                $"Publisher: {_quickPublisher}{(prof != null ? $" ({prof.displayName})" : " — NO MATCHING PROFILE")}\n" +
+                $"Language: {_quickLanguage}\n" +
+                $"Flags: {(string.IsNullOrEmpty(flags) ? "(none)" : flags)}\n" +
+                $"Output: {outDir}" +
+                steamNote +
+                "\n\nThis will run the full build pipeline now (pre/post steps included) and may take several minutes. Proceed?";
+
+            if (!EditorUtility.DisplayDialog("Confirm Quick Build", message, "▶️ Build Now", "Cancel"))
+                return;
+
+            RunQuickBuild(config);
         }
 
         private void RunQuickBuild(ProjectBuildConfig config)
