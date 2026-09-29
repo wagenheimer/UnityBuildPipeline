@@ -28,6 +28,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                 .Distinct()
                 .ToList();
 
+            // Safety net: a Steam profile always needs UnityNativeSocial's Steam define to compile achievement/
+            // leaderboard calls in, even if nobody remembered to add it to the profile's own Scripting Defines
+            // list. Only auto-added when Steamworks.NET is actually present, so non-Steam/non-NativeSocial
+            // projects using this pipeline never get an unused define injected.
+            if (context.PublisherProfile != null && context.PublisherProfile.IsSteamProfile &&
+                !extra.Contains(PublisherProfile.NativeSocialSteamDefine) &&
+                IsTypeAvailable("Steamworks.SteamUserStats"))
+            {
+                extra.Add(PublisherProfile.NativeSocialSteamDefine);
+                context.Log($"Auto-added '{PublisherProfile.NativeSocialSteamDefine}' for Steam profile '{context.PublisherProfile.displayName}' (Steamworks.NET detected).");
+            }
+
             var named = NamedBuildTarget.FromBuildTargetGroup(context.Platform.ToBuildTargetGroup());
             var original = PlayerSettings.GetScriptingDefineSymbols(named);
             context.ExtraData[OriginalDefinesKey] = original;
@@ -52,6 +64,11 @@ namespace Wagenheimer.BuildPipeline.Editor
             context.Log($"Applied scripting defines ({named.TargetName}): {string.Join(";", extra)}  ->  [{string.Join(";", merged)}]");
             return true;
         }
+
+        private static bool IsTypeAvailable(string typeFullName) =>
+            System.AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => { try { return a.GetTypes(); } catch { return System.Array.Empty<System.Type>(); } })
+                .Any(t => t.FullName == typeFullName);
 
         public bool ExecutePostBuild(BuildContext context, BuildReport report)
         {

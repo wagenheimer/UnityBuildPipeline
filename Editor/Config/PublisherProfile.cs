@@ -41,6 +41,19 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// <summary>Effective CI id: explicit <see cref="id"/> when set, otherwise the publisher enum name.</summary>
         public string EffectiveId => string.IsNullOrEmpty(id) ? publisher.ToString() : id;
 
+        /// <summary>
+        /// True when this profile is a Steam build: either <see cref="publisher"/> is the <c>Publisher.Steam</c>
+        /// enum value, or "steam" appears in its <see cref="id"/>/<see cref="displayName"/> (covers custom/duplicated
+        /// profiles like "Steam Demo" that a project made without changing the publisher enum).
+        /// </summary>
+        public bool IsSteamProfile =>
+            publisher == Publisher.Steam ||
+            (!string.IsNullOrEmpty(displayName) && displayName.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0) ||
+            (!string.IsNullOrEmpty(id) && id.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0);
+
+        /// <summary>Scripting define required by UnityNativeSocial for Steam achievement/leaderboard calls to compile in.</summary>
+        public const string NativeSocialSteamDefine = "WAGENHEIMER_NATIVESOCIAL_STEAM";
+
         public PublisherProfile() { }
 
         public PublisherProfile(Publisher pub, string name, PlatformType plat, bool splash = false, bool full = true, bool demo = false)

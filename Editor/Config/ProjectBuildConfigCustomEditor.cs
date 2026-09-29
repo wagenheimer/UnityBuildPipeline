@@ -183,6 +183,36 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // 7. Publishers & Stores
             var pubsCard = BuildPipelineUIStyle.CreateCard("Publishers & Store Profiles");
+
+            var steamProfilesMissingDefine = (config.publishers ?? new System.Collections.Generic.List<PublisherProfile>())
+                .Where(p => p.IsSteamProfile && !(p.scriptingDefines ?? new System.Collections.Generic.List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine))
+                .ToList();
+            if (steamProfilesMissingDefine.Count > 0)
+            {
+                var names = string.Join(", ", steamProfilesMissingDefine.Select(p => p.displayName));
+                var warning = BuildPipelineUIStyle.CreateCallout(
+                    $"⚠ {steamProfilesMissingDefine.Count} Steam profile(s) ({names}) don't have '{PublisherProfile.NativeSocialSteamDefine}' in Scripting Defines. " +
+                    "The build pipeline auto-adds it at build time when Steamworks.NET is detected, but adding it here makes it explicit and keeps it working even without that safety net.",
+                    "warning");
+                var fixBtn = new Button(() =>
+                {
+                    foreach (var p in steamProfilesMissingDefine)
+                    {
+                        p.scriptingDefines ??= new System.Collections.Generic.List<string>();
+                        p.scriptingDefines.Add(PublisherProfile.NativeSocialSteamDefine);
+                    }
+                    EditorUtility.SetDirty(config);
+                    AssetDatabase.SaveAssetIfDirty(config);
+                    serializedObject.Update();
+                })
+                { text = $"🛠 Add define to {steamProfilesMissingDefine.Count} Steam profile(s)" };
+                fixBtn.AddToClassList("bp-btn");
+                fixBtn.AddToClassList("bp-btn--primary");
+                fixBtn.style.marginTop = 6;
+                warning.Add(fixBtn);
+                pubsCard.Add(warning);
+            }
+
             var pubProp = serializedObject.FindProperty("publishers");
             pubsCard.Add(new PropertyField(pubProp, "Configured Publishers"));
 
