@@ -67,6 +67,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             Root.Add(optionsRow);
 
+            // Steam Section (Windows/Mac/Linux) — individually or all three in one click, reusing
+            // SteamUploadRunner so each build also updates SteamUploadConfig's tracked "last built" path
+            // for that platform, ready for a Steam Upload right after.
+            Root.Add(BuildSteamCard());
+
             // Desktop Platform Section
             var desktopCard = BuildPipelineUIStyle.CreateCard("Desktop Targets (Windows & macOS)", "Standard desktop targets for PC distribution channels");
             var desktopGrid = new VisualElement();
@@ -99,6 +104,77 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             mobileCard.Add(mobileGrid);
             Root.Add(mobileCard);
+        }
+
+        private VisualElement BuildSteamCard()
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🎮 Steam (Windows / Mac / Linux)",
+                "Build each Steam depot platform individually, or all three in one click. Each build also updates the Steam Upload window's tracked \"last built\" path for that platform.");
+
+            var steamProfile = _config?.publishers?.FirstOrDefault(p => p.IsSteamProfile);
+            if (steamProfile == null)
+            {
+                card.Add(BuildPipelineUIStyle.CreateCallout(
+                    "No Steam publisher profile configured yet — add one in Project Config > Publishers & Store Profiles first.", "warning"));
+                return card;
+            }
+
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 4 } };
+
+            void AddSteamBtn(string label, Action action, bool highlight = false)
+            {
+                var btn = new Button(action);
+                btn.AddToClassList("bp-btn");
+                if (highlight) btn.AddToClassList("bp-btn--primary");
+                btn.style.marginRight = 6;
+                btn.style.marginBottom = 6;
+                btn.style.height = 30;
+                btn.text = label;
+                row.Add(btn);
+            }
+
+            AddSteamBtn("🪟 Build Windows", () => RunSteamBuild(steamProfile, PlatformType.Windows64));
+            AddSteamBtn("🍎 Build Mac", () => RunSteamBuild(steamProfile, PlatformType.macOS));
+            AddSteamBtn("🐧 Build Linux", () => RunSteamBuild(steamProfile, PlatformType.Linux64));
+            AddSteamBtn("🚀 Build All 3", () => RunSteamBuildAll(steamProfile), highlight: true);
+
+            var openUploadBtn = new Button(SteamUploadWindow.Open) { text = "🎮 Open Steam Upload..." };
+            openUploadBtn.AddToClassList("bp-btn");
+            openUploadBtn.style.marginBottom = 6;
+            row.Add(openUploadBtn);
+
+            card.Add(row);
+            return card;
+        }
+
+        private void RunSteamBuild(PublisherProfile steamProfile, PlatformType platform)
+        {
+            var result = SteamUploadRunner.BuildPlatform(_config, steamProfile, platform);
+            if (result.Success)
+                EditorUtility.DisplayDialog("Build Succeeded", $"{platform} build finished in {result.Duration:mm\\:ss}!\nPath: {result.OutputPath}", "OK");
+            else
+                EditorUtility.DisplayDialog("Build Failed", $"{platform} build failed with {result.TotalErrors} error(s).\nCheck Console for details.", "OK");
+        }
+
+        private void RunSteamBuildAll(PublisherProfile steamProfile)
+        {
+            var platforms = new[] { PlatformType.Windows64, PlatformType.macOS, PlatformType.Linux64 };
+            var failed = new System.Collections.Generic.List<PlatformType>();
+
+            foreach (var platform in platforms)
+            {
+                EditorUtility.DisplayProgressBar("Building for Steam", $"Building {platform}...", Array.IndexOf(platforms, platform) / (float)platforms.Length);
+                var result = SteamUploadRunner.BuildPlatform(_config, steamProfile, platform);
+                if (!result.Success) failed.Add(platform);
+            }
+            EditorUtility.ClearProgressBar();
+
+            EditorUtility.DisplayDialog(
+                failed.Count == 0 ? "All 3 Builds Succeeded" : "Some Builds Failed",
+                failed.Count == 0
+                    ? "Windows, Mac, and Linux Steam builds all finished successfully."
+                    : $"Failed: {string.Join(", ", failed)}. Check Console for details. The others completed successfully.",
+                "OK");
         }
 
         private void AddQuickCard(VisualElement grid, string title, string subtitle, Publisher pub, PlatformType plat, bool cheat, bool appBundle, bool autoRun, bool devBuild, bool isHighlight = false)
