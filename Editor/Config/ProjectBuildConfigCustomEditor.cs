@@ -183,54 +183,94 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // 7. Publishers & Stores
             var pubsCard = BuildPipelineUIStyle.CreateCard("Publishers & Store Profiles");
+            var pubsBody = new VisualElement();
+            pubsCard.Add(pubsBody);
+            root.Add(pubsCard);
 
-            var steamProfilesMissingDefine = (config.publishers ?? new System.Collections.Generic.List<PublisherProfile>())
-                .Where(p => p.IsSteamProfile && !(p.scriptingDefines ?? new System.Collections.Generic.List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine))
-                .ToList();
-            if (steamProfilesMissingDefine.Count > 0)
+            void RefreshPublishersBody()
             {
-                var names = string.Join(", ", steamProfilesMissingDefine.Select(p => p.displayName));
-                var warning = BuildPipelineUIStyle.CreateCallout(
-                    $"⚠ {steamProfilesMissingDefine.Count} Steam profile(s) ({names}) don't have '{PublisherProfile.NativeSocialSteamDefine}' in Scripting Defines. " +
-                    "The build pipeline auto-adds it at build time when Steamworks.NET is detected, but adding it here makes it explicit and keeps it working even without that safety net.",
-                    "warning");
-                var fixBtn = new Button(() =>
+                pubsBody.Clear();
+                config.publishers ??= new System.Collections.Generic.List<PublisherProfile>();
+                var steamProfiles = config.publishers.Where(p => p.IsSteamProfile).ToList();
+
+                if (steamProfiles.Count == 0)
                 {
-                    foreach (var p in steamProfilesMissingDefine)
+                    var noSteam = BuildPipelineUIStyle.CreateCallout(
+                        "No Steam publisher profile is configured — there's nowhere for Steam-only settings " +
+                        "(build output folder, the NativeSocial scripting define) to live, and a Steam quick-build " +
+                        "won't find a profile to use.", "warning");
+                    var addSteamBtn = new Button(() =>
                     {
-                        p.scriptingDefines ??= new System.Collections.Generic.List<string>();
-                        p.scriptingDefines.Add(PublisherProfile.NativeSocialSteamDefine);
+                        config.publishers.Add(new PublisherProfile(Publisher.Steam, "Steam", PlatformType.Windows64, false, true, false));
+                        EditorUtility.SetDirty(config);
+                        AssetDatabase.SaveAssetIfDirty(config);
+                        serializedObject.Update();
+                        RefreshPublishersBody();
+                    })
+                    { text = "➕ Add Steam Profile" };
+                    addSteamBtn.AddToClassList("bp-btn");
+                    addSteamBtn.AddToClassList("bp-btn--primary");
+                    addSteamBtn.style.marginTop = 6;
+                    noSteam.Add(addSteamBtn);
+                    pubsBody.Add(noSteam);
+                }
+                else
+                {
+                    var missingDefine = steamProfiles
+                        .Where(p => !(p.scriptingDefines ?? new System.Collections.Generic.List<string>()).Contains(PublisherProfile.NativeSocialSteamDefine))
+                        .ToList();
+                    if (missingDefine.Count > 0)
+                    {
+                        var names = string.Join(", ", missingDefine.Select(p => p.displayName));
+                        var warning = BuildPipelineUIStyle.CreateCallout(
+                            $"⚠ {missingDefine.Count} Steam profile(s) ({names}) don't have '{PublisherProfile.NativeSocialSteamDefine}' in Scripting Defines. " +
+                            "The build pipeline auto-adds it at build time when Steamworks.NET is detected, but adding it here makes it explicit and keeps it working even without that safety net.",
+                            "warning");
+                        var fixBtn = new Button(() =>
+                        {
+                            foreach (var p in missingDefine)
+                            {
+                                p.scriptingDefines ??= new System.Collections.Generic.List<string>();
+                                p.scriptingDefines.Add(PublisherProfile.NativeSocialSteamDefine);
+                            }
+                            EditorUtility.SetDirty(config);
+                            AssetDatabase.SaveAssetIfDirty(config);
+                            serializedObject.Update();
+                            RefreshPublishersBody();
+                        })
+                        { text = $"🛠 Add define to {missingDefine.Count} Steam profile(s)" };
+                        fixBtn.AddToClassList("bp-btn");
+                        fixBtn.AddToClassList("bp-btn--primary");
+                        fixBtn.style.marginTop = 6;
+                        warning.Add(fixBtn);
+                        pubsBody.Add(warning);
                     }
-                    EditorUtility.SetDirty(config);
-                    AssetDatabase.SaveAssetIfDirty(config);
-                    serializedObject.Update();
+
+                    foreach (var steamProfile in steamProfiles)
+                        pubsBody.Add(BuildSteamFolderCard(config, steamProfile));
+                }
+
+                var pubProp = serializedObject.FindProperty("publishers");
+                pubsBody.Add(new PropertyField(pubProp, "Configured Publishers"));
+
+                var restorePubsBtn = new Button(() =>
+                {
+                    if (EditorUtility.DisplayDialog("Restore Default Publishers", "Reset publisher list to default presets?", "RESTORE", "CANCEL"))
+                    {
+                        config.publishers = PublisherProfile.GetDefaultProfiles();
+                        EditorUtility.SetDirty(config);
+                        AssetDatabase.SaveAssetIfDirty(config);
+                        serializedObject.Update();
+                        RefreshPublishersBody();
+                    }
                 })
-                { text = $"🛠 Add define to {steamProfilesMissingDefine.Count} Steam profile(s)" };
-                fixBtn.AddToClassList("bp-btn");
-                fixBtn.AddToClassList("bp-btn--primary");
-                fixBtn.style.marginTop = 6;
-                warning.Add(fixBtn);
-                pubsCard.Add(warning);
+                { text = "↺ Restore Default Publishers List" };
+                restorePubsBtn.AddToClassList("bp-btn");
+                restorePubsBtn.style.marginTop = 6;
+                pubsBody.Add(restorePubsBtn);
             }
 
-            var pubProp = serializedObject.FindProperty("publishers");
-            pubsCard.Add(new PropertyField(pubProp, "Configured Publishers"));
-
-            var restorePubsBtn = new Button(() =>
-            {
-                if (EditorUtility.DisplayDialog("Restore Default Publishers", "Reset publisher list to default presets?", "RESTORE", "CANCEL"))
-                {
-                    config.publishers = PublisherProfile.GetDefaultProfiles();
-                    EditorUtility.SetDirty(config);
-                    AssetDatabase.SaveAssetIfDirty(config);
-                }
-            })
-            { text = "↺ Restore Default Publishers List" };
-            restorePubsBtn.AddToClassList("bp-btn");
-            restorePubsBtn.style.marginTop = 6;
-            pubsCard.Add(restorePubsBtn);
-
-            root.Add(pubsCard);
+            RefreshPublishersBody();
 
             // 8. Languages & Localizations
             var langsCard = BuildPipelineUIStyle.CreateCard("Languages & Localizations", "Default build language and optional batch matrix configuration");
@@ -422,6 +462,132 @@ namespace Wagenheimer.BuildPipeline.Editor
             root.Add(zipCard);
 
             return root;
+        }
+
+        private const string DefaultSteamOutputSubfolder = "Builds/Publishers/Steam/";
+
+        /// <summary>
+        /// Prominent, dedicated "where do Steam builds go" control for one Steam profile — the generic
+        /// reorderable Publishers array buries <see cref="PublisherProfile.outputSubfolder"/> behind several
+        /// clicks and shows no resolved path, so a user has to do the Path.Combine math in their head to know
+        /// where a Steam build will actually land. This shows the resolved absolute path live, and a folder
+        /// picker: picking an absolute folder here works because <c>Path.Combine(root, sub, ...)</c> discards
+        /// everything before the last rooted (absolute) segment, so an absolute outputSubfolder fully overrides
+        /// the global build root for just this profile — no extra field needed.
+        /// </summary>
+        private VisualElement BuildSteamFolderCard(ProjectBuildConfig config, PublisherProfile steamProfile)
+        {
+            var card = new VisualElement();
+            card.AddToClassList("bp-card");
+            card.style.marginTop = 8;
+            card.style.marginBottom = 8;
+            card.style.paddingTop = 8;
+            card.style.paddingBottom = 8;
+            card.style.paddingLeft = 10;
+            card.style.paddingRight = 10;
+            card.style.backgroundColor = new Color(0.15f, 0.18f, 0.24f, 0.6f);
+            card.style.borderTopLeftRadius = card.style.borderTopRightRadius =
+                card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 4;
+
+            var title = new Label($"📁 Steam Build Output Folder — \"{steamProfile.displayName}\" profile");
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.fontSize = 12;
+            title.style.marginBottom = 4;
+            card.Add(title);
+
+            var resolvedLabel = new Label();
+            resolvedLabel.style.fontSize = 11;
+            resolvedLabel.style.color = new Color(0.6f, 0.85f, 0.6f);
+            resolvedLabel.style.whiteSpace = WhiteSpace.Normal;
+            resolvedLabel.style.marginBottom = 6;
+            card.Add(resolvedLabel);
+
+            void RefreshResolvedPreview()
+            {
+                var resolved = ResolveSteamOutputPreview(config, steamProfile);
+                resolvedLabel.text = $"→ {resolved}";
+            }
+
+            var subRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var subField = new TextField("Subfolder / absolute path") { value = steamProfile.outputSubfolder, style = { flexGrow = 1 } };
+            subField.RegisterValueChangedCallback(evt =>
+            {
+                steamProfile.outputSubfolder = evt.newValue;
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssetIfDirty(config);
+                RefreshResolvedPreview();
+            });
+            subRow.Add(subField);
+            card.Add(subRow);
+
+            RefreshResolvedPreview();
+
+            var btnRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
+
+            var browseBtn = new Button(() =>
+            {
+                var start = Directory.Exists(ResolveSteamOutputPreview(config, steamProfile))
+                    ? ResolveSteamOutputPreview(config, steamProfile)
+                    : config.GetEffectiveBuildOutputRoot(steamProfile.platform);
+                var picked = EditorUtility.OpenFolderPanel("Choose Steam Build Output Folder", start, "");
+                if (string.IsNullOrEmpty(picked)) return;
+
+                steamProfile.outputSubfolder = picked.EndsWith("/") || picked.EndsWith("\\") ? picked : picked + "/";
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssetIfDirty(config);
+                subField.SetValueWithoutNotify(steamProfile.outputSubfolder);
+                RefreshResolvedPreview();
+            })
+            { text = "📁 Choose Folder..." };
+            browseBtn.AddToClassList("bp-btn");
+            browseBtn.style.marginRight = 4;
+            btnRow.Add(browseBtn);
+
+            var openBtn = new Button(() =>
+            {
+                var resolved = ResolveSteamOutputPreview(config, steamProfile);
+                if (Directory.Exists(resolved))
+                    EditorUtility.RevealInFinder(resolved);
+                else
+                    EditorUtility.DisplayDialog("Folder Not Found",
+                        $"'{resolved}' doesn't exist yet — it's created the first time a Steam build runs.", "OK");
+            })
+            { text = "📂 Open Folder" };
+            openBtn.AddToClassList("bp-btn");
+            openBtn.style.marginRight = 4;
+            btnRow.Add(openBtn);
+
+            var resetBtn = new Button(() =>
+            {
+                steamProfile.outputSubfolder = DefaultSteamOutputSubfolder;
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssetIfDirty(config);
+                subField.SetValueWithoutNotify(steamProfile.outputSubfolder);
+                RefreshResolvedPreview();
+            })
+            { text = "↺ Reset to Default" };
+            resetBtn.AddToClassList("bp-btn");
+            btnRow.Add(resetBtn);
+
+            card.Add(btnRow);
+            return card;
+        }
+
+        /// <summary>Best-effort absolute preview of where a Steam build for this profile would land — same
+        /// combine logic as <c>BuildContext.ResolveOutputPaths</c>'s Windows/Linux branch, minus the
+        /// per-build filename folder (version/date/language), since this is shown before any build ran.</summary>
+        private static string ResolveSteamOutputPreview(ProjectBuildConfig config, PublisherProfile steamProfile)
+        {
+            var root = config.GetEffectiveBuildOutputRoot(steamProfile.platform);
+            var sub = string.IsNullOrEmpty(steamProfile.outputSubfolder) ? DefaultSteamOutputSubfolder : steamProfile.outputSubfolder;
+            try
+            {
+                return Path.GetFullPath(Path.Combine(root, sub));
+            }
+            catch
+            {
+                return Path.Combine(root, sub);
+            }
         }
 
         private void RunQuickBuild(ProjectBuildConfig config)
