@@ -384,26 +384,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             vaultCard.Add(testVaultBtn);
             Root.Add(vaultCard);
 
-            // 4. Publishers & Stores
-            var pubsCard = BuildPipelineUIStyle.CreateCard("Publishers & Store Profiles", "Custom publishers, splash overlays, and store build variants");
-            var pubProp = so.FindProperty("publishers");
-            pubsCard.Add(new PropertyField(pubProp, "Configured Publishers"));
-
-            var restorePubsBtn = new Button(() =>
-            {
-                if (EditorUtility.DisplayDialog("Restore Default Publishers", "Reset publisher list to default presets?", "RESTORE", "CANCEL"))
-                {
-                    config.publishers = PublisherProfile.GetDefaultProfiles();
-                    EditorUtility.SetDirty(config);
-                    AssetDatabase.SaveAssetIfDirty(config);
-                    onRebuild?.Invoke();
-                }
-            })
-            { text = "↺ Restore Default Publishers List" };
-            restorePubsBtn.AddToClassList("bp-btn");
-            restorePubsBtn.style.marginTop = 6;
-            pubsCard.Add(restorePubsBtn);
-            Root.Add(pubsCard);
+            // 4. Publishers & Stores — shared with ProjectBuildConfigCustomEditor (the Inspector) via
+            // PublisherProfilesSectionBuilder so both stay in sync.
+            Root.Add(PublisherProfilesSectionBuilder.BuildSection(config, so, onRebuild));
 
             // 5. Languages Matrix
             var langsCard = BuildPipelineUIStyle.CreateCard("Languages & Localizations", "Matrix languages, display names, and code mappings");
@@ -416,7 +399,6 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     config.languages = LanguageProfile.GetDefaultLanguages();
                     EditorUtility.SetDirty(config);
-                    AssetDatabase.SaveAssetIfDirty(config);
                     onRebuild?.Invoke();
                 }
             })
