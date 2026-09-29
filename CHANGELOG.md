@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-09-29
+
+### Added
+- detailed step-by-step report for the Steam legacy import
+
 ## [1.36.1] - 2026-09-29
 
 ### Fixed
