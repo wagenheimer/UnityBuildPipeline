@@ -230,53 +230,119 @@ $@"""appbuild""
         /// from it — so migrating a game already shipping on Steam via the old per-game .bat/.vdf trio takes
         /// one click instead of retyping App ID/Depot IDs by hand.
         /// </summary>
-        public static string ImportLegacyConfig(SteamUploadConfig cfg, string batPath)
+        public static string ImportLegacyConfig(SteamUploadConfig cfg, string batPath) =>
+            ImportLegacyConfig(cfg, batPath, out _);
+
+        /// <summary>
+        /// Same as the single-argument overload, but also returns a step-by-step <paramref name="report"/>
+        /// (every file looked for, whether it existed, what was read from it) so a failed import says exactly
+        /// WHICH file wasn't found and where it was looked for, instead of a one-line guess. The Steam password
+        /// in the .bat is never read into the report. Returns null on success, or the error summary.
+        /// </summary>
+        public static string ImportLegacyConfig(SteamUploadConfig cfg, string batPath, out string report)
         {
-            if (!File.Exists(batPath)) return "Batch file not found.";
+            var log = new System.Text.StringBuilder();
+            var error = ImportCore(cfg, batPath, log);
+            report = log.ToString();
+            return error;
+        }
+
+        private static string ImportCore(SteamUploadConfig cfg, string batPath, System.Text.StringBuilder log)
+        {
+            void Ok(string m) => log.AppendLine("  ✔ " + m);
+            void Bad(string m) => log.AppendLine("  ✘ " + m);
+            void Info(string m) => log.AppendLine("  • " + m);
+            string Fail(string error)
+            {
+                log.AppendLine().AppendLine("ERRO: " + error);
+                return error;
+            }
+
+            log.AppendLine($"1) Arquivo .bat: {batPath}");
+            if (!File.Exists(batPath))
+            {
+                Bad("não existe.");
+                return Fail($"O arquivo .bat não foi encontrado: {batPath}");
+            }
             var batDir = Path.GetDirectoryName(batPath);
             var batText = File.ReadAllText(batPath);
+            Ok($"lido ({batText.Length} caracteres), pasta: {batDir}");
 
             var loginMatch = Regex.Match(batText, @"\+login\s+(\S+)\s+(\S+)");
             if (!loginMatch.Success) loginMatch = Regex.Match(batText, @"\+login\s+(\S+)");
             var steamCmdMatch = Regex.Match(batText, @"^(.*?steamcmd\.exe)", RegexOptions.IgnoreCase | RegexOptions.Multiline);
             var appVdfMatch = Regex.Match(batText, @"\+run_app_build(?:_http)?\s+([^\s+]+\.vdf)");
 
-            if (!appVdfMatch.Success)
-                return "Could not find '+run_app_build ... .vdf' in that .bat file.";
+            if (loginMatch.Success)
+            {
+                cfg.steamUsername = loginMatch.Groups[1].Value;
+                Ok($"usuário: {cfg.steamUsername} (a senha do .bat NÃO é copiada)");
+            }
+            else Info("nenhum '+login' encontrado no .bat — usuário não alterado.");
 
-            if (loginMatch.Success) cfg.steamUsername = loginMatch.Groups[1].Value;
+            log.AppendLine().AppendLine("2) steamcmd.exe");
             if (steamCmdMatch.Success)
+            {
                 cfg.steamCmdPath = Path.GetFullPath(Path.Combine(batDir, steamCmdMatch.Groups[1].Value.Trim()));
+                if (File.Exists(cfg.steamCmdPath)) Ok(cfg.steamCmdPath);
+                else Bad($"{cfg.steamCmdPath} (indicado no .bat, mas o arquivo não existe)");
+            }
+            else Info($"'steamcmd.exe' não aparece no .bat — mantendo: {cfg.steamCmdPath}");
+
+            log.AppendLine().AppendLine("3) Script do app (+run_app_build)");
+            if (!appVdfMatch.Success)
+            {
+                Bad("o .bat não contém '+run_app_build <arquivo>.vdf'.");
+                return Fail("Não encontrei '+run_app_build ... .vdf' dentro do .bat.");
+            }
 
             // steamcmd resolves a relative +run_app_build path against ITS OWN folder (e.g.
             // ContentBuilder\builder\), not the .bat's folder — so "..\scripts\x.vdf" from a .bat in
             // ContentBuilder\ really means ContentBuilder\scripts\x.vdf. Try steamcmd's folder first, then
             // fall back to the .bat's folder for setups that launch steamcmd from the .bat's own directory.
             var vdfRef = appVdfMatch.Groups[1].Value.Trim('"');
+            Info($"referência no .bat: {vdfRef}");
             var steamCmdDir = Path.GetDirectoryName(cfg.steamCmdPath);
-            var candidates = Path.IsPathRooted(vdfRef)
-                ? new[] { vdfRef }
-                : new[] { Path.Combine(steamCmdDir ?? batDir, vdfRef), Path.Combine(batDir, vdfRef) };
+            var candidates = (Path.IsPathRooted(vdfRef)
+                    ? new[] { vdfRef }
+                    : new[] { Path.Combine(steamCmdDir ?? batDir, vdfRef), Path.Combine(batDir, vdfRef) })
+                .Select(Path.GetFullPath).Distinct().ToArray();
 
-            var appVdfPath = candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+            string appVdfPath = null;
+            foreach (var c in candidates)
+            {
+                if (File.Exists(c)) { Ok($"encontrado: {c}"); appVdfPath ??= c; }
+                else Bad($"não existe: {c}");
+            }
             if (appVdfPath == null)
-                return "App build script referenced by the .bat wasn't found. Looked in:\n  " +
-                       string.Join("\n  ", candidates.Select(Path.GetFullPath));
+                return Fail("O script do app (.vdf) citado no .bat não foi encontrado em nenhum dos caminhos acima.");
 
             var appVdfText = File.ReadAllText(appVdfPath);
             var appIdMatch = Regex.Match(appVdfText, @"""appid""\s*""(\d+)""", RegexOptions.IgnoreCase);
-            if (appIdMatch.Success) cfg.appId = appIdMatch.Groups[1].Value;
+            if (appIdMatch.Success) { cfg.appId = appIdMatch.Groups[1].Value; Ok($"App ID: {cfg.appId}"); }
+            else Bad("não achei \"appid\" dentro do .vdf.");
 
             var setLiveMatch = Regex.Match(appVdfText, @"""setlive""\s*""([^""]*)""", RegexOptions.IgnoreCase);
             if (setLiveMatch.Success) cfg.setLiveBranch = setLiveMatch.Groups[1].Value;
+            Info($"setlive: {(string.IsNullOrEmpty(cfg.setLiveBranch) ? "(vazio — não publica em nenhuma branch)" : cfg.setLiveBranch)}");
 
+            log.AppendLine().AppendLine("4) Depots");
             var depotDir = Path.GetDirectoryName(appVdfPath);
-            foreach (Match depotRef in Regex.Matches(appVdfText, @"""(\d+)""\s*""([^""]+\.vdf)"""))
+            var depotRefs = Regex.Matches(appVdfText, @"""(\d+)""\s*""([^""]+\.vdf)""");
+            if (depotRefs.Count == 0) Bad("nenhum depot (\"<id>\" \"<arquivo>.vdf\") listado no script do app.");
+
+            foreach (Match depotRef in depotRefs)
             {
                 var depotId = depotRef.Groups[1].Value;
                 var depotVdfPath = depotRef.Groups[2].Value.Trim();
                 if (!Path.IsPathRooted(depotVdfPath)) depotVdfPath = Path.Combine(depotDir, depotVdfPath);
-                if (!File.Exists(depotVdfPath)) continue;
+                depotVdfPath = Path.GetFullPath(depotVdfPath);
+
+                if (!File.Exists(depotVdfPath))
+                {
+                    Bad($"depot {depotId}: arquivo não existe → {depotVdfPath}");
+                    continue;
+                }
 
                 var depotText = File.ReadAllText(depotVdfPath);
                 var contentRootMatch = Regex.Match(depotText, @"""contentroot""\s*""([^""]*)""", RegexOptions.IgnoreCase);
@@ -285,26 +351,39 @@ $@"""appbuild""
                 // No reliable per-platform field in a legacy depot vdf — infer from the folder name, which
                 // every existing ContentBuilder script in this SDK install names Windows/Mac/Linux (or macOS).
                 var lower = (contentRoot ?? "") + " " + depotVdfPath;
+                string platformName;
                 if (Regex.IsMatch(lower, "mac", RegexOptions.IgnoreCase))
                 {
+                    platformName = "Mac";
                     cfg.depotIdMac = depotId;
                     cfg.lastBuiltPathMac = contentRoot;
                 }
                 else if (Regex.IsMatch(lower, "linux", RegexOptions.IgnoreCase))
                 {
+                    platformName = "Linux";
                     cfg.depotIdLinux = depotId;
                     cfg.lastBuiltPathLinux = contentRoot;
                 }
                 else
                 {
+                    platformName = "Windows";
                     cfg.depotIdWindows = depotId;
                     cfg.lastBuiltPathWindows = contentRoot;
                 }
+
+                Ok($"depot {depotId} → {platformName} ({Path.GetFileName(depotVdfPath)})");
+                if (contentRoot == null) Bad("    sem \"ContentRoot\" nesse depot .vdf.");
+                else if (Directory.Exists(contentRoot)) Info($"    ContentRoot: {contentRoot}");
+                else Bad($"    ContentRoot não existe no disco (build antigo ainda não copiado?): {contentRoot}");
             }
+
+            log.AppendLine().AppendLine("Resultado:");
+            Info($"App ID: {(string.IsNullOrEmpty(cfg.appId) ? "(faltando)" : cfg.appId)}");
+            Info($"Windows: {(cfg.HasWindowsDepot ? cfg.depotIdWindows : "(faltando)")} | Mac: {(cfg.HasMacDepot ? cfg.depotIdMac : "(faltando)")} | Linux: {(cfg.HasLinuxDepot ? cfg.depotIdLinux : "(faltando)")}");
 
             return cfg.IsConfigured
                 ? null // null = success
-                : "Parsed the .bat/.vdf files but couldn't resolve an App ID and at least one Depot ID from them.";
+                : "Li os arquivos, mas não consegui montar App ID + ao menos 1 Depot ID (veja o relatório).";
         }
     }
 }

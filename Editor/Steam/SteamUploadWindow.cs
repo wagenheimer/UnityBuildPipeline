@@ -23,6 +23,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         private ProjectBuildConfig _config;
+        private string _lastImportReport;
         private ScrollView _logView;
         private VisualElement _root;
         private Label _statusLabel;
@@ -86,22 +87,35 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var picked = EditorUtility.OpenFilePanel("Select this game's run_build_<name>.bat", @"E:\Games\steamworks_sdk_141\sdk\tools\ContentBuilder", "bat");
                 if (string.IsNullOrEmpty(picked)) return;
 
-                var error = SteamUploadRunner.ImportLegacyConfig(cfg, picked);
+                var error = SteamUploadRunner.ImportLegacyConfig(cfg, picked, out var report);
+                _lastImportReport = (error == null ? "IMPORT OK\n\n" : "IMPORT FALHOU\n\n") + report;
+                Debug.Log($"[BuildPipeline] Steam import report:\n{report}");
                 EditorUtility.SetDirty(_config);
                 AssetDatabase.SaveAssetIfDirty(_config);
                 Rebuild();
 
-                EditorUtility.DisplayDialog("Import Legacy Steam Config",
-                    error == null
-                        ? $"Imported App ID {cfg.appId} with {new[] { cfg.HasWindowsDepot, cfg.HasMacDepot, cfg.HasLinuxDepot }.Count(b => b)} depot(s). " +
-                          "Depot content roots point at the OLD manually-copied build folders for now — click 'Build Now' below to point them at a fresh Unity build."
-                        : error,
+                EditorUtility.DisplayDialog(
+                    error == null ? "Import concluído" : "Import falhou",
+                    (error == null
+                        ? $"App ID {cfg.appId}, {new[] { cfg.HasWindowsDepot, cfg.HasMacDepot, cfg.HasLinuxDepot }.Count(b => b)} depot(s) importado(s). " +
+                          "Os ContentRoots apontam para as pastas ANTIGAS por enquanto — use 'Build Now' para apontar para um build novo do Unity.\n\n"
+                        : error + "\n\n") + report,
                     "OK");
             })
             { text = "📥 Import from .bat / .vdf..." };
             importBtn.AddToClassList("bp-btn");
             importBtn.AddToClassList("bp-btn--primary");
             card.Add(importBtn);
+
+            if (!string.IsNullOrEmpty(_lastImportReport))
+            {
+                var reportLabel = new Label(_lastImportReport)
+                {
+                    selection = { isSelectable = true },
+                    style = { fontSize = 10, whiteSpace = WhiteSpace.Normal, marginTop = 8, color = new Color(0.75f, 0.8f, 0.85f) }
+                };
+                card.Add(reportLabel);
+            }
             return card;
         }
 
