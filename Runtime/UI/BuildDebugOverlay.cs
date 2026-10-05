@@ -328,7 +328,7 @@ namespace Wagenheimer.BuildPipeline
             dot.style.marginRight = 6;
             _floatingBtn.Add(dot);
 
-            var label = new Label("🔨 BUILD DBG");
+            var label = new Label("BUILD DBG");
             label.style.color = new StyleColor(Color.white);
             label.style.fontSize = 11.5f;
             label.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -447,7 +447,7 @@ namespace Wagenheimer.BuildPipeline
             titleRow.style.flexDirection = FlexDirection.Row;
             titleRow.style.alignItems = Align.Center;
 
-            var titleLbl = new Label("🔨 Build Pipeline Debug");
+            var titleLbl = new Label("Build Pipeline Debug");
             titleLbl.style.fontSize = 13;
             titleLbl.style.color = new StyleColor(Color.white);
             titleLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -482,11 +482,11 @@ namespace Wagenheimer.BuildPipeline
             maxBtn.style.marginRight = 4;
             actions.Add(maxBtn);
 
-            var minBtn = CreateSmallButton("—", () => SetOpen(false));
+            var minBtn = CreateSmallButton("-", () => SetOpen(false));
             minBtn.style.marginRight = 4;
             actions.Add(minBtn);
 
-            var closeBtn = CreateSmallButton("✕", () => SetOpen(false));
+            var closeBtn = CreateSmallButton("X", () => SetOpen(false));
             actions.Add(closeBtn);
 
             header.Add(actions);
@@ -634,7 +634,7 @@ namespace Wagenheimer.BuildPipeline
             btnRow.style.flexDirection = FlexDirection.Row;
             btnRow.style.marginBottom = 6;
 
-            var copyReportBtn = CreateButton("📋 Copy Report", new Color(0.22f, 0.23f, 0.28f), Color.white, () =>
+            var copyReportBtn = CreateButton("Copy Report", new Color(0.22f, 0.23f, 0.28f), Color.white, () =>
             {
                 var cfg = Config;
                 if (cfg != null)
@@ -649,7 +649,7 @@ namespace Wagenheimer.BuildPipeline
             copyReportBtn.style.marginRight = 4;
             btnRow.Add(copyReportBtn);
 
-            var logConsoleBtn = CreateButton("📜 Log to Console", new Color(0.22f, 0.23f, 0.28f), Color.white, () =>
+            var logConsoleBtn = CreateButton("Log to Console", new Color(0.22f, 0.23f, 0.28f), Color.white, () =>
             {
                 var cfg = Config;
                 if (cfg != null)
@@ -725,13 +725,13 @@ namespace Wagenheimer.BuildPipeline
             {
                 if (isMatch)
                 {
-                    _matchBanner.text = "✓ PACKAGE MATCH: OK";
+                    _matchBanner.text = "PACKAGE MATCH: OK";
                     _matchBanner.style.backgroundColor = new StyleColor(new Color(0.15f, 0.55f, 0.28f));
                     _matchBanner.style.color = new StyleColor(Color.white);
                 }
                 else
                 {
-                    _matchBanner.text = "⚠️ PACKAGE MISMATCH: Current != Expected";
+                    _matchBanner.text = "PACKAGE MISMATCH: Current != Expected";
                     _matchBanner.style.backgroundColor = new StyleColor(new Color(0.65f, 0.22f, 0.20f));
                     _matchBanner.style.color = new StyleColor(Color.white);
                 }
@@ -847,11 +847,12 @@ namespace Wagenheimer.BuildPipeline
 
             if (!string.IsNullOrEmpty(id))
             {
-                var copyBtn = CreateSmallButton("📋", () =>
+                var copyBtn = CreateSmallButton("C", () =>
                 {
                     GUIUtility.systemCopyBuffer = id;
                     SetStatus($"Copied '{id}' to clipboard.");
                 });
+                copyBtn.tooltip = "Copy to clipboard";
                 rightBox.Add(copyBtn);
             }
 
