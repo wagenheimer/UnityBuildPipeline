@@ -47,8 +47,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     BuildHistory.Clear();
                     BuildUI();
                 }
-            })
-            { text = "🗑 Clear History" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(clearBtn, "🗑 Clear History");
             clearBtn.AddToClassList("bp-btn");
             clearBtn.AddToClassList("bp-btn--danger");
             clearBtn.style.height = 22;
@@ -155,7 +155,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             pathLbl.style.whiteSpace = WhiteSpace.Normal;
             bottomRow.Add(pathLbl);
 
-            var folderBtn = new Button(() => BuildHistory.OpenFolder(entry)) { text = "📂 Open Folder" };
+            var folderBtn = new Button(() => BuildHistory.OpenFolder(entry));
+            BuildPipelineUIStyle.ApplyIconText(folderBtn, "📂 Open Folder");
             folderBtn.AddToClassList("bp-btn");
             folderBtn.style.height = 20;
             folderBtn.style.fontSize = 10;
@@ -167,7 +168,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 ? (entry.IsAab ? "▶️ Install & Run (bundletool)" : "▶️ Install & Run (adb)")
                 : "▶️ Run";
 
-            var runBtn = new Button(() => BuildHistory.Run(entry)) { text = runLabel };
+            var runBtn = new Button(() => BuildHistory.Run(entry));
+            BuildPipelineUIStyle.ApplyIconText(runBtn, runLabel);
             runBtn.AddToClassList("bp-btn");
             runBtn.AddToClassList("bp-btn--success");
             runBtn.style.height = 20;
@@ -181,7 +183,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 BuildHistory.Remove(entry);
                 BuildUI();
-            }) { text = "✕" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(delBtn, "✕");
             delBtn.AddToClassList("bp-btn");
             delBtn.style.height = 20;
             delBtn.style.width = 22;

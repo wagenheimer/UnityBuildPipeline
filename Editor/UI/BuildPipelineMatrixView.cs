@@ -210,10 +210,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             optionsCard.Add(optionsBox);
 
-            var buildMatrixBtn = new Button(RunMatrixBuild)
-            {
-                text = $"⚡ Generate {totalBuilds} Builds Now"
-            };
+            var buildMatrixBtn = new Button(RunMatrixBuild);
+            BuildPipelineUIStyle.ApplyIconText(buildMatrixBtn, $"⚡ Generate {totalBuilds} Builds Now");
             buildMatrixBtn.AddToClassList("bp-btn");
             buildMatrixBtn.AddToClassList("bp-btn--success");
             buildMatrixBtn.style.height = 36;

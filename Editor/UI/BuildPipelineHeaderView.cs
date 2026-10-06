@@ -39,11 +39,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             var toolbar = new VisualElement();
             toolbar.AddToClassList("bp-toolbar-actions");
 
-            var guideBtn = new Button(BuildPipelineGuideWindow.Open) { text = "📖 Guide" };
+            var guideBtn = new Button(BuildPipelineGuideWindow.Open);
+            BuildPipelineUIStyle.ApplyIconText(guideBtn, "📖 Guide");
             guideBtn.AddToClassList("bp-toolbar-btn");
             toolbar.Add(guideBtn);
 
-            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true)) { text = "🔄 Check Updates" };
+            var updateBtn = new Button(() => UpdateChecker.CheckForUpdate(force: true));
+            BuildPipelineUIStyle.ApplyIconText(updateBtn, "🔄 Check Updates");
             updateBtn.AddToClassList("bp-toolbar-btn");
             toolbar.Add(updateBtn);
 
@@ -188,7 +190,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static void AddStepperBtn(VisualElement parent, string text, string tooltip, Action onClick)
         {
-            var btn = new Button(onClick) { text = text, tooltip = tooltip };
+            var btn = new Button(onClick) { tooltip = tooltip };
+            BuildPipelineUIStyle.ApplyIconText(btn, text);
             btn.AddToClassList("bp-btn");
             btn.style.height = 20;
             btn.style.paddingLeft = 5;

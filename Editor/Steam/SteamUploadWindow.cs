@@ -101,8 +101,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                           "Os ContentRoots apontam para as pastas ANTIGAS por enquanto — use 'Build Now' para apontar para um build novo do Unity.\n\n"
                         : error + "\n\n") + report,
                     "OK");
-            })
-            { text = "📥 Import from .bat / .vdf..." };
+            });
+            BuildPipelineUIStyle.ApplyIconText(importBtn, "📥 Import from .bat / .vdf...");
             importBtn.AddToClassList("bp-btn");
             importBtn.AddToClassList("bp-btn--primary");
             card.Add(importBtn);
@@ -170,7 +170,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             statusLabel.style.whiteSpace = WhiteSpace.Normal;
             statusRow.Add(statusLabel);
 
-            var buildBtn = new Button(() => BuildOnePlatform(platform)) { text = "🔨 Build Now" };
+            var buildBtn = new Button(() => BuildOnePlatform(platform));
+            BuildPipelineUIStyle.ApplyIconText(buildBtn, "🔨 Build Now");
             buildBtn.AddToClassList("bp-btn");
             statusRow.Add(buildBtn);
 
@@ -215,8 +216,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (cfg.HasWindowsDepot) BuildOnePlatform(PlatformType.Windows64);
                 if (cfg.HasMacDepot) BuildOnePlatform(PlatformType.macOS);
                 if (cfg.HasLinuxDepot) BuildOnePlatform(PlatformType.Linux64);
-            })
-            { text = "🔨 Build All Configured Platforms" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(buildAllBtn, "🔨 Build All Configured Platforms");
             buildAllBtn.AddToClassList("bp-btn");
             buildAllBtn.style.marginRight = 6;
             row.Add(buildAllBtn);
@@ -234,8 +235,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     Rebuild();
                 });
                 Rebuild();
-            })
-            { text = SteamUploadRunner.IsUploading ? "⏳ Uploading..." : "🚀 Upload to Steam" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(uploadBtn, SteamUploadRunner.IsUploading ? "⏳ Uploading..." : "🚀 Upload to Steam");
             uploadBtn.SetEnabled(canUpload);
             uploadBtn.AddToClassList("bp-btn");
             uploadBtn.AddToClassList("bp-btn--primary");

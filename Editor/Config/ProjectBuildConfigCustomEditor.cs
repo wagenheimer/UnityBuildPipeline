@@ -38,10 +38,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             topActions.style.flexDirection = FlexDirection.Row;
             topActions.style.marginBottom = 6;
 
-            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow)
-            {
-                text = "🚀 Open Build Pipeline Window"
-            };
+            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow);
+            BuildPipelineUIStyle.ApplyIconText(openWinBtn, "🚀 Open Build Pipeline Window");
             openWinBtn.AddToClassList("bp-btn");
             openWinBtn.AddToClassList("bp-btn--primary");
             openWinBtn.style.flexGrow = 1;
@@ -49,10 +47,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             openWinBtn.style.fontSize = 12;
             topActions.Add(openWinBtn);
 
-            var guideBtn = new Button(BuildPipelineGuideWindow.Open)
-            {
-                text = "📖 Guide"
-            };
+            var guideBtn = new Button(BuildPipelineGuideWindow.Open);
+            BuildPipelineUIStyle.ApplyIconText(guideBtn, "📖 Guide");
             guideBtn.AddToClassList("bp-btn");
             guideBtn.style.height = 30;
             guideBtn.style.fontSize = 11;
@@ -118,10 +114,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             pubField.RegisterValueChangedCallback(_ => RefreshQuickBuildStatus());
             RefreshQuickBuildStatus();
 
-            var runBtn = new Button(() => ConfirmAndRunQuickBuild(config))
-            {
-                text = "▶️ RUN QUICK BUILD NOW"
-            };
+            var runBtn = new Button(() => ConfirmAndRunQuickBuild(config));
+            BuildPipelineUIStyle.ApplyIconText(runBtn, "▶️ RUN QUICK BUILD NOW");
             runBtn.AddToClassList("bp-btn");
             runBtn.AddToClassList("bp-btn--success");
             runBtn.style.height = 32;
@@ -181,8 +175,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     EditorUtility.ClearProgressBar();
                 }
-            })
-            { text = "⚡ Test Vault Connection" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(testVaultBtn, "⚡ Test Vault Connection");
             testVaultBtn.AddToClassList("bp-btn");
             testVaultBtn.style.marginTop = 6;
             vaultCard.Add(testVaultBtn);
@@ -288,7 +282,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorUtility.SetDirty(config);
                     serializedObject.Update();
                 }
-            }) { text = "↺ Reset Presets" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(restoreLangsBtn, "↺ Reset Presets");
             restoreLangsBtn.AddToClassList("bp-btn");
             restoreLangsBtn.style.height = 22;
             restoreLangsBtn.style.paddingLeft = 8;
@@ -331,7 +326,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     {
                         if (lp.enabled)
                         {
-                            tagBtn.text = $"✓  {lp.Name}";
+                            BuildPipelineUIStyle.ApplyIconText(tagBtn, $"✓  {lp.Name}");
                             tagBtn.style.backgroundColor = new Color(0.18f, 0.45f, 0.72f, 0.85f);
                             tagBtn.style.borderTopColor = new Color(0.25f, 0.6f, 0.95f, 1f);
                             tagBtn.style.borderBottomColor = new Color(0.25f, 0.6f, 0.95f, 1f);
@@ -341,7 +336,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         }
                         else
                         {
-                            tagBtn.text = $"✕  {lp.Name}";
+                            BuildPipelineUIStyle.ApplyIconText(tagBtn, $"✕  {lp.Name}");
                             tagBtn.style.backgroundColor = new Color(0.22f, 0.22f, 0.25f, 0.6f);
                             tagBtn.style.borderTopColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
                             tagBtn.style.borderBottomColor = new Color(0.35f, 0.35f, 0.38f, 0.6f);
@@ -423,7 +418,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     : $"⚠ Steam: '{PublisherProfile.NativeSocialSteamDefine}' is NOT in this profile's Scripting Defines (the pipeline auto-adds it at build time if Steamworks.NET is detected, but it's not explicit here).")
                 { style = { fontSize = 10, color = hasDefine ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.9f, 0.7f, 0.4f), whiteSpace = WhiteSpace.Normal, flexGrow = 1 } });
 
-                var openSteamBtn = new Button(SteamUploadWindow.Open) { text = "🎮 Steam Upload..." };
+                var openSteamBtn = new Button(SteamUploadWindow.Open);
+                BuildPipelineUIStyle.ApplyIconText(openSteamBtn, "🎮 Steam Upload...");
                 openSteamBtn.AddToClassList("bp-btn");
                 openSteamBtn.style.marginLeft = 6;
                 steamRow.Add(openSteamBtn);

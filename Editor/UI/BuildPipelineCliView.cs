@@ -116,8 +116,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorGUIUtility.systemCopyBuffer = _commandPreviewField.value;
                     EditorUtility.DisplayDialog("Copied", "Command copied to clipboard!", "OK");
                 }
-            })
-            { text = "📋 Copy to Clipboard" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(copyBtn, "📋 Copy to Clipboard");
             copyBtn.AddToClassList("bp-btn");
             copyBtn.AddToClassList("bp-btn--primary");
             copyBtn.style.height = 22;

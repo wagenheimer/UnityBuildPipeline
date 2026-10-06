@@ -92,8 +92,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.SetDirty(_asset);
                 AssetDatabase.SaveAssetIfDirty(_asset);
                 Close();
-            })
-            { text = "💾 Save to Disk" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(saveBtn, "💾 Save to Disk");
             saveBtn.AddToClassList("bp-btn");
             saveBtn.AddToClassList("bp-btn--primary");
             actionsRow.Add(saveBtn);

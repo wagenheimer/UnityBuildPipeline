@@ -55,8 +55,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                         so.Update();
                         Refresh();
                         onExternalChange?.Invoke();
-                    })
-                    { text = "➕ Add Steam Profile" };
+                    });
+                    BuildPipelineUIStyle.ApplyIconText(addSteamBtn, "➕ Add Steam Profile");
                     addSteamBtn.AddToClassList("bp-btn");
                     addSteamBtn.AddToClassList("bp-btn--primary");
                     addSteamBtn.style.marginTop = 6;
@@ -83,8 +83,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     so.Update();
                     Refresh();
                     onExternalChange?.Invoke();
-                })
-                { text = "➕ Add Publisher" };
+                });
+                BuildPipelineUIStyle.ApplyIconText(addPubBtn, "➕ Add Publisher");
                 addPubBtn.AddToClassList("bp-btn");
                 listHeader.Add(addPubBtn);
                 body.Add(listHeader);
@@ -108,9 +108,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                         Refresh();
                         onExternalChange?.Invoke();
                     }
-                })
-                { text = "↺ Restore Default Publishers List" };
-                restorePubsBtn.AddToClassList("bp-btn");
+                });
+            BuildPipelineUIStyle.ApplyIconText(restorePubsBtn, "↺ Restore Default Publishers List");
+            restorePubsBtn.AddToClassList("bp-btn");
                 restorePubsBtn.style.marginTop = 6;
                 body.Add(restorePubsBtn);
             }
@@ -149,8 +149,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     so.Update();
                     refresh();
                     onExternalChange?.Invoke();
-                })
-                { text = $"🛠 Add define to {missingDefine.Count} Steam profile(s)" };
+                });
+                BuildPipelineUIStyle.ApplyIconText(fixBtn, $"🛠 Add define to {missingDefine.Count} Steam profile(s)");
                 fixBtn.AddToClassList("bp-btn");
                 fixBtn.AddToClassList("bp-btn--primary");
                 fixBtn.style.marginTop = 6;
@@ -180,7 +180,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     $"⚠ Steam Upload is missing a Depot ID for: {string.Join(", ", missing)}. That platform's Steam build/upload will be silently skipped until you create the depot in the Steamworks Partner Site and enter its ID.",
                     "warning");
 
-            var openBtn = new Button(SteamUploadWindow.Open) { text = "🎮 Open Steam Upload..." };
+            var openBtn = new Button(SteamUploadWindow.Open);
+            BuildPipelineUIStyle.ApplyIconText(openBtn, "🎮 Open Steam Upload...");
             openBtn.AddToClassList("bp-btn");
             openBtn.style.marginTop = 6;
             status.Add(openBtn);
@@ -251,8 +252,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.SetDirty(config);
                 subField.SetValueWithoutNotify(steamProfile.outputSubfolder);
                 RefreshResolvedPreview();
-            })
-            { text = "📁 Choose Folder..." };
+            });
+            BuildPipelineUIStyle.ApplyIconText(browseBtn, "📁 Choose Folder...");
             browseBtn.AddToClassList("bp-btn");
             browseBtn.style.marginRight = 4;
             btnRow.Add(browseBtn);
@@ -265,8 +266,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 else
                     EditorUtility.DisplayDialog("Folder Not Found",
                         $"'{resolved}' doesn't exist yet — it's created the first time a Steam build runs.", "OK");
-            })
-            { text = "📂 Open Folder" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(openBtn, "📂 Open Folder");
             openBtn.AddToClassList("bp-btn");
             openBtn.style.marginRight = 4;
             btnRow.Add(openBtn);
@@ -277,8 +278,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.SetDirty(config);
                 subField.SetValueWithoutNotify(steamProfile.outputSubfolder);
                 RefreshResolvedPreview();
-            })
-            { text = "↺ Reset to Default" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(resetBtn, "↺ Reset to Default");
             resetBtn.AddToClassList("bp-btn");
             btnRow.Add(resetBtn);
 
@@ -305,7 +306,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             var isExpanded = ExpandedPublisherIndices.Contains(index);
             var body = new VisualElement { style = { display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None, marginTop = 8, paddingTop = 8, borderTopWidth = 1, borderTopColor = new Color(1, 1, 1, 0.08f) } };
 
-            var expandBtn = new Button { text = isExpanded ? "▾" : "▸" };
+            var expandBtn = new Button();
+            BuildPipelineUIStyle.ApplyIconText(expandBtn, isExpanded ? "▾" : "▸");
             expandBtn.AddToClassList("bp-btn");
             expandBtn.style.width = 26;
             expandBtn.style.marginRight = 6;
@@ -313,7 +315,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 var nowExpanded = body.style.display == DisplayStyle.None;
                 body.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
-                expandBtn.text = nowExpanded ? "▾" : "▸";
+                BuildPipelineUIStyle.ApplyIconText(expandBtn, nowExpanded ? "▾" : "▸");
                 if (nowExpanded) ExpandedPublisherIndices.Add(index); else ExpandedPublisherIndices.Remove(index);
             };
             header.Add(expandBtn);
@@ -360,8 +362,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 pubProp.MoveArrayElement(index, index - 1);
                 so.ApplyModifiedProperties();
                 onListChanged();
-            })
-            { text = "▲" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(upBtn, "▲");
             upBtn.AddToClassList("bp-btn");
             upBtn.SetEnabled(index > 0);
             upBtn.style.width = 24;
@@ -373,8 +375,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 pubProp.MoveArrayElement(index, index + 1);
                 so.ApplyModifiedProperties();
                 onListChanged();
-            })
-            { text = "▼" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(downBtn, "▼");
             downBtn.AddToClassList("bp-btn");
             downBtn.SetEnabled(index < config.publishers.Count - 1);
             downBtn.style.width = 24;
@@ -390,8 +392,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.publishers[index + 1].displayName += " (Copy)";
                 EditorUtility.SetDirty(config);
                 onListChanged();
-            })
-            { text = "⧉" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(dupBtn, "⧉");
             dupBtn.tooltip = "Duplicate";
             dupBtn.AddToClassList("bp-btn");
             dupBtn.style.width = 24;
@@ -405,8 +407,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 pubProp.DeleteArrayElementAtIndex(index);
                 so.ApplyModifiedProperties();
                 onListChanged();
-            })
-            { text = "✕" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(removeBtn, "✕");
             removeBtn.tooltip = "Remove";
             removeBtn.AddToClassList("bp-btn");
             removeBtn.AddToClassList("bp-btn--danger");

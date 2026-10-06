@@ -130,7 +130,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 rootVisualElement.Clear();
                 var errBox = new HelpBox($"Failed to initialize Build Pipeline UI:\n{ex.Message}\n\n{ex.StackTrace}", HelpBoxMessageType.Error);
                 rootVisualElement.Add(errBox);
-                var retryBtn = new Button(RebuildUI) { text = "🔄 Retry" };
+                var retryBtn = new Button(RebuildUI);
+                BuildPipelineUIStyle.ApplyIconText(retryBtn, "🔄 Retry");
                 retryBtn.style.height = 30;
                 rootVisualElement.Add(retryBtn);
             }
@@ -222,8 +223,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     }
                     _selectedTab = tabIndex;
                     RebuildUI();
-                })
-                { text = $"{tabs[i].icon} {tabs[i].label}" };
+                });
+                BuildPipelineUIStyle.ApplyIconText(tabBtn, $"{tabs[i].icon} {tabs[i].label}");
 
                 tabBtn.AddToClassList("bp-tab-button");
                 tabBtn.style.flexGrow = 1;
@@ -387,8 +388,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     EditorUtility.ClearProgressBar();
                 }
-            })
-            { text = "⚡ Test Vault Connection" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(testVaultBtn, "⚡ Test Vault Connection");
             testVaultBtn.AddToClassList("bp-btn");
             testVaultBtn.style.marginTop = 6;
             vaultCard.Add(testVaultBtn);
@@ -411,8 +412,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     EditorUtility.SetDirty(config);
                     onRebuild?.Invoke();
                 }
-            })
-            { text = "↺ Restore Default Languages List" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(restoreLangsBtn, "↺ Restore Default Languages List");
             restoreLangsBtn.AddToClassList("bp-btn");
             restoreLangsBtn.style.marginTop = 6;
             langsCard.Add(restoreLangsBtn);

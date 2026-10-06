@@ -129,7 +129,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 btn.style.marginRight = 6;
                 btn.style.marginBottom = 6;
                 btn.style.height = 30;
-                btn.text = label;
+                BuildPipelineUIStyle.ApplyIconText(btn, label);
                 row.Add(btn);
             }
 
@@ -138,7 +138,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             AddSteamBtn("🐧 Build Linux", () => RunSteamBuild(steamProfile, PlatformType.Linux64));
             AddSteamBtn("🚀 Build All 3", () => RunSteamBuildAll(steamProfile), highlight: true);
 
-            var openUploadBtn = new Button(SteamUploadWindow.Open) { text = "🎮 Open Steam Upload..." };
+            var openUploadBtn = new Button(SteamUploadWindow.Open);
+            BuildPipelineUIStyle.ApplyIconText(openUploadBtn, "🎮 Open Steam Upload...");
             openUploadBtn.AddToClassList("bp-btn");
             openUploadBtn.style.marginBottom = 6;
             row.Add(openUploadBtn);
@@ -186,7 +187,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 btn.AddToClassList("bp-quick-card--highlight");
             }
 
-            var t = new Label(title);
+            var t = BuildPipelineUIStyle.CreateIconLabel(title);
             t.AddToClassList("bp-quick-title");
             btn.Add(t);
 

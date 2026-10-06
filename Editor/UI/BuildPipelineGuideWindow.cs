@@ -109,7 +109,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "3. Toggle Cheat ON and/or Cheat OFF.\n" +
                 "4. Check 'Development Build' if generating testing builds.\n" +
                 "5. Click 'Generate Builds'. The system displays real-time progress and handles cancellation safely.");
-            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow) { text = "⚡ Open Build Window" };
+            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow);
+            BuildPipelineUIStyle.ApplyIconText(openWinBtn, "⚡ Open Build Window");
             openWinBtn.style.alignSelf = Align.FlexStart;
             openWinBtn.style.marginTop = 6;
             card4.Add(openWinBtn);
@@ -206,10 +207,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "3. Click Tools → Build Pipeline → Migrate or Create Project Config.\n" +
                 "4. All bundle IDs, names, and paths will be auto-populated into ProjectBuildConfig.asset!");
 
-            var migBtn = new Button(() => EditorApplication.ExecuteMenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config"))
-            {
-                text = "⚡ Run Migration Wizard Now"
-            };
+            var migBtn = new Button(() => EditorApplication.ExecuteMenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config"));
+            BuildPipelineUIStyle.ApplyIconText(migBtn, "⚡ Run Migration Wizard Now");
             migBtn.style.alignSelf = Align.FlexStart;
             migBtn.style.marginTop = 6;
             card11.Add(migBtn);

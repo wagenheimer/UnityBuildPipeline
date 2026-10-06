@@ -28,7 +28,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var actionRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 6 } };
 
-            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow) { text = "🚀 Open Build Pipeline Window" };
+            var openWinBtn = new Button(BuildPipelineWindow.ShowWindow);
+            BuildPipelineUIStyle.ApplyIconText(openWinBtn, "🚀 Open Build Pipeline Window");
             openWinBtn.AddToClassList("bp-btn");
             openWinBtn.AddToClassList("bp-btn--primary");
             openWinBtn.style.flexGrow = 1;
@@ -42,15 +43,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     Selection.activeObject = _linkedBuildConfig;
                     EditorGUIUtility.PingObject(_linkedBuildConfig);
-                })
-                { text = "📁 ProjectBuildConfig" };
+                });
+                BuildPipelineUIStyle.ApplyIconText(pingCfgBtn, "📁 ProjectBuildConfig");
                 pingCfgBtn.AddToClassList("bp-btn");
                 pingCfgBtn.style.height = 30;
                 pingCfgBtn.style.fontSize = 11;
                 actionRow.Add(pingCfgBtn);
             }
 
-            var guideBtn = new Button(BuildPipelineGuideWindow.Open) { text = "📖 Guide" };
+            var guideBtn = new Button(BuildPipelineGuideWindow.Open);
+            BuildPipelineUIStyle.ApplyIconText(guideBtn, "📖 Guide");
             guideBtn.AddToClassList("bp-btn");
             guideBtn.style.height = 30;
             guideBtn.style.fontSize = 11;
@@ -301,7 +303,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static void AddStepperBtn(VisualElement parent, string text, Action onClick)
         {
-            var btn = new Button(onClick) { text = text };
+            var btn = new Button(onClick);
+            BuildPipelineUIStyle.ApplyIconText(btn, text);
             btn.AddToClassList("bp-btn");
             btn.style.height = 24;
             btn.style.fontSize = 11;

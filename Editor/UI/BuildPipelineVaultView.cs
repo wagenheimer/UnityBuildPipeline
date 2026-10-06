@@ -109,8 +109,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     EditorUtility.ClearProgressBar();
                 }
-            })
-            { text = "⚡ Test Remote Vault Connection" };
+            });
+            BuildPipelineUIStyle.ApplyIconText(testBtn, "⚡ Test Remote Vault Connection");
             testBtn.AddToClassList("bp-btn");
             testBtn.AddToClassList("bp-btn--primary");
             testBtn.style.height = 30;
@@ -161,8 +161,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     BuildUI();
                     _onRefresh?.Invoke();
                 }
-            })
-            { text = "📂 Browse Keystore..." };
+            });
+            BuildPipelineUIStyle.ApplyIconText(browseBtn, "📂 Browse Keystore...");
             browseBtn.AddToClassList("bp-btn");
             browseBtn.style.height = 24;
             localActions.Add(browseBtn);
