@@ -295,7 +295,8 @@ namespace Wagenheimer.BuildPipeline
             _floatingBtn.name = "BuildDebugFloatingButton";
             _floatingBtn.pickingMode = PickingMode.Position;
             _floatingBtn.style.position = Position.Absolute;
-            _floatingBtn.style.bottom = 58;
+            // Shared debug-button layout (no overlaps): bottom-left column 18/62/106 = IAP, Build, CloudSave.
+            _floatingBtn.style.bottom = 62;
             _floatingBtn.style.left = 18;
             _floatingBtn.style.height = 34;
             _floatingBtn.style.paddingLeft = 12;
