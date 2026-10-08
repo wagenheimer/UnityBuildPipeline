@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Wagenheimer.PackageHub.Editor;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
@@ -20,25 +21,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 win.titleContent = new GUIContent("Build Pipeline", EditorGUIUtility.IconContent("BuildSettings.Editor").image);
                 win.minSize = new Vector2(760, 560);
 
-                // Check if the window is off-screen or positioned on a disconnected monitor, and center it
-                var mainPos = EditorGUIUtility.GetMainWindowPosition();
-                bool isOffscreen = !win.docked && (
-                    win.position.x >= mainPos.x + mainPos.width - 80 ||
-                    win.position.x + win.position.width <= mainPos.x + 80 ||
-                    win.position.y >= mainPos.y + mainPos.height - 80 ||
-                    win.position.y < mainPos.y - 100 ||
-                    win.position.width < 300 || win.position.height < 300
-                );
-
-                if (isOffscreen)
-                {
-                    float w = Mathf.Min(880f, mainPos.width * 0.85f);
-                    float h = Mathf.Min(660f, mainPos.height * 0.85f);
-                    float x = mainPos.x + (mainPos.width - w) * 0.5f;
-                    float y = mainPos.y + (mainPos.height - h) * 0.5f;
-                    win.position = new Rect(x, y, w, h);
-                    Debug.Log($"[BuildPipeline] Window was off-screen; repositioned to center: {win.position}");
-                }
+                // Pull the window back if it was saved off-screen (e.g. on a disconnected monitor).
+                EditorWindowPlacement.EnsureOnScreen(win, new Vector2(760, 560), new Vector2(880, 660));
 
                 win.Show();
                 win.Focus();
@@ -55,12 +39,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static void ResetPosition()
         {
             var win = GetWindow<BuildPipelineWindow>(utility: false, title: "Build Pipeline", focus: true);
-            var mainPos = EditorGUIUtility.GetMainWindowPosition();
-            float w = Mathf.Min(880f, mainPos.width * 0.85f);
-            float h = Mathf.Min(660f, mainPos.height * 0.85f);
-            float x = mainPos.x + (mainPos.width - w) * 0.5f;
-            float y = mainPos.y + (mainPos.height - h) * 0.5f;
-            win.position = new Rect(x, y, w, h);
+            EditorWindowPlacement.Center(win, new Vector2(760, 560), new Vector2(880, 660));
             win.Show();
             win.Focus();
             win.Repaint();
