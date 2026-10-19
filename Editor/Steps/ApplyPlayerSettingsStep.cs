@@ -11,6 +11,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public int Order => 20;
 
         private const string OrigAndroidBvc = "ApplyPlayerSettingsStep.OrigAndroidBundleVersionCode";
+        private const string OrigAndroidSplit = "ApplyPlayerSettingsStep.OrigAndroidSplitApplicationBinary";
         private const string OrigIosBuild = "ApplyPlayerSettingsStep.OrigIosBuildNumber";
         private const string OrigMacBuild = "ApplyPlayerSettingsStep.OrigMacBuildNumber";
 
@@ -137,6 +138,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                         }
                     }
                     EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
+
+                    // "Split Application Binary" + APK is a trap: the .apk ends up containing only the
+                    // executable and the first scene, while the rest goes into a separate .obb that
+                    // side-loading (adb/Forge) never installs — the game hangs on the splash waiting
+                    // for a scene that is not in the APK. AAB may keep the split (the store delivers
+                    // the modules); for APK it is forced OFF for this build and restored post-build.
+                    if (!context.AppBundle && PlayerSettings.Android.splitApplicationBinary)
+                    {
+                        context.LogWarning("Android: 'Split Application Binary' is ON in ProjectSettings with an APK build — forcing it OFF for this build (the .obb is not installed alongside and the game would hang on the splash).");
+                        context.ExtraData[OrigAndroidSplit] = true;
+                        PlayerSettings.Android.splitApplicationBinary = false;
+                    }
                     EditorUserBuildSettings.buildAppBundle = context.AppBundle;
 
                     if (context.DevelopmentBuild)
@@ -211,6 +224,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public bool ExecutePostBuild(BuildContext context, BuildReport report)
         {
+            // Restores "Split Application Binary" when the pre-build turned it off to produce an APK,
+            // so the game repo's ProjectSettings is left exactly as it was.
+            if (context.ExtraData.TryGetValue(OrigAndroidSplit, out var splitWasOn) && splitWasOn is true)
+                PlayerSettings.Android.splitApplicationBinary = true;
+
             // Saves PlayerSettings and asset changes to the project so the increment persists
             AssetDatabase.SaveAssets();
             return true;
