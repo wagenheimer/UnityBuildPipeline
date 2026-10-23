@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -151,6 +152,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         PlayerSettings.Android.splitApplicationBinary = false;
                     }
                     EditorUserBuildSettings.buildAppBundle = context.AppBundle;
+                    ApplyAndroidLargeScreenAspectRatio(context);
 
                     if (context.DevelopmentBuild)
                     {
@@ -220,6 +222,66 @@ namespace Wagenheimer.BuildPipeline.Editor
                 : AndroidCreateSymbols.Disabled;
 #pragma warning restore CS0618
 #endif
+        }
+
+        /// <summary>
+        /// Level Up LU-LS-GAC: landscape games must render full screen at 4:3, 16:10 and 21:9.
+        /// Custom mode with 1.32-2.34 keeps 4:3 (1.333) and 21:9 (2.333) inside the range; the default 3:2
+        /// minimum letterboxes 4:3 tablets and the 2.1 maximum letterboxes 21:9 phones.
+        /// </summary>
+        private static void ApplyAndroidLargeScreenAspectRatio(BuildContext context)
+        {
+            const int customMode = 2;
+            const float min = 1.32f;
+            const float max = 2.34f;
+
+            try
+            {
+                SetAndroidAspectRatioMode(customMode);
+                PlayerSettings.Android.minAspectRatio = min;
+                PlayerSettings.Android.maxAspectRatio = max;
+
+                var appliedMin = PlayerSettings.Android.minAspectRatio;
+                var appliedMax = PlayerSettings.Android.maxAspectRatio;
+
+                if (appliedMin > 1.34f || appliedMax < 2.33f)
+                    context.LogWarning($"[BuildPipeline] Android aspect ratio is {appliedMin:0.00}-{appliedMax:0.00}: 4:3 and 21:9 may letterbox (Level Up LU-LS-GAC).");
+                else
+                    context.Log($"[BuildPipeline] Android aspect ratio Custom {appliedMin:0.00}-{appliedMax:0.00} (4:3, 16:10 and 21:9 full screen).");
+            }
+            catch (Exception e)
+            {
+                context.LogWarning($"[BuildPipeline] Could not apply the Android aspect ratio: {e.Message}");
+            }
+        }
+
+        /// <summary>supportedAspectRatioMode is internal (0 = Legacy 1.86, 1 = Native/2.1, 2 = Custom), so it is set by reflection.</summary>
+        private static void SetAndroidAspectRatioMode(int mode)
+        {
+            try
+            {
+                var property = typeof(PlayerSettings.Android).GetProperty("supportedAspectRatioMode",
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (property != null && property.CanWrite)
+                {
+                    property.SetValue(null, mode);
+                    return;
+                }
+            }
+            catch
+            {
+                // Fall back to the serialized field below.
+            }
+
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset");
+            if (assets == null || assets.Length == 0) return;
+
+            var serialized = new SerializedObject(assets[0]);
+            var field = serialized.FindProperty("androidSupportedAspectRatio");
+            if (field == null) return;
+
+            field.intValue = mode;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         public bool ExecutePostBuild(BuildContext context, BuildReport report)
