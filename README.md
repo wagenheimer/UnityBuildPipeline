@@ -228,3 +228,23 @@ public class DiscordNotificationStep : IPostBuildStep
 ## 📄 License
 
 MIT License. Copyright (c) 2026 Cezar Wagenheimer.
+
+---
+
+### Wagenheimer Unity ecosystem
+
+[Package Hub](https://github.com/wagenheimer/UnityPackageHub) ·
+[Unity Utils](https://github.com/wagenheimer/UnityUtils) ·
+[Build Pipeline](https://github.com/wagenheimer/UnityBuildPipeline) ·
+[Cloud Save](https://github.com/wagenheimer/UnityCloudSave) ·
+[Rate Control](https://github.com/wagenheimer/UnityRateControl) ·
+[IAP Helper](https://github.com/wagenheimer/UnityIAPHelper) ·
+[LevelPlay Helper](https://github.com/wagenheimer/UnityLevelPlayHelper) ·
+[Native Social](https://github.com/wagenheimer/UnityNativeSocial) ·
+[Rewired Helper](https://github.com/wagenheimer/RewiredHelper) ·
+[Timeline Typewriter](https://github.com/wagenheimer/UnityTimelineTypewriter) ·
+[Tk2d Porter](https://github.com/wagenheimer/UnityTk2dPorter) ·
+[Tracking](https://github.com/wagenheimer/UnityTracking) ·
+[I2 Localization](https://github.com/wagenheimer/UnityI2Localization)
+
+Explore every project at **[wagenheimer.com/opensource](https://wagenheimer.com/opensource)**.
