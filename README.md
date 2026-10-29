@@ -40,7 +40,7 @@ Add to your project's `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.wagenheimer.buildpipeline": "https://github.com/wagenheimer/UnityBuildPipeline.git#v1.0.0"
+    "com.wagenheimer.buildpipeline": "https://github.com/wagenheimer/UnityBuildPipeline.git#v1.38.0"
   }
 }
 ```
