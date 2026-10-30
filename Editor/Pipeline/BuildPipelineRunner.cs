@@ -25,6 +25,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     {
         private static readonly List<IPreBuildStep> PreSteps = new List<IPreBuildStep>
         {
+            new ApplyBuildVariantStep(),
             new SyncGameConfigStep(),
             new ValidateGoogleDependenciesStep(),
             new ApplyScriptingDefinesStep(),
@@ -49,7 +50,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static BuildResultSummary Execute(BuildContext context)
         {
             var stopwatch = Stopwatch.StartNew();
-            context.Log($"=== START BUILD: {context.ProjectName} | {context.Publisher} | {context.Language} | {context.Platform} ===");
+            var variantText = string.IsNullOrEmpty(context.VariantId) ? "" : $" | Variant: {context.VariantLabel}";
+            context.Log($"=== START BUILD: {context.ProjectName} | {context.Publisher} | {context.Language} | {context.Platform}{variantText} ===");
 
             context.ResolveOutputPaths();
 

@@ -1,7 +1,20 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.U2D;
 
+/// <summary>
+/// Runtime source of truth for a game build: store/publisher, language, version, bundle ids and assets.
+/// <para>
+/// <b>Extending it for one game:</b> create a subclass in the game project
+/// (<c>public class MyGameConfig : GameConfig</c>) and add whatever serialized fields that game needs
+/// (editions, analytics switches, store ids...). The pipeline stores and builds the subclass through this
+/// base type, the GameConfig inspector renders the extra fields automatically, and the package never
+/// needs to know about them. Use <see cref="buildVariants"/> + <see cref="ApplyBuildVariant"/> when the
+/// extra field also changes the output (e.g. Collector's Edition vs Standard Edition), so the matrix,
+/// quick build and CLI can compile every edition for you.
+/// </para>
+/// </summary>
 [CreateAssetMenu(fileName = "GameConfig", menuName = "Game Configuration", order = 1)]
 public class GameConfig : ScriptableObject
 {
@@ -91,4 +104,76 @@ public class GameConfig : ScriptableObject
                    or Publisher.AmazonAndroidFree or Publisher.AmazonAndroidFull
                    or Publisher.WindowsStore or Publisher.WindowsStoreFull
                    or Publisher.SamsungFull or Publisher.SamsungFree;
+
+    // ---------------------------------------------------------------------------------------------
+    // Build variants (game-specific editions)
+    // ---------------------------------------------------------------------------------------------
+
+    [Header("Build Variants (game-specific editions)")]
+    [Tooltip("Editions compiled by the pipeline for this game (e.g. Collector's Edition / Standard Edition). " +
+             "Leave empty when the game has a single edition. Each id is passed to ApplyBuildVariant() before the build " +
+             "and the output suffix is appended to the build folder name.")]
+    public List<BuildVariant> buildVariants = new List<BuildVariant>();
+
+    /// <summary>True when at least one valid variant is declared.</summary>
+    public bool HasBuildVariants
+    {
+        get
+        {
+            if (buildVariants == null) return false;
+            foreach (var variant in buildVariants)
+                if (variant != null && variant.IsValid) return true;
+            return false;
+        }
+    }
+
+    /// <summary>Finds a declared variant by id (case-insensitive) or by display name.</summary>
+    public BuildVariant FindBuildVariant(string variantId)
+    {
+        if (buildVariants == null || string.IsNullOrWhiteSpace(variantId)) return null;
+
+        var wanted = variantId.Trim();
+        foreach (var variant in buildVariants)
+        {
+            if (variant == null || !variant.IsValid) continue;
+            if (string.Equals(variant.EffectiveId, wanted, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(variant.EffectiveDisplayName, wanted, StringComparison.OrdinalIgnoreCase))
+                return variant;
+        }
+
+        return null;
+    }
+
+    /// <summary>Variants marked as <see cref="BuildVariant.enabledByDefault"/> (falls back to all valid ones).</summary>
+    public List<BuildVariant> GetDefaultBuildVariants()
+    {
+        var result = new List<BuildVariant>();
+        if (buildVariants == null) return result;
+
+        foreach (var variant in buildVariants)
+            if (variant != null && variant.IsValid && variant.enabledByDefault)
+                result.Add(variant);
+
+        if (result.Count == 0)
+            foreach (var variant in buildVariants)
+                if (variant != null && variant.IsValid)
+                    result.Add(variant);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Called by the pipeline right before a build whose <c>BuildContext.VariantId</c> matches one of
+    /// <see cref="buildVariants"/>. Override it in the game's <see cref="GameConfig"/> subclass to apply the
+    /// edition to your own fields (e.g. <c>CollectorEdition = variantId == "ce"</c>).
+    /// </summary>
+    public virtual void ApplyBuildVariant(string variantId)
+    {
+    }
+
+    /// <summary>
+    /// Optional product name for a variant. When it returns a non-empty string the pipeline uses it for
+    /// <c>PlayerSettings.productName</c> instead of <see cref="GameName"/> (e.g. "My Game - Collector's Edition").
+    /// </summary>
+    public virtual string GetBuildVariantGameName(string variantId) => "";
 }

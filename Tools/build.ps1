@@ -14,6 +14,8 @@ param (
     [string]$buildProfile = "",
     [string]$publisher = "Default",
     [string]$language = "AutoDetect",
+    [string]$variant = "",
+    [string]$matrixVariants = "",
     [string]$platform = "",
     [switch]$matrix,
     [string]$matrixPublishers = "",
@@ -89,6 +91,10 @@ if ($matrix) {
         $argsList += "-matrixLanguages"
         $argsList += "`"$matrixLanguages`""
     }
+    if (![string]::IsNullOrEmpty($matrixVariants)) {
+        $argsList += "-matrixVariants"
+        $argsList += "`"$matrixVariants`""
+    }
     $argsList += "-cheatOff"
     $argsList += "$(!$cheat)"
     $argsList += "-cheatOn"
@@ -107,6 +113,10 @@ if ($matrix) {
     if (![string]::IsNullOrEmpty($platform)) {
         $argsList += "-platform"
         $argsList += "$platform"
+    }
+    if (![string]::IsNullOrEmpty($variant)) {
+        $argsList += "-variant"
+        $argsList += "$variant"
     }
     $argsList += "-cheat"
     $argsList += "$([bool]$cheat)"

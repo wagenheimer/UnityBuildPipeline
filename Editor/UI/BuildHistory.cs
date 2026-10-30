@@ -17,6 +17,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string platform = "";
         public string publisher = "";
         public string language = "";
+        public string variant = "";
         public string bundleId = "";
         public bool cheatMode = false;
         public bool developmentBuild = false;
@@ -109,6 +110,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 platform = context.Platform.ToString(),
                 publisher = context.Publisher.ToString(),
                 language = context.Language.ToString(),
+                variant = context.VariantId ?? "",
                 bundleId = bundleId ?? "",
                 cheatMode = context.CheatMode,
                 developmentBuild = context.DevelopmentBuild,
@@ -187,6 +189,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var info = $"{action}\n\n" +
                        $"Publisher: {entry.publisher}  |  Language: {entry.language}" +
+                       $"{(string.IsNullOrEmpty(entry.variant) ? "" : $"  |  Variant: {entry.variant}")}" +
                        $"{(entry.cheatMode ? "  |  CHEAT" : "")}{(entry.developmentBuild ? "  |  DEV" : "")}";
 
             // Show which toolchain will actually do the work so the user can verify it.

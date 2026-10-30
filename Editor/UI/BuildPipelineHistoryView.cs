@@ -135,6 +135,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 topRow.Add(devBadge);
             }
 
+            if (!string.IsNullOrEmpty(entry.variant))
+            {
+                var variantBadge = BuildPipelineUIStyle.CreateBadge(entry.variant.ToUpperInvariant(), "info");
+                variantBadge.style.marginRight = 4;
+                topRow.Add(variantBadge);
+            }
+
             var durLbl = new Label($"{entry.durationSeconds:F0}s" + (entry.totalSize > 0 ? $"  •  {entry.totalSize / (1024.0 * 1024.0):F1} MB" : ""));
             durLbl.style.fontSize = 11;
             durLbl.style.color = new Color(0.6f, 0.6f, 0.6f);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -22,6 +22,19 @@ namespace Wagenheimer.BuildPipeline.Editor
         public bool LogLevelsInfo { get; set; }
         public bool AppBundle { get; set; } = true;
         public bool AutoRun { get; set; } = false;
+
+        /// <summary>
+        /// Game-specific build variant id (e.g. "ce"), resolved from <see cref="GameConfig.buildVariants"/>.
+        /// Applied by <see cref="ApplyBuildVariantStep"/> and appended to the output folder as its suffix.
+        /// </summary>
+        public string VariantId { get; set; } = "";
+
+        /// <summary>Declared variant matching <see cref="VariantId"/>, when the game declares one.</summary>
+        public BuildVariant Variant { get; set; }
+
+        public string VariantSuffix => Variant != null ? Variant.outputSuffix ?? "" : "";
+
+        public string VariantLabel => Variant != null ? Variant.EffectiveDisplayName : VariantId;
 
         public string CustomOutputPath { get; set; } = "";
         public string ResolvedOutputFilePath { get; set; } = "";
@@ -69,6 +82,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 if (Config != null && Config.gameConfig != null)
                 {
+                    // A game-specific edition may rename the product (e.g. "... - Collector's Edition").
+                    var variantName = Config.gameConfig.GetBuildVariantGameName(VariantId);
+                    if (!string.IsNullOrEmpty(variantName))
+                        return variantName;
+
                     if (Language == GameLanguage.Japanese && !string.IsNullOrEmpty(Config.gameConfig.GameNameJapanese))
                         return Config.gameConfig.GameNameJapanese;
 
@@ -85,6 +103,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public string ResolveOutputPaths()
         {
+            // Resolve the declared variant before computing suffixes, so a context created with only the
+            // VariantId (e.g. from CI) still gets the "_CE" folder suffix.
+            if (Variant == null && !string.IsNullOrEmpty(VariantId) && Config != null && Config.gameConfig != null)
+                Variant = Config.gameConfig.FindBuildVariant(VariantId);
+
             if (!string.IsNullOrEmpty(CustomOutputPath))
             {
                 ResolvedOutputFilePath = Path.GetFullPath(CustomOutputPath);
@@ -96,6 +119,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var versionText = Config.gameConfig != null ? Config.gameConfig.GameVersion.GameVersionAsTextWithBetaLabel : "1.0";
             var dateText = Config.gameConfig != null ? Config.gameConfig.VersionDate.AsTextNoYear : DateTime.Now.ToString("MMMdd");
             var langSuffix = Language.FolderNameLanguage();
+            var variantSuffix = VariantSuffix;
             var demoSuffix = Demo ? "_Demo" : "";
             var devSuffix = DevelopmentBuild ? "_Develop" : "";
             var needSplash = PublisherProfile != null && PublisherProfile.requiresSplash;
@@ -105,7 +129,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 case PlatformType.Windows64:
                 case PlatformType.Linux64:
-                    var winFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{demoSuffix}{devSuffix}";
+                    var winFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}";
                     var sub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/";
                     var targetFolder = Path.Combine(root, sub, winFolder);
                     var ext = Platform == PlatformType.Linux64 ? ".x86_64" : ".exe";
@@ -114,7 +138,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     break;
 
                 case PlatformType.macOS:
-                    var macFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}_MAC";
+                    var macFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}_MAC";
                     var macSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/";
                     var macTargetFolder = Path.Combine(root, macSub, macFolder);
                     ResolvedOutputDirectory = macTargetFolder;
@@ -126,20 +150,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var androidExt = AppBundle ? ".aab" : ".apk";
                     var androidSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/Google/";
                     var androidDir = Path.Combine(root, androidSub);
-                    var androidFileName = $"{ProjectName}_{dateText} ({versionText}){langSuffix}{debugSuffix}_bv{PlayerSettings.Android.bundleVersionCode}{androidExt}";
+                    var androidFileName = $"{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{debugSuffix}_bv{PlayerSettings.Android.bundleVersionCode}{androidExt}";
                     ResolvedOutputDirectory = androidDir;
                     ResolvedOutputFilePath = Path.Combine(androidDir, androidFileName);
                     break;
 
                 case PlatformType.iOS:
                     var iosSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/iOS/";
-                    var iosDir = Path.Combine(root, iosSub, $"{ProjectName} ({(PublisherProfile != null && PublisherProfile.isFullGame ? "Full" : "Free")})");
+                    var iosDir = Path.Combine(root, iosSub, $"{ProjectName} ({(PublisherProfile != null && PublisherProfile.isFullGame ? "Full" : "Free")}){variantSuffix}");
                     ResolvedOutputDirectory = iosDir;
                     ResolvedOutputFilePath = iosDir;
                     break;
 
                 case PlatformType.WebGL:
-                    var webglFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{demoSuffix}{devSuffix}_WebGL";
+                    var webglFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}_WebGL";
                     var webglSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/WebGL/";
                     var webglDir = Path.Combine(root, webglSub, webglFolder);
                     ResolvedOutputDirectory = webglDir;

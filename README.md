@@ -10,6 +10,7 @@ A modular, multi-project build automation pipeline for Unity. Designed for multi
 ## ✨ Features
 
 - **Store & Publisher Management**: Out-of-the-box profiles for Steam, Big Fish Games, GameHouse, Alawar, itch.io, Google Play, Amazon Appstore, iOS App Store, Mac App Store, Samsung Galaxy Store, and direct site distribution.
+- **Game Config Extension & Build Variants**: games extend `GameConfig` with their own serialized fields (editions, analytics switches, store ids) without touching this package. Declared *build variants* are compiled automatically by the matrix, quick build and CLI, with their own output suffix.
 - **Language Matrix Batch Generator**: Automatically compile dozens or hundreds of target combinations (Publishers × Languages × Cheat Mode ON/OFF × Dev Builds) with real-time progress and cancellation.
 - **Headless Unity CLI & CI/CD**: 100% callable outside Unity via `-executeMethod` and PowerShell. Never hangs on `EditorUtility.DisplayDialog`. Returns proper exit codes (`0` on success, `1` on error).
 - **Post-Processing Lifecycle**: Built-in splash screen copying (`splash_{publisher}.jpg` into `StreamingAssets/splash1.jpg`), obsolete file cleanup (`UnityCrashHandler*.exe`), and automatic ZIP archiving (.NET `ZipFile` or 7-Zip).
@@ -64,6 +65,55 @@ Or for local development:
 
 ---
 
+## 🧩 Extending GameConfig per game (game-specific fields & editions)
+
+`GameConfig` is intentionally *not* sealed. Every game can add its own serialized fields by deriving from it
+in the game project — the package keeps working with the base type and the inspector renders the extras
+automatically.
+
+```csharp
+// Assets/_Game/Scripts/_Game/QueensGardenConfig.cs  (game project, Assembly-CSharp)
+public class QueensGardenConfig : GameConfig
+{
+    [Header("Queen's Garden 6")]
+    public bool CollectorEdition = true;
+    public bool AnalyticsEnabled = true;
+    public string MacAppStoreID = "";
+
+    // Declared variants: "ce" / "se" (see Build Variants below)
+    public override void ApplyBuildVariant(string variantId)
+        => CollectorEdition = variantId == "ce";
+
+    public override string GetBuildVariantGameName(string variantId)
+        => variantId == "ce" ? GameName + " - CE" : GameName;
+}
+```
+
+The asset keeps its GUID — only the `m_Script` type changes — so all existing values survive the migration.
+
+### Build Variants (editions)
+
+Add entries to **Build Variants** in the GameConfig inspector:
+
+| id | displayName | outputSuffix | enabledByDefault |
+|---|---|---|---|
+| `ce` | Collector's Edition | `_CE` | ✔ |
+| `se` | Standard Edition | *(empty)* | ✔ |
+
+The pipeline treats the list as data:
+
+- **Matrix Batch** gains a *Game Variants* column and multiplies the build count.
+- **Quick Build** gains a *Variant* dropdown.
+- **CLI**: `-variant ce` (single) and `-matrixVariants "ce,se"` (matrix).
+- The suffix is appended to the output folder (`..._Aug18 (1.0.16)_CE`) and recorded in the manifest
+  (`variant`) and the build history badge.
+- Before each build `ApplyBuildVariant(id)` runs, so the game maps the id to its own fields; the game
+  can also override `GetBuildVariantGameName(id)` to change `PlayerSettings.productName` per edition.
+
+No package changes are required to add a new edition to any game.
+
+---
+
 ## 💻 Unity CLI & Headless Builds
 
 You can run builds from PowerShell, Command Prompt, or CI/CD without opening the Unity Editor GUI.
@@ -115,7 +165,7 @@ Pass `-manifest <path>` to write a machine-readable JSON summary instead of scra
 `Build` writes one entry; `BuildMatrix` writes an array under `builds`. Each entry:
 `success`, `result`, `platform`, `profileId`, `defines`, `version`, `buildNumber`,
 `outputDirectory`, `artifactPath`, `xcodeProjectPath` (iOS only), `sizeBytes`, `errors`,
-`warnings`, `durationSeconds`, `errorMessage`.
+`warnings`, `durationSeconds`, `errorMessage` — plus `variant` when a game variant was built.
 
 ---
 
@@ -127,7 +177,9 @@ Pass `-manifest <path>` to write a machine-readable JSON summary instead of scra
 | `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile (used when `-buildProfile` is absent). |
 | `-language` | `en`, `de`, `fr`, `English`, `German`, etc. | Language code or name. |
 | `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
-| `-defines` | `"A;B;C"` | Extra scripting define symbols for this build, applied then restored. |
+| `-defines` | `"A;B;C"` | Extra scripting define symbols for this build, applied then restored. Prefix a symbol with `!` (e.g. `!DISABLESTEAMWORKS`) to remove it for this build only. |
+| `-variant` | `ce`, `se`, any declared id | Game-specific build variant for a single build (applied via `ApplyBuildVariant`). |
+| `-matrixVariants` | `ce,se` | Variants for matrix generation (defaults to the GameConfig's `enabledByDefault` entries). |
 | `-manifest` | Full path | Write a JSON result manifest (see above). |
 | `-cheat` | `true` / `false` | Enable or disable CheatMode. |
 | `-development` | `true` / `false` | Generate a Unity Development Build. |

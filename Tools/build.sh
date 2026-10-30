@@ -28,6 +28,8 @@ MATRIX=0
 MATRIX_PROFILES=""
 MATRIX_PUBLISHERS=""
 MATRIX_LANGUAGES=""
+VARIANT=""
+MATRIX_VARIANTS=""
 EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -49,6 +51,8 @@ while [[ $# -gt 0 ]]; do
     --matrix-profiles)          MATRIX_PROFILES="$2"; shift 2;;
     --matrix-publishers)        MATRIX_PUBLISHERS="$2"; shift 2;;
     --matrix-languages)         MATRIX_LANGUAGES="$2"; shift 2;;
+    --variant)                  VARIANT="$2"; shift 2;;
+    --matrix-variants)          MATRIX_VARIANTS="$2"; shift 2;;
     --)                         shift; EXTRA_ARGS+=("$@"); break;;
     *)                          echo "Unknown arg: $1" >&2; exit 2;;
   esac
@@ -100,11 +104,13 @@ if [[ "$MATRIX" -eq 1 ]]; then
   [[ -n "$MATRIX_PROFILES" ]]   && ARGS+=(-matrixProfiles "$MATRIX_PROFILES")
   [[ -n "$MATRIX_PUBLISHERS" ]] && ARGS+=(-matrixPublishers "$MATRIX_PUBLISHERS")
   [[ -n "$MATRIX_LANGUAGES" ]]  && ARGS+=(-matrixLanguages "$MATRIX_LANGUAGES")
+  [[ -n "$MATRIX_VARIANTS" ]]   && ARGS+=(-matrixVariants "$MATRIX_VARIANTS")
 else
   ARGS+=(-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.Build)
   [[ -n "$BUILD_PROFILE" ]] && ARGS+=(-buildProfile "$BUILD_PROFILE")
   [[ -n "$PUBLISHER" ]]     && ARGS+=(-publisher "$PUBLISHER")
   [[ -n "$PLATFORM" ]]      && ARGS+=(-platform "$PLATFORM" -buildTarget "$PLATFORM")
+  [[ -n "$VARIANT" ]]       && ARGS+=(-variant "$VARIANT")
   ARGS+=(-language "$LANGUAGE")
   [[ -n "$APP_BUNDLE" ]]    && ARGS+=(-appBundle "$APP_BUNDLE")
   [[ -n "$OUTPUT_PATH" ]]   && ARGS+=(-outputPath "$OUTPUT_PATH")

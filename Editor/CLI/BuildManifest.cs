@@ -17,6 +17,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string result;          // BuildResult enum name
         public string platform;        // PlatformType enum name
         public string profileId;
+        public string variant;         // game-specific build variant id (e.g. "ce"), empty when none
         public string defines;         // ';'-joined extra defines applied
         public string version;
         public string buildNumber;
@@ -40,6 +41,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 result = summary.Result.ToString(),
                 platform = context.Platform.ToString(),
                 profileId = string.IsNullOrEmpty(context.ProfileId) ? context.Publisher.ToString() : context.ProfileId,
+                variant = context.VariantId ?? "",
                 defines = context.ScriptingDefines != null ? string.Join(";", context.ScriptingDefines) : "",
                 version = ResolveVersion(context),
                 buildNumber = ResolveBuildNumber(context),

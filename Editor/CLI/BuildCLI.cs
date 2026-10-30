@@ -153,6 +153,24 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             ApplyVersionAndBuildNumberOverrides(config);
 
+            // Game-specific build variant (-variant ce). Falls back to the legacy -edition flag when it matches
+            // a declared variant id, so existing CI scripts keep working.
+            var variantArg = CommandLineArgs.Get("variant", CommandLineArgs.Get("edition", ""));
+            if (string.Equals(variantArg, "both", StringComparison.OrdinalIgnoreCase)) variantArg = "";
+
+            BuildVariant variant = null;
+            var variantId = "";
+            if (config.gameConfig != null && !string.IsNullOrEmpty(variantArg))
+            {
+                variant = config.gameConfig.FindBuildVariant(variantArg);
+                variantId = variant != null ? variant.EffectiveId : variantArg.Trim();
+                if (variant == null)
+                    Debug.LogWarning($"[BuildCLI] -variant '{variantArg}' is not declared in '{config.gameConfig.name}'. " +
+                                     "ApplyBuildVariant() still receives it, but no output suffix will be added.");
+                else
+                    Debug.Log($"[BuildCLI] Build variant: {variant.EffectiveDisplayName} ('{variantId}')");
+            }
+
             var context = new BuildContext
             {
                 Config = config,
@@ -169,7 +187,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 LogLevelsInfo = CommandLineArgs.GetBool("logLevelsInfo", true),
                 AppBundle = CommandLineArgs.GetBool("autoRun", false) ? false : CommandLineArgs.GetBool("appBundle", true),
                 AutoRun = CommandLineArgs.GetBool("autoRun", false),
-                CustomOutputPath = CommandLineArgs.Get("outputPath", "")
+                CustomOutputPath = CommandLineArgs.Get("outputPath", ""),
+                VariantId = variantId,
+                Variant = variant
             };
 
             var result = BuildPipelineRunner.Execute(context);
@@ -207,6 +227,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var pubArg = CommandLineArgs.Get("matrixPublishers", "");
             var profileArg = CommandLineArgs.Get("matrixProfiles", "");
             var langArg = CommandLineArgs.Get("matrixLanguages", "");
+            var variantArg = CommandLineArgs.Get("matrixVariants", CommandLineArgs.Get("variant", ""));
             var cheatOn = CommandLineArgs.GetBool("cheatOn", false);
             var cheatOff = CommandLineArgs.GetBool("cheatOff", true);
             var dev = CommandLineArgs.GetBool("development", false);
@@ -276,24 +297,49 @@ namespace Wagenheimer.BuildPipeline.Editor
                 langsToBuild = config.languages.Where(l => l.enabled).Select(l => l.language).ToList();
             }
 
-            var total = pubsToBuild.Count * langsToBuild.Count * ((cheatOn ? 1 : 0) + (cheatOff ? 1 : 0));
-            Debug.Log($"[BuildCLI] Matrix planned: {total} builds ({pubsToBuild.Count} publishers x {langsToBuild.Count} languages).");
+            // Game-specific variants: -matrixVariants "ce,se" (falls back to the GameConfig defaults).
+            var variantsToBuild = new List<BuildVariant>();
+            if (config.gameConfig != null && config.gameConfig.HasBuildVariants)
+            {
+                if (!string.IsNullOrEmpty(variantArg))
+                {
+                    foreach (var raw in variantArg.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var variant = config.gameConfig.FindBuildVariant(raw.Trim());
+                        if (variant != null) variantsToBuild.Add(variant);
+                        else Debug.LogWarning($"[BuildCLI] matrixVariants: variant '{raw.Trim()}' not declared in '{config.gameConfig.name}'.");
+                    }
+                }
+                else
+                {
+                    variantsToBuild = config.gameConfig.GetDefaultBuildVariants();
+                }
+            }
+
+            if (variantsToBuild.Count == 0) variantsToBuild.Add(null);
+
+            var total = pubsToBuild.Count * langsToBuild.Count * ((cheatOn ? 1 : 0) + (cheatOff ? 1 : 0)) * variantsToBuild.Count;
+            var variantNames = string.Join(",", variantsToBuild.Select(v => v != null ? v.EffectiveId : "none"));
+            Debug.Log($"[BuildCLI] Matrix planned: {total} builds ({pubsToBuild.Count} publishers x {langsToBuild.Count} languages x {variantsToBuild.Count} variants [{variantNames}]).");
 
             var allSuccess = true;
             foreach (var lang in langsToBuild)
             {
                 foreach (var pub in pubsToBuild)
                 {
-                    if (cheatOff)
+                    foreach (var variant in variantsToBuild)
                     {
-                        var res = RunMatrixEntry(config, pub, lang, dev, false, manifest);
-                        if (!res) allSuccess = false;
-                    }
+                        if (cheatOff)
+                        {
+                            var res = RunMatrixEntry(config, pub, lang, dev, false, manifest, variant);
+                            if (!res) allSuccess = false;
+                        }
 
-                    if (cheatOn)
-                    {
-                        var res = RunMatrixEntry(config, pub, lang, dev, true, manifest);
-                        if (!res) allSuccess = false;
+                        if (cheatOn)
+                        {
+                            var res = RunMatrixEntry(config, pub, lang, dev, true, manifest, variant);
+                            if (!res) allSuccess = false;
+                        }
                     }
                 }
             }
@@ -308,7 +354,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         private static bool RunMatrixEntry(ProjectBuildConfig config, PublisherProfile pub, GameLanguage lang,
-            bool dev, bool cheat, BuildManifest manifest)
+            bool dev, bool cheat, BuildManifest manifest, BuildVariant variant = null)
         {
             var ctx = new BuildContext
             {
@@ -321,7 +367,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 ScriptingDefines = pub.scriptingDefines != null ? new List<string>(pub.scriptingDefines) : new List<string>(),
                 CheatMode = cheat,
                 DevelopmentBuild = dev,
-                Demo = pub.isDemo
+                Demo = pub.isDemo,
+                VariantId = variant != null ? variant.EffectiveId : "",
+                Variant = variant
             };
             var res = BuildPipelineRunner.Execute(ctx);
             manifest.Add(BuildManifestEntry.From(ctx, res));
