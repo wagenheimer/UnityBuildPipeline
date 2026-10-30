@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -6,7 +7,9 @@ using UnityEngine.UIElements;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
-    [CustomEditor(typeof(GameConfig))]
+    // editorForChildClasses: true is required — games extend GameConfig (e.g. QueensGardenConfig) and the
+    // pipeline inspector must keep handling those subclasses (otherwise Odin/generic inspectors take over).
+    [CustomEditor(typeof(GameConfig), true)]
     public class GameConfigCustomEditor : UnityEditor.Editor
     {
         private ProjectBuildConfig _linkedBuildConfig;
@@ -152,8 +155,91 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             root.Add(extraCard);
 
+            // 8. Build Variants (game-specific editions)
+            root.Add(CreateBuildVariantsCard());
+
+            // 9. Game-specific fields declared by the project's GameConfig subclass
+            var extensionCard = CreateExtensionFieldsCard();
+            if (extensionCard != null) root.Add(extensionCard);
+
             return root;
         }
+
+        private VisualElement CreateBuildVariantsCard()
+        {
+            var card = BuildPipelineUIStyle.CreateCard("Build Variants (game-specific editions)",
+                "Optional. Every variant is compiled by the Matrix Batch and Quick Build views: its id is passed to " +
+                "ApplyBuildVariant() before the build and its suffix is appended to the output folder " +
+                "(e.g. Collector's Edition / Standard Edition).");
+
+            var listProperty = serializedObject.FindProperty("buildVariants");
+            if (listProperty != null)
+            {
+                var field = new PropertyField(listProperty, "Variants");
+                field.BindProperty(listProperty);
+                card.Add(field);
+            }
+
+            var hint = new Label("Override ApplyBuildVariant(string variantId) in your GameConfig subclass to map each id " +
+                                 "to your own fields (e.g. CollectorEdition = variantId == \"ce\").");
+            hint.style.fontSize = 10;
+            hint.style.color = new StyleColor(new Color(0.6f, 0.6f, 0.65f));
+            hint.style.whiteSpace = WhiteSpace.Normal;
+            hint.style.marginTop = 6;
+            card.Add(hint);
+
+            return card;
+        }
+
+        private VisualElement CreateExtensionFieldsCard()
+        {
+            var fields = BuildExtensionFields(serializedObject);
+            if (fields == null) return null;
+
+            var card = BuildPipelineUIStyle.CreateCard("Game-Specific Settings",
+                "Fields declared by this project's GameConfig subclass. The pipeline serializes, stores and builds them like any core field.");
+            card.Add(fields);
+            return card;
+        }
+
+        /// <summary>
+        /// Builds the auto-generated fields for whatever the project's GameConfig subclass declares
+        /// (everything that is not part of the shared base inspector). Returns null when the config has no extras.
+        /// Shared with the Build Pipeline window's Project Config tab.
+        /// </summary>
+        internal static VisualElement BuildExtensionFields(SerializedObject gameConfigObject)
+        {
+            if (gameConfigObject == null) return null;
+
+            var fields = new VisualElement();
+            var iterator = gameConfigObject.GetIterator();
+            var enterChildren = true;
+
+            while (iterator.NextVisible(enterChildren))
+            {
+                enterChildren = false;
+                if (iterator.name.StartsWith("m_", StringComparison.Ordinal)) continue;
+                if (ExplicitlyDrawnProperties.Contains(iterator.name)) continue;
+
+                var property = iterator.Copy();
+                var field = new PropertyField(property, ObjectNames.NicifyVariableName(property.name));
+                field.BindProperty(property);
+                fields.Add(field);
+            }
+
+            return fields.childCount > 0 ? fields : null;
+        }
+
+        internal static readonly HashSet<string> ExplicitlyDrawnProperties = new HashSet<string>
+        {
+            "HudSpriteAtlas", "LevelHudSpriteAtlas", "DefaultSpriteAtlas", "cursorTexture",
+            "Publisher", "GameLanguage", "CheatMode", "FullGame", "Demo", "UseAchievements",
+            "DefaultBundleIdentifier", "AndroidFull", "AndroidFree", "IOSFull", "IOSFree",
+            "iOSAppIDFull", "iOSAppIDFree", "AmazonFull", "AmazonFree", "SamsungFull", "SamsungFree",
+            "IconFull", "IconFree", "LevelEditor", "LogLevelsInfo", "UseOnlyEditorPlayer",
+            "ExternalTranslation", "NoCustomCursor", "GameVersion", "VersionDate",
+            "AndroidBundleVersionCode", "iOSBuildNumber", "buildVariants"
+        };
 
         private VisualElement CreateVersionCard(GameConfig config)
         {

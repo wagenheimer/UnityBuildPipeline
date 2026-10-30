@@ -46,20 +46,24 @@ namespace Wagenheimer.BuildPipeline.Editor
             Debug.Log($"[BuildPipeline] ✓ Build Pipeline Window position reset to center: {win.position}");
         }
 
+        // Content tabs only; the Steam Upload entry is a launcher button, not a selectable tab.
+        private const int ContentTabCount = 6;
+
         private ProjectBuildConfig _config;
         private VisualElement _root;
         private ScrollView _contentContainer;
         private int _selectedTab = 0; // 0=Quick Build, 1=Matrix, 2=History, 3=Vault, 4=CLI, 5=Config
 
-        private bool[] _selectedPublishers;
-        private bool[] _selectedLanguages;
+        // Last picks of every selection in the window, restored from EditorPrefs so reopening the window
+        // (or restarting Unity) shows the same tab, publishers, languages, variants and build options.
+        private BuildPipelineSelectionState _selection = new BuildPipelineSelectionState();
 
         private void OnEnable()
         {
             try
             {
                 _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
-                InitMatrixArrays();
+                LoadSelection();
             }
             catch (Exception ex)
             {
@@ -67,24 +71,19 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
-        private void InitMatrixArrays()
+        private void LoadSelection()
+        {
+            _selection = BuildPipelineSelectionState.Load(_config);
+
+            if (_selection.tab >= 0 && _selection.tab < ContentTabCount)
+                _selectedTab = _selection.tab;
+        }
+
+        private void EnsureConfigLists()
         {
             if (_config == null) return;
             if (_config.publishers == null) _config.publishers = new System.Collections.Generic.List<PublisherProfile>();
             if (_config.languages == null) _config.languages = new System.Collections.Generic.List<LanguageProfile>();
-
-            if (_selectedPublishers == null || _selectedPublishers.Length != _config.publishers.Count)
-                _selectedPublishers = new bool[_config.publishers.Count];
-
-            if (_selectedLanguages == null || _selectedLanguages.Length != _config.languages.Count)
-            {
-                _selectedLanguages = new bool[_config.languages.Count];
-                for (var i = 0; i < _config.languages.Count; i++)
-                {
-                    if (_config.languages[i] != null)
-                        _selectedLanguages[i] = _config.languages[i].enabled;
-                }
-            }
         }
 
         public void CreateGUI()
@@ -123,14 +122,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             try
             {
                 if (_config == null)
+                {
                     _config = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+                    LoadSelection();
+                }
             }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[BuildPipeline] FindOrCreateProjectBuildConfig: {ex.Message}");
             }
 
-            InitMatrixArrays();
+            EnsureConfigLists();
 
             // 1. Unified Header (Project title, linked config, live version summary & steppers, save status)
             var headerView = new BuildPipelineHeaderView(_config, RebuildUI);
@@ -201,6 +203,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                         return;
                     }
                     _selectedTab = tabIndex;
+                    _selection.tab = tabIndex;
+                    _selection.Save(_config);
                     RebuildUI();
                 });
                 BuildPipelineUIStyle.ApplyIconText(tabBtn, $"{tabs[i].icon} {tabs[i].label}");
@@ -261,10 +265,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             switch (_selectedTab)
             {
                 case 0:
-                    _contentContainer.Add(new BuildPipelineQuickBuildView(_config, RebuildUI).Root);
+                    _contentContainer.Add(new BuildPipelineQuickBuildView(_config, _selection, RebuildUI).Root);
                     break;
                 case 1:
-                    _contentContainer.Add(new BuildPipelineMatrixView(_config, _selectedPublishers, _selectedLanguages, RebuildUI).Root);
+                    _contentContainer.Add(new BuildPipelineMatrixView(_config, _selection, RebuildUI).Root);
                     break;
                 case 2:
                     _contentContainer.Add(new BuildPipelineHistoryView(RebuildUI).Root);
@@ -273,7 +277,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     _contentContainer.Add(new BuildPipelineVaultView(_config, RebuildUI).Root);
                     break;
                 case 4:
-                    _contentContainer.Add(new BuildPipelineCliView().Root);
+                    _contentContainer.Add(new BuildPipelineCliView(_config, _selection).Root);
                     break;
                 case 5:
                     _contentContainer.Add(new BuildPipelineConfigView(_config, RebuildUI).Root);
@@ -313,6 +317,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             identityCard.Add(new PropertyField(so.FindProperty("defaultBundleIdentifier"), "Default Bundle ID"));
             identityCard.Add(new PropertyField(so.FindProperty("gameNameJapanese"), "Japanese Game Name"));
             Root.Add(identityCard);
+
+            // 1b. Game-specific settings declared by the linked GameConfig subclass (editions, analytics...)
+            var gameSpecificCard = CreateGameSpecificCard(config);
+            if (gameSpecificCard != null) Root.Add(gameSpecificCard);
 
             // 2. Output Paths & Scenes
             var pathsCard = BuildPipelineUIStyle.CreateCard("Output Directories & Scene Paths", "Destination folders and splash/level editor scene assets");
@@ -407,6 +415,49 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // 7. Bottom Save Status Bar
             Root.Add(BuildPipelineUIStyle.CreateSaveStatusBar(config, onRebuild));
+        }
+
+        /// <summary>
+        /// Shows the fields the game's GameConfig subclass declares (editions, analytics, store ids...)
+        /// plus the build variants, so they can be edited from the Build window without opening the asset.
+        /// </summary>
+        private static VisualElement CreateGameSpecificCard(ProjectBuildConfig config)
+        {
+            var gameConfig = config != null ? config.gameConfig : null;
+            if (gameConfig == null) return null;
+
+            var gameConfigObject = new SerializedObject(gameConfig);
+            var fields = GameConfigCustomEditor.BuildExtensionFields(gameConfigObject);
+            var variantsProperty = gameConfigObject.FindProperty("buildVariants");
+
+            if (fields == null && variantsProperty == null) return null;
+
+            var card = BuildPipelineUIStyle.CreateCard(
+                $"{gameConfig.name} - Game-Specific Settings",
+                "Fields declared by this game's GameConfig subclass plus the build variants compiled by Quick Build / Matrix. " +
+                "Edits here write to the GameConfig asset (runtime source of truth).");
+
+            if (fields != null) card.Add(fields);
+
+            if (variantsProperty != null)
+            {
+                var variantsField = new PropertyField(variantsProperty, "Build Variants");
+                variantsField.BindProperty(variantsProperty);
+                card.Add(variantsField);
+            }
+
+            var openButton = new Button(() =>
+            {
+                Selection.activeObject = gameConfig;
+                EditorGUIUtility.PingObject(gameConfig);
+            });
+            BuildPipelineUIStyle.ApplyIconText(openButton, "Open GameConfig Asset");
+            openButton.AddToClassList("bp-btn");
+            openButton.style.marginTop = 6;
+            openButton.style.alignSelf = Align.FlexStart;
+            card.Add(openButton);
+
+            return card;
         }
     }
 }

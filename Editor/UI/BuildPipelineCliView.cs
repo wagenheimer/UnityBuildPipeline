@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,15 +17,42 @@ namespace Wagenheimer.BuildPipeline.Editor
         private GameLanguage _cliLanguage = GameLanguage.English;
         private bool _cliCheat = false;
         private bool _cliDevBuild = false;
+        private string _cliVariantId = "";
+
+        private readonly ProjectBuildConfig _config;
+        private readonly BuildPipelineSelectionState _selection;
 
         private TextField _commandPreviewField;
 
-        public BuildPipelineCliView()
+        public BuildPipelineCliView(ProjectBuildConfig config = null, BuildPipelineSelectionState selection = null)
         {
+            _config = config;
+            _selection = selection ?? new BuildPipelineSelectionState();
+
+            // Restore the last command generator picks.
+            if (Enum.TryParse(_selection.cliPublisher, out Publisher savedPublisher)) _cliPublisher = savedPublisher;
+            if (Enum.TryParse(_selection.cliPlatform, out PlatformType savedPlatform)) _cliPlatform = savedPlatform;
+            if (Enum.TryParse(_selection.cliLanguage, out GameLanguage savedLanguage)) _cliLanguage = savedLanguage;
+            _cliCheat = _selection.cliCheat;
+            _cliDevBuild = _selection.cliDevBuild;
+            _cliVariantId = _selection.cliVariantId;
+
             Root = new VisualElement();
             BuildPipelineUIStyle.Apply(Root);
 
             BuildUI();
+        }
+
+        /// <summary>Writes the generator selections back to EditorPrefs so the tab reopens as it was left.</summary>
+        private void PersistSelection()
+        {
+            _selection.cliPublisher = _cliPublisher.ToString();
+            _selection.cliPlatform = _cliPlatform.ToString();
+            _selection.cliLanguage = _cliLanguage.ToString();
+            _selection.cliCheat = _cliCheat;
+            _selection.cliDevBuild = _cliDevBuild;
+            _selection.cliVariantId = _cliVariantId ?? "";
+            _selection.Save(_config);
         }
 
         private void BuildUI()
@@ -50,6 +79,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             pubField.RegisterValueChangedCallback(e =>
             {
                 _cliPublisher = (Publisher)e.newValue;
+                PersistSelection();
                 UpdateCommand();
             });
             paramsRow.Add(pubField);
@@ -61,6 +91,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             platField.RegisterValueChangedCallback(e =>
             {
                 _cliPlatform = (PlatformType)e.newValue;
+                PersistSelection();
                 UpdateCommand();
             });
             paramsRow.Add(platField);
@@ -72,6 +103,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             langField.RegisterValueChangedCallback(e =>
             {
                 _cliLanguage = (GameLanguage)e.newValue;
+                PersistSelection();
                 UpdateCommand();
             });
             paramsRow.Add(langField);
@@ -82,6 +114,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             cheatToggle.RegisterValueChangedCallback(e =>
             {
                 _cliCheat = e.newValue;
+                PersistSelection();
                 UpdateCommand();
             });
             paramsRow.Add(cheatToggle);
@@ -91,9 +124,37 @@ namespace Wagenheimer.BuildPipeline.Editor
             devToggle.RegisterValueChangedCallback(e =>
             {
                 _cliDevBuild = e.newValue;
+                PersistSelection();
                 UpdateCommand();
             });
             paramsRow.Add(devToggle);
+
+            var variants = _config?.gameConfig != null && _config.gameConfig.HasBuildVariants
+                ? _config.gameConfig.buildVariants.Where(v => v != null && v.IsValid).ToList()
+                : new List<BuildVariant>();
+
+            if (variants.Count > 0)
+            {
+                var variantNames = new List<string> { "(no variant)" };
+                variantNames.AddRange(variants.Select(v => v.EffectiveDisplayName));
+
+                var savedVariantIndex = string.IsNullOrEmpty(_cliVariantId)
+                    ? 0
+                    : Math.Max(0, variantNames.IndexOf(variants.FirstOrDefault(v => v.EffectiveId == _cliVariantId)?.EffectiveDisplayName ?? ""));
+
+                var variantField = new PopupField<string>("Variant", variantNames, savedVariantIndex);
+                variantField.style.width = 200;
+                variantField.style.marginRight = 10;
+                variantField.style.marginBottom = 6;
+                variantField.RegisterValueChangedCallback(e =>
+                {
+                    var picked = variants.FirstOrDefault(v => v.EffectiveDisplayName == e.newValue);
+                    _cliVariantId = picked != null ? picked.EffectiveId : "";
+                    PersistSelection();
+                    UpdateCommand();
+                });
+                paramsRow.Add(variantField);
+            }
 
             genCard.Add(paramsRow);
 
@@ -164,8 +225,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                          $"  -publisher {_cliPublisher} `\n" +
                          $"  -language {_cliLanguage} `\n" +
                          $"  -platform {_cliPlatform} `\n" +
+                         (string.IsNullOrEmpty(_cliVariantId) ? "" : $"  -variant {_cliVariantId} `\n") +
                          $"  -cheat {_cliCheat.ToString().ToLowerInvariant()} `\n" +
-                         $"  -devBuild {_cliDevBuild.ToString().ToLowerInvariant()} `\n" +
+                         $"  -development {_cliDevBuild.ToString().ToLowerInvariant()} `\n" +
                          $"  -logFile \"build_{_cliPublisher.ToString().ToLowerInvariant()}.log\"";
 
             _commandPreviewField.value = cmd;

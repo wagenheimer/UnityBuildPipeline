@@ -12,12 +12,32 @@ namespace Wagenheimer.BuildPipeline.Editor
         public VisualElement Root { get; }
 
         private readonly ProjectBuildConfig _config;
+        private readonly BuildPipelineSelectionState _selection;
         private readonly Action _onRebuild;
+        private string _quickVariantId = "";
+        private BuildVariant _quickVariant;
 
-        public BuildPipelineQuickBuildView(ProjectBuildConfig config, Action onRebuild)
+        public BuildPipelineQuickBuildView(ProjectBuildConfig config, BuildPipelineSelectionState selection, Action onRebuild)
         {
             _config = config;
+            _selection = selection ?? new BuildPipelineSelectionState();
             _onRebuild = onRebuild;
+
+            // Restore the variant picked last time; only fall back to the game's default when it no longer exists.
+            _quickVariant = _selection.ResolveQuickVariant(_config);
+            if (_quickVariant != null)
+            {
+                _quickVariantId = _quickVariant.EffectiveId;
+            }
+            else if (_config?.gameConfig != null && _config.gameConfig.HasBuildVariants)
+            {
+                var defaults = _config.gameConfig.GetDefaultBuildVariants();
+                if (defaults.Count > 0)
+                {
+                    _quickVariant = defaults[0];
+                    _quickVariantId = _quickVariant.EffectiveId;
+                }
+            }
 
             Root = new VisualElement();
             BuildPipelineUIStyle.Apply(Root);
@@ -64,6 +84,27 @@ namespace Wagenheimer.BuildPipeline.Editor
             });
             langContainer.Add(langField);
             optionsRow.Add(langContainer);
+
+            if (_config?.gameConfig != null && _config.gameConfig.HasBuildVariants)
+            {
+                var declared = _config.gameConfig.buildVariants.Where(v => v != null && v.IsValid).ToList();
+                var names = declared.Select(v => v.EffectiveDisplayName).ToList();
+                var currentIndex = Mathf.Max(0, declared.FindIndex(v => v.EffectiveId == _quickVariantId));
+
+                var variantField = new PopupField<string>("Variant", names, currentIndex);
+                variantField.style.minWidth = 160;
+                variantField.style.marginLeft = 12;
+                variantField.RegisterValueChangedCallback(e =>
+                {
+                    var picked = declared.FirstOrDefault(v => v.EffectiveDisplayName == e.newValue);
+                    if (picked == null) return;
+                    _quickVariant = picked;
+                    _quickVariantId = picked.EffectiveId;
+                    _selection.quickVariantId = _quickVariantId;
+                    _selection.Save(_config);
+                });
+                optionsRow.Add(variantField);
+            }
 
             Root.Add(optionsRow);
 
@@ -240,7 +281,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 DevelopmentBuild = devBuild,
                 Demo = prof != null && prof.isDemo,
                 AppBundle = appBundle,
-                AutoRun = autoRun
+                AutoRun = autoRun,
+                VariantId = _quickVariantId,
+                Variant = _quickVariant
             };
 
             var res = BuildPipelineRunner.Execute(ctx);
