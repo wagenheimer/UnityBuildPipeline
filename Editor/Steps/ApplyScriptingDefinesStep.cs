@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -21,9 +22,18 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public bool ExecutePreBuild(BuildContext context)
         {
-            var extra = (context.ScriptingDefines ?? new List<string>())
+            var raw = (context.ScriptingDefines ?? new List<string>())
                 .SelectMany(d => d.Split(';', ','))
                 .Select(d => d.Trim())
+                .Where(d => d.Length > 0)
+                .Distinct()
+                .ToList();
+
+            // A define prefixed with '!' or '-' is REMOVED for this build instead of added
+            // (e.g. "!DISABLESTEAMWORKS" on a Steam profile). It is restored afterwards like any other define.
+            var extra = raw.Where(d => !IsRemoval(d)).ToList();
+            var removals = raw.Where(IsRemoval)
+                .Select(d => d.Substring(1))
                 .Where(d => d.Length > 0)
                 .Distinct()
                 .ToList();
@@ -44,7 +54,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var original = PlayerSettings.GetScriptingDefineSymbols(named);
             context.ExtraData[OriginalDefinesKey] = original;
 
-            if (extra.Count == 0)
+            if (extra.Count == 0 && removals.Count == 0)
             {
                 context.Log("No extra scripting defines for this profile.");
                 return true;
@@ -56,14 +66,21 @@ namespace Wagenheimer.BuildPipeline.Editor
                 .Where(d => d.Length > 0)
                 .ToList();
 
+            foreach (var d in removals)
+                merged.RemoveAll(m => string.Equals(m, d, StringComparison.OrdinalIgnoreCase));
+
             foreach (var d in extra)
                 if (!merged.Contains(d))
                     merged.Add(d);
 
             PlayerSettings.SetScriptingDefineSymbols(named, merged.ToArray());
-            context.Log($"Applied scripting defines ({named.TargetName}): {string.Join(";", extra)}  ->  [{string.Join(";", merged)}]");
+            context.Log($"Applied scripting defines ({named.TargetName}): +[{string.Join(";", extra)}] -[{string.Join(";", removals)}]  ->  [{string.Join(";", merged)}]");
             return true;
         }
+
+        /// <summary>A define prefixed with '!' or '-' means "remove this define for the build".</summary>
+        private static bool IsRemoval(string define) =>
+            !string.IsNullOrEmpty(define) && (define[0] == '!' || define[0] == '-');
 
         private static bool IsTypeAvailable(string typeFullName) =>
             System.AppDomain.CurrentDomain.GetAssemblies()
