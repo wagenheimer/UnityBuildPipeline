@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.39.1] - 2026-10-30
+
+### Added
+- The Build Pipeline window now remembers its selections between sessions (EditorPrefs, keyed by the
+  ProjectBuildConfig GUID): active tab, Matrix publishers/languages/variants, the Matrix "Cheat ON/OFF"
+  and "Development Build" options, the Quick Build variant and the CLI command generator parameters.
+
+### Fixed
+- Matrix Batch: ticking a checkbox no longer rebuilds the whole panel from inside the `Toggle`'s
+  `ChangeEvent` (which left the other language checkboxes unresponsive/greyed out after selecting
+  AutoDetect). The summary line, the total badge and the launch button now refresh in place, and
+  AutoDetect is documented as combinable with specific languages.
+- Opening the Build Pipeline window no longer marks `ProjectBuildConfig` dirty: the GameConfig sync in
+  `LegacyGameConfigMigrator` now only writes (and calls `SetDirty`) when a value actually differs, so the
+  "Changes in memory" warning no longer appears on every open.
+- "View Changes" no longer reports a phantom `m_Name` diff (`ProjectBuildConfig` →
+  `_BuildPipeline_DiffScratch_DELETE_ME`); the scratch copy's asset name is normalized before diffing.
+
+## [1.39.0] - 2026-10-29
+
+### Added
+- `GameConfig` is now officially extensible: games derive from it to add their own serialized fields; the
+  inspector renders them in a "Game-Specific Settings" card and the pipeline stores/builds them untouched.
+- Build Variants: `BuildVariant` list on `GameConfig`, `ApplyBuildVariant()` / `GetBuildVariantGameName()`
+  hooks, `ApplyBuildVariantStep`, variant column in Matrix Batch, variant dropdown in Quick Build,
+  `-variant` / `-matrixVariants` CLI flags, `variant` in the manifest and a badge in build history.
+- Variant suffix is appended to every platform output folder.
+- Scripting defines support removal: prefix a symbol with `!` or `-` (`!DISABLESTEAMWORKS`) to strip it for
+  that build only; the original symbols are restored in the post-build step.
+- Default Remote Keystore Vault endpoint updated to `https://wagenheimer.com/api/vault/keystore` (matching the
+  active Storm Tale 2 / Forgotten Tales projects).
+
 ## [1.38.1] - 2026-10-29
 
 ### Changed
