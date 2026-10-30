@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.39.2] - 2026-10-30
+
+### Added
+- variant controls in the build views and persistent window selections
+- support removing scripting defines with a ! or - prefix
+
+### Fixed
+- remove the phantom m_Name line from the asset diff
+- stop dirtying ProjectBuildConfig every time the window opens
+
+### Changed
+- chore(release): 1.39.1
+- chore(config): point the default keystore vault endpoint to wagenheimer.com
+- ﻿feat(variants): add game-specific build variants to the pipeline
+- chore: add issue and pull request templates [skip ci]
+- chore: add issue/PR templates and ecosystem footer [skip ci]
+- docs: use a version placeholder for the install pin [skip ci]
+
 ## [1.39.1] - 2026-10-30
 
 ### Added
