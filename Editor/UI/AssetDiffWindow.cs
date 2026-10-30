@@ -136,9 +136,29 @@ namespace Wagenheimer.BuildPipeline.Editor
                 AssetDatabase.DeleteAsset(scratchPath);
             }
 
-            return DiffLines(
-                diskText.Split('\n').Select(l => l.TrimEnd('\r')).ToArray(),
-                currentText.Split('\n').Select(l => l.TrimEnd('\r')).ToArray());
+            var diskLines = ToLines(diskText);
+            var currentLines = ToLines(currentText);
+
+            // Unity stamps the scratch copy with the scratch FILE name, so the serialized YAML would always
+            // differ on m_Name (the phantom "ProjectBuildConfig -> _BuildPipeline_DiffScratch_DELETE_ME"
+            // change). A rename is a file rename, not a content change, so pin that one line on both sides.
+            NormalizeNameLine(diskLines, asset.name);
+            NormalizeNameLine(currentLines, asset.name);
+
+            return DiffLines(diskLines, currentLines);
+        }
+
+        private static string[] ToLines(string text)
+            => text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+
+        private static void NormalizeNameLine(string[] lines, string assetName)
+        {
+            var canonical = $"m_Name: {assetName}";
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("m_Name:", StringComparison.Ordinal))
+                    lines[i] = canonical;
+            }
         }
 
         /// <summary>Minimal LCS-based line diff — good enough for a config-sized YAML file, not meant for huge files.</summary>
