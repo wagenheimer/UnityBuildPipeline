@@ -49,8 +49,8 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string androidKeyaliasPassFallback = "greengeisha";
 
         [Header("Remote Keystore Vault")]
-        [Tooltip("URL of the Keystore Vault API endpoint (e.g. https://cezar.dev/api/vault/keystore or http://localhost:5000/api/vault/keystore)")]
-        public string vaultUrl = "https://cezar.dev/api/vault/keystore";
+        [Tooltip("URL of the Keystore Vault API endpoint (e.g. https://wagenheimer.com/api/vault/keystore or http://localhost:5000/api/vault/keystore)")]
+        public string vaultUrl = "https://wagenheimer.com/api/vault/keystore";
         [Tooltip("Profile ID in the vault (e.g. greensauce-master). If empty, auto-detects by bundle ID.")]
         public string vaultProfileId = "greensauce-master";
         [Tooltip("Environment variable name to read Bearer token from (default: VAULT_SECRET_TOKEN).")]
