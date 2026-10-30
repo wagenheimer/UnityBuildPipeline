@@ -29,6 +29,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             var guids = AssetDatabase.FindAssets("t:ProjectBuildConfig");
             ProjectBuildConfig config = null;
+            var configChanged = false;
 
             if (guids.Length > 0)
             {
@@ -68,56 +69,77 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     var gcPath = AssetDatabase.GUIDToAssetPath(gcGuids[0]);
                     config.gameConfig = AssetDatabase.LoadAssetAtPath<GameConfig>(gcPath);
+                    configChanged = true;
                     Debug.Log($"[BuildPipeline] Linked existing GameConfig: {gcPath}");
                 }
             }
 
-            // Sync properties from GameConfig if available
+            // Sync properties from GameConfig if available. Only fields that actually differ are written,
+            // and the asset is only marked dirty when something changed — otherwise merely opening the
+            // Build Pipeline window would show a permanent "changes in memory" warning on ProjectBuildConfig.
             if (config.gameConfig != null)
             {
                 var gc = config.gameConfig;
-                if (!string.IsNullOrEmpty(gc.BuildFolderName))
+
+                if (!string.IsNullOrEmpty(gc.BuildFolderName) && config.projectName != gc.BuildFolderName)
+                {
                     config.projectName = gc.BuildFolderName;
+                    configChanged = true;
+                }
 
-                if (!string.IsNullOrEmpty(gc.DefaultBundleIdentifier))
+                if (!string.IsNullOrEmpty(gc.DefaultBundleIdentifier) && config.defaultBundleIdentifier != gc.DefaultBundleIdentifier)
+                {
                     config.defaultBundleIdentifier = gc.DefaultBundleIdentifier;
+                    configChanged = true;
+                }
 
-                if (!string.IsNullOrEmpty(gc.GameNameJapanese))
+                if (!string.IsNullOrEmpty(gc.GameNameJapanese) && config.gameNameJapanese != gc.GameNameJapanese)
+                {
                     config.gameNameJapanese = gc.GameNameJapanese;
+                    configChanged = true;
+                }
 
                 // Sync bundle IDs to publisher profiles
                 foreach (var pub in config.publishers)
                 {
+                    string expectedBundleId = null;
                     switch (pub.publisher)
                     {
                         case Publisher.GoogleAndroidFull:
-                            if (!string.IsNullOrEmpty(gc.AndroidFull)) pub.bundleIdentifier = gc.AndroidFull;
+                            expectedBundleId = gc.AndroidFull;
                             break;
                         case Publisher.GoogleAndroidFree:
-                            if (!string.IsNullOrEmpty(gc.AndroidFree)) pub.bundleIdentifier = gc.AndroidFree;
+                            expectedBundleId = gc.AndroidFree;
                             break;
                         case Publisher.AmazonAndroidFull:
-                            if (!string.IsNullOrEmpty(gc.AmazonFull)) pub.bundleIdentifier = gc.AmazonFull;
+                            expectedBundleId = gc.AmazonFull;
                             break;
                         case Publisher.AmazonAndroidFree:
-                            if (!string.IsNullOrEmpty(gc.AmazonFree)) pub.bundleIdentifier = gc.AmazonFree;
+                            expectedBundleId = gc.AmazonFree;
                             break;
                         case Publisher.SamsungFull:
-                            if (!string.IsNullOrEmpty(gc.SamsungFull)) pub.bundleIdentifier = gc.SamsungFull;
+                            expectedBundleId = gc.SamsungFull;
                             break;
                         case Publisher.SamsungFree:
-                            if (!string.IsNullOrEmpty(gc.SamsungFree)) pub.bundleIdentifier = gc.SamsungFree;
+                            expectedBundleId = gc.SamsungFree;
                             break;
                         case Publisher.iOSFull:
-                            if (!string.IsNullOrEmpty(gc.IOSFull)) pub.bundleIdentifier = gc.IOSFull;
+                            expectedBundleId = gc.IOSFull;
                             break;
                         case Publisher.iOSFree:
-                            if (!string.IsNullOrEmpty(gc.IOSFree)) pub.bundleIdentifier = gc.IOSFree;
+                            expectedBundleId = gc.IOSFree;
                             break;
+                    }
+
+                    if (!string.IsNullOrEmpty(expectedBundleId) && pub.bundleIdentifier != expectedBundleId)
+                    {
+                        pub.bundleIdentifier = expectedBundleId;
+                        configChanged = true;
                     }
                 }
 
-                EditorUtility.SetDirty(config);
+                if (configChanged)
+                    EditorUtility.SetDirty(config);
             }
 
             return config;
