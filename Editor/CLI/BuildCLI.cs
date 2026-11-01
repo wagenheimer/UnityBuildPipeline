@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
 using Wagenheimer.BuildPipeline;
 
@@ -89,10 +90,31 @@ namespace Wagenheimer.BuildPipeline.Editor
                 profile = FindPublisherProfile(config, pubStr, out publisher);
             }
 
+            // An explicit -buildProfile that does not resolve is a configuration error (the dashboard
+            // is out of sync with ProjectBuildConfig). It used to continue with -platform and compile
+            // the target WITHOUT the profile defines: no bundle id, no ad define, no tracking define.
+            if (profile == null && !string.IsNullOrEmpty(buildProfileId))
+            {
+                var available = string.Join(", ", config.publishers
+                    .Select(p => p.EffectiveId)
+                    .Where(id => !string.IsNullOrWhiteSpace(id)));
+
+                var message = $"[BuildCLI] -buildProfile '{buildProfileId}' não existe em '{config.name}'. " +
+                              $"Ids disponíveis: {available}";
+
+                if (CommandLineArgs.GetBool("allowMissingProfile", false))
+                    Debug.LogWarning(message + " (-allowMissingProfile: seguindo com -publisher/-platform).");
+                else
+                    throw new BuildFailedException(message);
+            }
+
             if (profile != null)
             {
                 publisher = profile.publisher;
-                Debug.Log($"[BuildCLI] ✅ Resolved Profile: '{profile.displayName}' (Publisher: {publisher}, Platform: {profile.platform}, FullGame: {profile.isFullGame}, BundleId: {profile.bundleIdentifier})");
+                var definesLabel = profile.scriptingDefines == null || profile.scriptingDefines.Count == 0
+                    ? "(none)"
+                    : string.Join(",", profile.scriptingDefines);
+                Debug.Log($"[BuildCLI] ✅ Resolved Profile: '{profile.displayName}' (Publisher: {publisher}, Platform: {profile.platform}, FullGame: {profile.isFullGame}, BundleId: {profile.bundleIdentifier}, Defines: {definesLabel})");
             }
             else
             {
