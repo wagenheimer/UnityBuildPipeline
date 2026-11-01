@@ -30,6 +30,7 @@ MATRIX_PUBLISHERS=""
 MATRIX_LANGUAGES=""
 VARIANT=""
 MATRIX_VARIANTS=""
+ALLOW_MISSING_PROFILE=0
 EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --project|--project-path)   PROJECT_PATH="$2"; shift 2;;
     --unity-path)               UNITY_PATH="$2"; shift 2;;
     --build-profile)            BUILD_PROFILE="$2"; shift 2;;
+    --allow-missing-profile)    ALLOW_MISSING_PROFILE=1; shift 1;;
     --publisher)                PUBLISHER="$2"; shift 2;;
     --platform)                 PLATFORM="$2"; shift 2;;
     --language)                 LANGUAGE="$2"; shift 2;;
@@ -108,6 +110,7 @@ if [[ "$MATRIX" -eq 1 ]]; then
 else
   ARGS+=(-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.Build)
   [[ -n "$BUILD_PROFILE" ]] && ARGS+=(-buildProfile "$BUILD_PROFILE")
+  [[ "$ALLOW_MISSING_PROFILE" -eq 1 ]] && ARGS+=(-allowMissingProfile true)
   [[ -n "$PUBLISHER" ]]     && ARGS+=(-publisher "$PUBLISHER")
   [[ -n "$PLATFORM" ]]      && ARGS+=(-platform "$PLATFORM" -buildTarget "$PLATFORM")
   [[ -n "$VARIANT" ]]       && ARGS+=(-variant "$VARIANT")

@@ -12,6 +12,7 @@
 param (
     [string]$projectPath = ".",
     [string]$buildProfile = "",
+    [switch]$allowMissingProfile,
     [string]$publisher = "Default",
     [string]$language = "AutoDetect",
     [string]$variant = "",
@@ -105,6 +106,10 @@ if ($matrix) {
     if (![string]::IsNullOrEmpty($buildProfile)) {
         $argsList += "-buildProfile"
         $argsList += "$buildProfile"
+    }
+    if ($allowMissingProfile) {
+        $argsList += "-allowMissingProfile"
+        $argsList += "true"
     }
     $argsList += "-publisher"
     $argsList += "$publisher"

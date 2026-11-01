@@ -173,7 +173,8 @@ Pass `-manifest <path>` to write a machine-readable JSON summary instead of scra
 
 | Flag | Values | Description |
 |---|---|---|
-| `-buildProfile` | Profile `id` (or publisher name) | **Preferred.** Selects a `PublisherProfile` by its stable `id`; overrides `-publisher`/`-platform`. |
+| `-buildProfile` | Profile `id` (or publisher name) | **Preferred.** Selects a `PublisherProfile` by its stable `id`; overrides `-publisher`/`-platform`. An `id` that does not exist in the ProjectBuildConfig **fails the build** (the target would otherwise compile without its bundle id, ad and tracking defines). |
+| `-allowMissingProfile` | `true` / `false` | Escape hatch for the check above: log a warning and continue with `-publisher`/`-platform` instead of failing. |
 | `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile (used when `-buildProfile` is absent). |
 | `-language` | `en`, `de`, `fr`, `English`, `German`, etc. | Language code or name. |
 | `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
