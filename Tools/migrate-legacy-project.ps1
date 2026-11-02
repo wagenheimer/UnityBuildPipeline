@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Migrates a game that still uses its own GameConfig.cs / GameConfigEditor.cs (the pre-package build setup)
     to com.wagenheimer.buildpipeline. Run it with Unity CLOSED, before the package is installed.
@@ -29,7 +29,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectPath,
     [switch]$Apply,
-    [string]$PipelineRef = "v2.0.0",
+    [string]$PipelineRef = "v2.0.1",
     [string]$PackageHubRef = "v1.3.20",
     # Name of the generated subclass. Empty = derived from the project folder (StormTale -> StormTaleConfig).
     [string]$ConfigClassName = "",
