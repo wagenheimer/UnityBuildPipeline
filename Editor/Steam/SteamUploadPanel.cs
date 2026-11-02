@@ -192,10 +192,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             // 3. SteamManager.cs
             string managerPath = FindSteamManagerScriptPath();
             bool hasManagerScript = !string.IsNullOrEmpty(managerPath);
+            bool hasSafeEditorCheck = hasManagerScript && File.Exists(managerPath) && File.ReadAllText(managerPath).Contains("IsSteamRunning");
+
             var mgrRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
-            var mgrLabel = new Label(hasManagerScript
-                ? $"✔ SteamManager.cs encontrado em '{managerPath}'."
-                : "⚠ SteamManager.cs não encontrado em Assets/. (Script essencial para SteamAPI.Init no runtime)")
+            string mgrMsg = !hasManagerScript
+                ? "⚠ SteamManager.cs não encontrado em Assets/. (Script essencial para SteamAPI.Init no runtime)"
+                : hasSafeEditorCheck
+                    ? $"✔ SteamManager.cs presente em '{managerPath}' (com proteção de Editor/Sentry)."
+                    : $"✔ SteamManager.cs presente em '{managerPath}' (versão sem proteção de Editor).";
+
+            var mgrLabel = new Label(mgrMsg)
             {
                 style = { flexGrow = 1, color = hasManagerScript ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
             };
@@ -211,6 +217,18 @@ namespace Wagenheimer.BuildPipeline.Editor
                 createMgrBtn.AddToClassList("bp-btn");
                 createMgrBtn.AddToClassList("bp-btn--primary");
                 mgrRow.Add(createMgrBtn);
+            }
+            else if (!hasSafeEditorCheck)
+            {
+                var upgradeMgrBtn = new Button(() =>
+                {
+                    CreateSteamManagerScript(managerPath);
+                    Rebuild();
+                });
+                BuildPipelineUIStyle.ApplyIconText(upgradeMgrBtn, "⚡ Atualizar Proteção Editor");
+                upgradeMgrBtn.AddToClassList("bp-btn");
+                upgradeMgrBtn.tooltip = "Atualiza o SteamManager para silenciar erros de inicialização no Editor quando a Steam estiver fechada.";
+                mgrRow.Add(upgradeMgrBtn);
             }
             card.Add(mgrRow);
 
@@ -617,22 +635,36 @@ namespace Wagenheimer.BuildPipeline.Editor
             return null;
         }
 
-        private static void CreateSteamManagerScript()
+        private static void CreateSteamManagerScript(string existingPath = null)
         {
             try
             {
-                string targetDir = Path.Combine(Application.dataPath, "Scripts", "Steam");
-                if (!Directory.Exists(targetDir))
-                    Directory.CreateDirectory(targetDir);
+                string filePath;
+                if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
+                {
+                    if (!EditorUtility.DisplayDialog("Atualizar SteamManager.cs",
+                            $"Deseja atualizar '{existingPath}' para a versão com proteção de Editor/Sentry (não emite erro se o cliente Steam estiver fechado)?",
+                            "Atualizar", "Cancelar"))
+                        return;
 
-                string filePath = Path.Combine(targetDir, "SteamManager.cs");
+                    filePath = existingPath;
+                }
+                else
+                {
+                    string targetDir = Path.Combine(Application.dataPath, "Scripts", "Steam");
+                    if (!Directory.Exists(targetDir))
+                        Directory.CreateDirectory(targetDir);
+                    filePath = Path.Combine(targetDir, "SteamManager.cs");
+                }
+
                 File.WriteAllText(filePath, SteamManagerTemplate);
                 AssetDatabase.Refresh();
-                EditorUtility.DisplayDialog("SteamManager Criado", $"Script SteamManager.cs gerado com sucesso em '{filePath}'. Ele possui auto-inicialização em runtime antes da primeira cena.", "OK");
+                EditorUtility.DisplayDialog("SteamManager Configurado",
+                    $"Script SteamManager.cs gravado com sucesso em '{filePath}'.\n\nPossui auto-inicialização em runtime antes da primeira cena e proteção para não gerar erros no Editor/Sentry caso o cliente Steam esteja fechado.", "OK");
             }
             catch (Exception ex)
             {
-                EditorUtility.DisplayDialog("Erro", "Falha ao criar SteamManager.cs: " + ex.Message, "OK");
+                EditorUtility.DisplayDialog("Erro", "Falha ao gravar SteamManager.cs: " + ex.Message, "OK");
             }
         }
 
