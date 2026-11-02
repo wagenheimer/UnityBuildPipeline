@@ -48,6 +48,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             var spacer = new VisualElement { style = { flexGrow = 1 } };
             header.Add(spacer);
 
+            var newProfile = new Button(() => BuildProfileWizardWindow.Open()) { text = "Novo perfil..." };
+            newProfile.style.height = 24;
+            newProfile.style.marginRight = 4;
+            header.Add(newProfile);
+
+            var presets = new Button(() => BuildDefinePresetWindow.Open()) { text = "Presets..." };
+            presets.style.height = 24;
+            presets.style.marginRight = 4;
+            header.Add(presets);
+
             var refresh = new Button(Rebuild) { text = "Refresh" };
             refresh.style.height = 24;
             refresh.style.paddingLeft = 10;
@@ -92,7 +102,120 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             body.Add(BuildTable(config, issues));
             body.Add(BuildFreeFullDiff(config));
+            body.Add(BuildIssues(config, issues, tracking));
             body.Add(BuildPresets(config));
+        }
+
+        private VisualElement BuildIssues(
+            ProjectBuildConfig config, List<BuildProfileIssue> issues, BuildCatalogTracking tracking)
+        {
+            var card = BuildCard("Problemas",
+                "Corrija com um clique o que é inequívoco; o restante abre no inspector.");
+
+            if (issues.Count == 0)
+            {
+                card.Add(new Label("Nenhum problema encontrado.")
+                {
+                    style = { color = OkColor, fontSize = 11 }
+                });
+
+                return card;
+            }
+
+            var header = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 6 } };
+            header.Add(new Label($"{issues.Count} item(ns)") { style = { color = MutedColor, fontSize = 10.5f, flexGrow = 1 } });
+
+            var fixAll = new Button(() => FixAll(config, issues, tracking)) { text = "Corrigir tudo" };
+            fixAll.style.height = 22;
+            fixAll.SetEnabled(issues.Any(issue => BuildProfileFixer.CanFix(issue.Code)));
+            header.Add(fixAll);
+            card.Add(header);
+
+            foreach (var issue in issues)
+            {
+                var row = new VisualElement
+                {
+                    style =
+                    {
+                        flexDirection = FlexDirection.Row, alignItems = Align.Center,
+                        paddingTop = 2, paddingBottom = 2
+                    }
+                };
+
+                row.Add(new Label(issue.ToString())
+                {
+                    style =
+                    {
+                        flexGrow = 1,
+                        fontSize = 10.5f,
+                        color = issue.Severity == BuildProfileIssueSeverity.Error ? ErrorColor : WarnColor,
+                        whiteSpace = WhiteSpace.Normal
+                    }
+                });
+
+                if (BuildProfileFixer.CanFix(issue.Code))
+                {
+                    var fix = new Button(() => Fix(config, issue, tracking)) { text = "Corrigir" };
+                    fix.style.height = 20;
+                    fix.style.marginLeft = 6;
+                    row.Add(fix);
+                }
+
+                card.Add(row);
+            }
+
+            return card;
+        }
+
+        private void Fix(ProjectBuildConfig config, BuildProfileIssue issue, BuildCatalogTracking tracking)
+        {
+            var profile = config.publishers?.FirstOrDefault(candidate => candidate != null &&
+                string.Equals(candidate.EffectiveId, issue.ProfileId, StringComparison.OrdinalIgnoreCase));
+
+            if (profile == null || !BuildProfileFixer.TryFix(config, profile, issue, tracking))
+            {
+                Debug.LogWarning($"[BuildPipeline] Sem correção automática para '{issue.Code}' ({issue.ProfileId}).");
+                return;
+            }
+
+            Save(config);
+            Rebuild();
+        }
+
+        private void FixAll(ProjectBuildConfig config, List<BuildProfileIssue> issues, BuildCatalogTracking tracking)
+        {
+            int fixedCount = 0;
+
+            foreach (var group in issues.GroupBy(issue => issue.ProfileId, StringComparer.OrdinalIgnoreCase))
+            {
+                var profile = config.publishers?.FirstOrDefault(candidate => candidate != null &&
+                    string.Equals(candidate.EffectiveId, group.Key, StringComparison.OrdinalIgnoreCase));
+
+                if (profile == null)
+                    continue;
+
+                fixedCount += BuildProfileFixer.FixAll(config, profile, group, tracking);
+            }
+
+            if (fixedCount == 0)
+            {
+                Debug.Log("[BuildPipeline] Nenhuma correção automática aplicável.");
+                return;
+            }
+
+            Debug.Log($"[BuildPipeline] {fixedCount} correção(ões) aplicada(s).");
+            Save(config);
+            Rebuild();
+        }
+
+        private void Save(ProjectBuildConfig config)
+        {
+            EditorUtility.SetDirty(config);
+            AssetDatabase.SaveAssets();
+
+            string assetPath = AssetDatabase.GetAssetPath(config);
+            if (!string.IsNullOrEmpty(assetPath))
+                BuildProfileCatalog.Write(config, assetPath);
         }
 
         private static VisualElement BuildCard(string title, string description)

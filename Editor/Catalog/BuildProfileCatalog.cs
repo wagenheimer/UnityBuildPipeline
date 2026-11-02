@@ -46,6 +46,25 @@ namespace Wagenheimer.BuildPipeline.Editor
         public List<string> removedDefines = new List<string>();
     }
 
+    /// <summary>One validator finding exported to the catalog (AppDeployHub shows it before queueing).</summary>
+    [Serializable]
+    public sealed class BuildCatalogIssue
+    {
+        public string severity = "";
+        public string profileId = "";
+        public string code = "";
+        public string message = "";
+    }
+
+    /// <summary>Validator result computed when the catalog is generated.</summary>
+    [Serializable]
+    public sealed class BuildCatalogValidation
+    {
+        public int errors;
+        public int warnings;
+        public List<BuildCatalogIssue> issues = new List<BuildCatalogIssue>();
+    }
+
     /// <summary>
     /// Machine-readable snapshot of ProjectBuildConfig, written next to the asset on every save and by
     /// the CLI. It is derived data: the .asset remains the source of truth. AppDeployHub reads this
@@ -54,7 +73,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     [Serializable]
     public sealed class BuildProfileCatalog
     {
-        public const int CurrentSchema = 2;
+        public const int CurrentSchema = 3;
         public const string FileSuffix = ".catalog.json";
 
         public int schema = CurrentSchema;
@@ -63,6 +82,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string configPath = "";
         public string configHash = "";
         public BuildCatalogTracking tracking;
+        public BuildCatalogValidation validation = new BuildCatalogValidation();
         public List<BuildCatalogProfile> profiles = new List<BuildCatalogProfile>();
 
         public static string GetCatalogPath(string configAssetPath)
@@ -87,16 +107,31 @@ namespace Wagenheimer.BuildPipeline.Editor
                 tracking = ReadTrackingPolicy()
             };
 
-            if (config?.publishers == null)
-                return catalog;
-
-            foreach (var profile in config.publishers)
+            if (config?.publishers != null)
             {
-                if (profile == null)
-                    continue;
+                foreach (var profile in config.publishers)
+                {
+                    if (profile == null)
+                        continue;
 
-                catalog.profiles.Add(ToCatalogProfile(config, profile));
+                    catalog.profiles.Add(ToCatalogProfile(config, profile));
+                }
             }
+
+            // The linter result travels with the catalog so the dashboard can show it before queueing.
+            foreach (var issue in BuildProfileValidator.Validate(config, catalog.tracking))
+            {
+                catalog.validation.issues.Add(new BuildCatalogIssue
+                {
+                    severity = issue.Severity == BuildProfileIssueSeverity.Error ? "error" : "warning",
+                    profileId = issue.ProfileId,
+                    code = issue.Code,
+                    message = issue.Message
+                });
+            }
+
+            catalog.validation.errors = catalog.validation.issues.Count(issue => issue.severity == "error");
+            catalog.validation.warnings = catalog.validation.issues.Count(issue => issue.severity == "warning");
 
             return catalog;
         }

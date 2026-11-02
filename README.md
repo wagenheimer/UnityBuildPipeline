@@ -382,9 +382,25 @@ output and the effective defines, plus:
 
 - a **Free ↔ Full diff** per store (defines only in Free / only in Full, shared bundle/output);
 - the **validator issues** per row (tooltip with the messages);
-- the **define presets** and how many profiles use each.
+- the **define presets** and how many profiles use each;
+- **one-click fixes** for the unambiguous findings (id, bundle, output, ad define, preset);
+- **New Profile...** (store + Free/Full template) and **Define Presets...** editors.
 
-The catalog schema is now **2** (adds `presetIds`); consumers ignore unknown fields, as before.
+The catalog schema is now **3** (adds `presetIds` and a `validation` block with the linter result);
+consumers ignore unknown fields, as before.
+
+### CI
+
+```bash
+# Linux/macOS
+UNITY_BIN=/path/Unity ./Tools/validate-profiles.sh /path/to/project
+
+# Windows
+./Tools/validate-profiles.ps1 -Project C:\path\to\project -Unity C:\path\Unity.exe
+```
+
+Both exit with code 1 when the validator reports an error, so a PR job can gate on it. The same
+number appears in `ProjectBuildConfig.catalog.json` under `validation`.
 
 ### Wagenheimer Unity ecosystem
 
