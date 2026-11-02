@@ -166,6 +166,9 @@ Pass `-manifest <path>` to write a machine-readable JSON summary instead of scra
 `success`, `result`, `platform`, `profileId`, `defines`, `version`, `buildNumber`,
 `outputDirectory`, `artifactPath`, `xcodeProjectPath` (iOS only), `sizeBytes`, `errors`,
 `warnings`, `durationSeconds`, `errorMessage` — plus `variant` when a game variant was built.
+Each entry also carries `appliedDefines` (final symbols), `profileDefines` (declared by the profile) and
+`cliOverrides` (defines re-added by `-defines` that the profile removes). `cliOverrides` is the
+runtime proof of a dashboard override; the step also logs a warning when it is not empty.
 
 ---
 
@@ -350,6 +353,20 @@ Pass `-allowProfileErrors` for an emergency build.
 | Free iOS profile without the ad define | warning |
 | Tracking define used outside iOS | warning |
 | Duplicate `outputSubfolder` | warning |
+
+### Duplicate Free ↔ Full
+
+The profile card has **→ Full / → Free**: it duplicates the profile and fixes the publisher,
+id, display name, bundle id, output folder and the ad/tracking defines (Full gets `!adsDefine`, Free
+gets `adsDefine` plus the tracking define on iOS). The same logic runs headless:
+
+```bash
+Unity -batchmode -quit -projectPath . \
+  -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.DuplicateProfileAsCounterpart \
+  -profile iOSFree          # dry-run: prints the counterpart
+
+# add -apply to append it to ProjectBuildConfig
+```
 
 ### Wagenheimer Unity ecosystem
 

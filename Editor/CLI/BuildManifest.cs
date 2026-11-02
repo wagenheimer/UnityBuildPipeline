@@ -18,7 +18,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string platform;        // PlatformType enum name
         public string profileId;
         public string variant;         // game-specific build variant id (e.g. "ce"), empty when none
-        public string defines;         // ';'-joined extra defines applied
+        public string defines;         // ';'-joined "requested" defines (profile + -defines)
+        public string appliedDefines;  // ';'-joined final define symbols after the removals
+        public List<string> profileDefines = new List<string>();  // declared by the profile
+        public List<string> cliOverrides = new List<string>();    // -defines that undo a profile removal
         public string version;
         public string buildNumber;
         public string outputDirectory;
@@ -43,6 +46,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 profileId = string.IsNullOrEmpty(context.ProfileId) ? context.Publisher.ToString() : context.ProfileId,
                 variant = context.VariantId ?? "",
                 defines = context.ScriptingDefines != null ? string.Join(";", context.ScriptingDefines) : "",
+                appliedDefines = string.Join(";", GetExtraList(context, ApplyScriptingDefinesStep.AppliedDefinesKey)),
+                profileDefines = GetExtraList(context, ApplyScriptingDefinesStep.ProfileDefinesKey),
+                cliOverrides = GetExtraList(context, ApplyScriptingDefinesStep.CliOverridesKey),
                 version = ResolveVersion(context),
                 buildNumber = ResolveBuildNumber(context),
                 outputDirectory = context.ResolvedOutputDirectory,
@@ -66,6 +72,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static string GetExtraString(BuildContext context, string key)
         {
             return context.ExtraData.TryGetValue(key, out var value) && value is string s ? s : "";
+        }
+
+        private static List<string> GetExtraList(BuildContext context, string key)
+        {
+            return context.ExtraData.TryGetValue(key, out var value) && value is List<string> list
+                ? list
+                : new List<string>();
         }
 
         private static bool GetExtraBool(BuildContext context, string key)

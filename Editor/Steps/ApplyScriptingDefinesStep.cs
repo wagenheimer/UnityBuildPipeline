@@ -20,6 +20,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private const string OriginalDefinesKey = "ApplyScriptingDefinesStep.OriginalDefines";
 
+        public const string ProfileDefinesKey = "ApplyScriptingDefinesStep.ProfileDefines";
+        public const string AppliedDefinesKey = "ApplyScriptingDefinesStep.AppliedDefines";
+        public const string CliOverridesKey = "ApplyScriptingDefinesStep.CliOverrides";
+
         public bool ExecutePreBuild(BuildContext context)
         {
             var raw = (context.ScriptingDefines ?? new List<string>())
@@ -54,17 +58,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             var original = PlayerSettings.GetScriptingDefineSymbols(named);
             context.ExtraData[OriginalDefinesKey] = original;
 
-            if (extra.Count == 0 && removals.Count == 0)
-            {
-                context.Log("No extra scripting defines for this profile.");
-                return true;
-            }
-
             var merged = original
                 .Split(';', ',')
                 .Select(d => d.Trim())
                 .Where(d => d.Length > 0)
                 .ToList();
+
+            if (extra.Count == 0 && removals.Count == 0)
+            {
+                context.Log("No extra scripting defines for this profile.");
+                RecordDrift(context, merged, extra, removals);
+                return true;
+            }
 
             foreach (var d in removals)
                 merged.RemoveAll(m => string.Equals(m, d, StringComparison.OrdinalIgnoreCase));
@@ -74,8 +79,39 @@ namespace Wagenheimer.BuildPipeline.Editor
                     merged.Add(d);
 
             PlayerSettings.SetScriptingDefineSymbols(named, merged.ToArray());
+            RecordDrift(context, merged, extra, removals);
             context.Log($"Applied scripting defines ({named.TargetName}): +[{string.Join(";", extra)}] -[{string.Join(";", removals)}]  ->  [{string.Join(";", merged)}]");
             return true;
+        }
+
+        /// <summary>
+        /// Records the declared/applied defines for the build manifest and warns when the CLI
+        /// (<c>-defines</c>, i.e. the dashboard) re-adds a define the profile removes. This is the
+        /// runtime proof that the matrix and the build agree.
+        /// </summary>
+        private static void RecordDrift(
+            BuildContext context, List<string> applied, List<string> extra, List<string> removals)
+        {
+            var profileDefines = (context.PublisherProfile?.scriptingDefines ?? new List<string>())
+                .SelectMany(d => d.Split(';', ','))
+                .Select(d => d.Trim())
+                .Where(d => d.Length > 0 && !IsRemoval(d))
+                .ToList();
+
+            var cliOverrides = extra
+                .Where(d => removals.Contains(d, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            context.ExtraData[ProfileDefinesKey] = profileDefines;
+            context.ExtraData[AppliedDefinesKey] = new List<string>(applied);
+            context.ExtraData[CliOverridesKey] = cliOverrides;
+
+            if (cliOverrides.Count > 0)
+            {
+                context.LogWarning("[BuildPipeline] -defines re-adiciona define(s) que o perfil remove: " +
+                                   string.Join(", ", cliOverrides) + " (o build aplica o painel por último).");
+            }
         }
 
         /// <summary>A define prefixed with '!' or '-' means "remove this define for the build".</summary>

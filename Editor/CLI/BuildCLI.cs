@@ -96,6 +96,74 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorApplication.Exit(0);
         }
 
+        /// <summary>
+        /// Prints (or applies with <c>-apply</c>) the Free/Full counterpart of a profile.
+        /// <c>-executeMethod ...BuildCLI.DuplicateProfileAsCounterpart -profile iOSFree [-apply]</c>
+        /// </summary>
+        public static void DuplicateProfileAsCounterpart()
+        {
+            var config = FindOrCreateConfig();
+            string id = CommandLineArgs.Get("profile", "");
+            bool apply = CommandLineArgs.GetBool("apply", false);
+
+            var source = config.publishers.FirstOrDefault(profile =>
+                string.Equals(profile.EffectiveId, id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(profile.id, id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(profile.displayName, id, StringComparison.OrdinalIgnoreCase));
+
+            if (source == null)
+            {
+                Debug.LogError($"[BuildPipeline] Perfil '{id}' não encontrado. Ids: " +
+                               string.Join(", ", config.publishers.Select(profile => profile.EffectiveId)));
+                if (Application.isBatchMode)
+                    EditorApplication.Exit(1);
+
+                return;
+            }
+
+            var tracking = BuildProfileCatalog.ReadTrackingPolicy();
+            var clone = PublisherProfileDuplicator.Create(
+                source, tracking?.adsDefine ?? "", tracking?.scriptingDefine ?? "");
+
+            if (clone == null)
+            {
+                Debug.LogError($"[BuildPipeline] '{source.EffectiveId}' não tem contraparte Free/Full.");
+                if (Application.isBatchMode)
+                    EditorApplication.Exit(1);
+
+                return;
+            }
+
+            string report = $"[BuildPipeline] {source.EffectiveId} -> {clone.id}\n" +
+                            $"  displayName : {clone.displayName}\n" +
+                            $"  publisher   : {clone.publisher}\n" +
+                            $"  isFullGame  : {clone.isFullGame}\n" +
+                            $"  bundle      : {clone.bundleIdentifier}\n" +
+                            $"  output      : {clone.outputSubfolder}\n" +
+                            $"  defines     : {(clone.scriptingDefines.Count == 0 ? "(nenhum)" : string.Join(", ", clone.scriptingDefines))}";
+
+            if (apply)
+            {
+                config.publishers.Add(clone);
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+
+                string assetPath = AssetDatabase.GetAssetPath(config);
+                if (!string.IsNullOrEmpty(assetPath))
+                    BuildProfileCatalog.Write(config, assetPath);
+
+                report += "\n  aplicado: perfil adicionado ao ProjectBuildConfig.";
+            }
+            else
+            {
+                report += "\n  dry-run: use -apply para adicionar.";
+            }
+
+            Debug.Log(report);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(0);
+        }
+
         public static void Build()
         {
             Debug.Log("[BuildCLI] Starting Single Headless Build...");

@@ -400,6 +400,52 @@ namespace Wagenheimer.BuildPipeline.Editor
             dupBtn.style.marginLeft = 4;
             actions.Add(dupBtn);
 
+            if (PublisherProfileDuplicator.TryGetCounterpart(profile.publisher, out _))
+            {
+                string counterpartMarker = profile.isFullGame ? "Free" : "Full";
+
+                var counterpartBtn = new Button(() =>
+                {
+                    var tracking = BuildProfileCatalog.ReadTrackingPolicy();
+                    string adsDefine = tracking?.adsDefine ?? "";
+                    string trackingDefine = tracking?.scriptingDefine ?? "";
+
+                    string newId = PublisherProfileDuplicator.Create(profile, adsDefine, trackingDefine)?.id;
+                    if (!string.IsNullOrEmpty(newId) &&
+                        config.publishers.Any(p => string.Equals(p.EffectiveId, newId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        bool proceed = EditorUtility.DisplayDialog(
+                            "Duplicate profile",
+                            $"Já existe um perfil com o id '{newId}'. Duplicar mesmo assim?",
+                            "Duplicar", "Cancelar");
+
+                        if (!proceed)
+                            return;
+                    }
+
+                    pubProp.InsertArrayElementAtIndex(index);
+                    so.ApplyModifiedProperties();
+                    so.Update();
+
+                    // Transform the freshly duplicated element in place so the serialized list keeps it.
+                    var target = config.publishers[index + 1];
+                    if (!PublisherProfileDuplicator.Apply(profile, target, adsDefine, trackingDefine))
+                        return;
+
+                    EditorUtility.SetDirty(config);
+                    AssetDatabase.SaveAssets();
+                    so.Update();
+                    onListChanged();
+                });
+
+                BuildPipelineUIStyle.ApplyIconText(counterpartBtn, $"→ {counterpartMarker}");
+                counterpartBtn.tooltip = $"Duplicate as {counterpartMarker}: ajusta id, bundle, output e os defines de anúncio/tracking.";
+                counterpartBtn.AddToClassList("bp-btn");
+                counterpartBtn.style.minWidth = 58;
+                counterpartBtn.style.marginLeft = 4;
+                actions.Add(counterpartBtn);
+            }
+
             var removeBtn = new Button(() =>
             {
                 if (!EditorUtility.DisplayDialog("Remove Publisher", $"Remove '{profile.displayName}'?", "Remove", "Cancel"))
