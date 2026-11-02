@@ -43,6 +43,59 @@ namespace Wagenheimer.BuildPipeline.Editor
             return fallback;
         }
 
+        /// <summary>
+        /// Batch entry point for CI: validates the profile matrix and exits 1 on errors.
+        /// <c>-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.ValidateProfiles</c>
+        /// </summary>
+        public static void ValidateProfiles()
+        {
+            var config = FindOrCreateConfig();
+
+            // Batch mode exits right after this method, so the editor-load hook may not have run.
+            string assetPath = AssetDatabase.GetAssetPath(config);
+            if (!string.IsNullOrEmpty(assetPath) && !BuildProfileCatalog.IsUpToDate(config, assetPath))
+                BuildProfileCatalog.Write(config, assetPath);
+
+            var issues = BuildProfileValidator.Validate(config, BuildProfileCatalog.ReadTrackingPolicy());
+            string report = BuildProfileValidator.Format(issues);
+            int errors = issues.Count(issue => issue.Severity == BuildProfileIssueSeverity.Error);
+
+            if (errors > 0)
+                Debug.LogError(report);
+            else
+                Debug.Log(report);
+
+            if (Application.isBatchMode)
+                EditorApplication.Exit(errors > 0 ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Writes the derived profile catalog for AppDeployHub/CI.
+        /// <c>-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.ExportProfileCatalog -output path</c>
+        /// </summary>
+        public static void ExportProfileCatalog()
+        {
+            var config = FindOrCreateConfig();
+            string assetPath = AssetDatabase.GetAssetPath(config);
+            string output = CommandLineArgs.Get("output", "");
+
+            string catalog = BuildProfileCatalog.Write(
+                config, assetPath, string.IsNullOrEmpty(output) ? null : output);
+
+            if (string.IsNullOrEmpty(catalog))
+            {
+                Debug.LogError("[BuildPipeline] Não foi possível gerar o catálogo de perfis.");
+                if (Application.isBatchMode)
+                    EditorApplication.Exit(1);
+
+                return;
+            }
+
+            Debug.Log($"[BuildPipeline] Catálogo de perfis: {catalog}");
+            if (Application.isBatchMode)
+                EditorApplication.Exit(0);
+        }
+
         public static void Build()
         {
             Debug.Log("[BuildCLI] Starting Single Headless Build...");

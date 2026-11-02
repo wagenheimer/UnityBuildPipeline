@@ -284,6 +284,73 @@ MIT License. Copyright (c) 2026 Cezar Wagenheimer.
 
 ---
 
+---
+
+## Build profile catalog & validation
+
+### `ProjectBuildConfig.catalog.json`
+
+Derived, machine-readable snapshot of the profile matrix, written next to the asset whenever it is
+imported (and by the CLI). The `.asset` stays the source of truth; the JSON exists so AppDeployHub
+and CI do not have to parse Unity YAML.
+
+```json
+{
+  "schema": 1,
+  "configHash": "sha1 do asset",
+  "tracking": { "requireTracking": true, "scriptingDefine": "FTDOTD_TRACKING", "adsDefine": "FTDOTD_MONETIZATION" },
+  "profiles": [
+    {
+      "id": "iOSFree",
+      "platform": "iOS",
+      "isFullGame": false,
+      "bundleIdentifier": "com.company.game",
+      "scriptingDefines": ["FTDOTD_MONETIZATION", "FTDOTD_TRACKING"],
+      "effectiveDefines": ["FTDOTD_MONETIZATION", "FTDOTD_TRACKING"],
+      "removedDefines": []
+    }
+  ]
+}
+```
+
+- `scriptingDefines`: exactly as typed (including `!DEFINE` removals).
+- `effectiveDefines`: what survives after the removals — what the build actually gets from the profile.
+- `tracking`: mirrored from `com.wagenheimer.tracking` (`null` when the package is absent).
+- `configHash`: lets a consumer detect a stale catalog.
+
+Menu: **Tools > Build Pipeline > Export Profile Catalog** / **Validate Profiles**.
+
+### CLI
+
+```bash
+# write the catalog (default: next to the asset)
+Unity -batchmode -quit -projectPath . \
+  -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.ExportProfileCatalog \
+  -output BuildProfiles/ProjectBuildConfig.catalog.json
+
+# validate the matrix, exit 1 on errors
+Unity -batchmode -quit -projectPath . \
+  -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.ValidateProfiles
+```
+
+### Pre-build gate
+
+`ValidateProfilesStep` (order 4) runs on every build and aborts on **errors**; warnings only log.
+Pass `-allowProfileErrors` for an emergency build.
+
+| Rule | Severity |
+|---|---|
+| Mobile profile without an explicit `id` | warning |
+| Duplicate `id` | error |
+| Android/iOS profile without a bundle id | error |
+| Free and Full of the same store sharing the bundle id | error |
+| Invalid define token (space/comma/semicolon) | error |
+| Same define added and removed in one profile | error |
+| Full profile applying the ad define | error |
+| Free iOS profile without the ad define | warning |
+| Tracking define used outside iOS | warning |
+| Duplicate `outputSubfolder` | warning |
+
 ### Wagenheimer Unity ecosystem
 
 [Package Hub](https://github.com/wagenheimer/UnityPackageHub) ·
