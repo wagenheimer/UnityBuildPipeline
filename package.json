@@ -1,6 +1,6 @@
 {
   "name": "com.wagenheimer.buildpipeline",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "displayName": "Unity Build Pipeline",
   "description": "Modular, multi-project build automation pipeline for Unity 6: one sidebar window for every setting, per-profile language lock, a Defines center (layered stack, package-declared define registry, find-usages in code, Free/Full code impact), multi-store profiles, language/variant batch builds, AppDeployHub vault signing, and 100% headless CLI with a JSON catalog for CI/AppDeployHub.",
   "unity": "6000.0",
