@@ -690,6 +690,11 @@ public class SteamManager : MonoBehaviour {
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void AutoInitialize() {
+#if UNITY_EDITOR
+        try {
+            if (!SteamAPI.IsSteamRunning()) return;
+        } catch { return; }
+#endif
         if (s_instance == null && !s_EverInitialized) {
             var go = new GameObject(""[SteamManager]"");
             DontDestroyOnLoad(go);
@@ -731,7 +736,11 @@ public class SteamManager : MonoBehaviour {
 
         m_bInitialized = SteamAPI.Init();
         if (!m_bInitialized) {
+#if UNITY_EDITOR
+            Debug.LogWarning(""[Steamworks.NET] SteamAPI_Init() não pôde inicializar no Editor (verifique se o Steam está aberto e com licença do App ID). O jogo continuará normalmente sem Steam."", this);
+#else
             Debug.LogError(""[Steamworks.NET] SteamAPI_Init() failed. Refer to Valve's documentation or the comment above this line for more information."", this);
+#endif
             return;
         }
         s_EverInitialized = true;
