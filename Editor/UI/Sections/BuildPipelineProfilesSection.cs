@@ -195,6 +195,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             identity.Add(Field("isSteam", "Steam"));
             identity.Add(Field("requiresSplash", "Splash do publisher"));
             identity.Add(Field("hidden", "Oculto no editor"));
+
+            if (profile.isSteam)
+            {
+                var steamProfiles = _config.publishers.Where(p => p != null && p.isSteam).ToList();
+                var plats = steamProfiles.Select(s => s.platform == PlatformType.macOS ? "🍎 Mac" : s.platform == PlatformType.Linux64 ? "🐧 Linux" : "🪟 Windows").Distinct();
+                identity.Add(BuildPipelineUIStyle.CreateCallout(
+                    $"🎮 Perfil do ecossistema Steam. Plataformas Steam configuradas: {string.Join(", ", plats)}. " +
+                    "Use os botões no cabeçalho (+ Steam Mac / + Steam Linux) para gerar os perfis irmãos das outras plataformas caso queira compilá-los separadamente no Forge/CI.", "info"));
+            }
+
             detail.Add(identity);
 
             detail.Add(LanguageCard(profile, element));
@@ -245,6 +255,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                 header.Add(badge);
 
             var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, marginLeft = 8 } };
+            if (profile.isSteam)
+            {
+                bool hasWindows = _config.publishers.Any(p => p != null && p.isSteam && p.platform == PlatformType.Windows64);
+                bool hasMac = _config.publishers.Any(p => p != null && p.isSteam && p.platform == PlatformType.macOS);
+                bool hasLinux = _config.publishers.Any(p => p != null && p.isSteam && p.platform == PlatformType.Linux64);
+
+                if (!hasWindows) actions.Add(BuildPipelineBuildSection.SmallButton("🪟 + Steam Win", () => CreateSteamSibling(index, PlatformType.Windows64)));
+                if (!hasMac) actions.Add(BuildPipelineBuildSection.SmallButton("🍎 + Steam Mac", () => CreateSteamSibling(index, PlatformType.macOS)));
+                if (!hasLinux) actions.Add(BuildPipelineBuildSection.SmallButton("🐧 + Steam Linux", () => CreateSteamSibling(index, PlatformType.Linux64)));
+            }
             actions.Add(BuildPipelineBuildSection.SmallButton("⧉ Duplicar", () => Duplicate(index)));
             if (PublisherProfileDuplicator.TryGetCounterpart(profile.publisher, out _))
                 actions.Add(BuildPipelineBuildSection.SmallButton(profile.isFullGame ? "→ Free" : "→ Full", () => Counterpart(index)));
@@ -368,6 +388,30 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         // ── Actions ──────────────────────────────────────────────────────────
+
+        private void CreateSteamSibling(int sourceIndex, PlatformType targetPlatform)
+        {
+            var source = _config.publishers[sourceIndex];
+            var copy = JsonUtility.FromJson<PublisherProfile>(JsonUtility.ToJson(source));
+            copy.platform = targetPlatform;
+            copy.isSteam = true;
+            string platSuffix = targetPlatform == PlatformType.macOS ? "Mac" : targetPlatform == PlatformType.Linux64 ? "Linux" : "Windows";
+            copy.displayName = $"Steam ({platSuffix})";
+
+            if (source.displayName == "Steam" && source.platform == PlatformType.Windows64)
+            {
+                source.displayName = "Steam (Windows)";
+                if (string.IsNullOrEmpty(source.id) || source.id.Equals("steam", StringComparison.OrdinalIgnoreCase))
+                    source.id = "steam-windows";
+            }
+
+            copy.id = $"steam-{platSuffix.ToLowerInvariant()}";
+            _config.publishers.Add(copy);
+            _selection.selectedProfileId = copy.EffectiveId;
+            _ctx.SaveSelection();
+            _ctx.SaveConfig();
+            _ctx.RebuildSection();
+        }
 
         private void Duplicate(int index)
         {
