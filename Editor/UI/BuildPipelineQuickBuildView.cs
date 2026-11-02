@@ -201,6 +201,14 @@ namespace Wagenheimer.BuildPipeline.Editor
         private void RunSteamBuildAll(PublisherProfile steamProfile)
         {
             var platforms = new[] { PlatformType.Windows64, PlatformType.macOS, PlatformType.Linux64 };
+
+            if (!BuildConfirmation.ConfirmBatch(
+                    "Confirm Steam Builds",
+                    $"3 builds para '{steamProfile.displayName}': Windows64, macOS e Linux64."))
+            {
+                return;
+            }
+
             var failed = new System.Collections.Generic.List<PlatformType>();
 
             foreach (var platform in platforms)
@@ -241,6 +249,27 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private void RunQuickBuild(Publisher pub, PlatformType plat, bool cheat, bool appBundle, bool autoRun, bool devBuild)
         {
+            var prof = _config?.publishers?.FirstOrDefault(p => p.publisher == pub);
+            var ctx = new BuildContext
+            {
+                Config = _config,
+                Publisher = pub,
+                PublisherProfile = prof,
+                Language = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect,
+                Platform = plat,
+                CheatMode = cheat,
+                DevelopmentBuild = devBuild,
+                Demo = prof != null && prof.isDemo,
+                AppBundle = appBundle,
+                AutoRun = autoRun,
+                VariantId = _quickVariantId,
+                Variant = _quickVariant
+            };
+
+            // Confirmação antes de qualquer efeito colateral (inclusive o auto-bump de versão).
+            if (!BuildConfirmation.Confirm(ctx, _config, "Confirm Quick Build"))
+                return;
+
             if (EditorPrefs.GetBool("BuildPipeline_AutoBumpOnBuild", false))
             {
                 if (plat == PlatformType.Android)
@@ -268,23 +297,6 @@ namespace Wagenheimer.BuildPipeline.Editor
                 AssetDatabase.SaveAssets();
                 _onRebuild?.Invoke();
             }
-
-            var prof = _config?.publishers?.FirstOrDefault(p => p.publisher == pub);
-            var ctx = new BuildContext
-            {
-                Config = _config,
-                Publisher = pub,
-                PublisherProfile = prof,
-                Language = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect,
-                Platform = plat,
-                CheatMode = cheat,
-                DevelopmentBuild = devBuild,
-                Demo = prof != null && prof.isDemo,
-                AppBundle = appBundle,
-                AutoRun = autoRun,
-                VariantId = _quickVariantId,
-                Variant = _quickVariant
-            };
 
             var res = BuildPipelineRunner.Execute(ctx);
             if (res.Success)

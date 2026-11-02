@@ -188,6 +188,19 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return;
             }
 
+            var context = new BuildContext
+            {
+                Config = _config,
+                Publisher = steamProfile.publisher,
+                PublisherProfile = steamProfile,
+                Platform = platform,
+                Language = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect,
+                Demo = steamProfile.isDemo
+            };
+
+            if (!BuildConfirmation.Confirm(context, _config, $"Confirm Steam Build ({platform})"))
+                return;
+
             EditorUtility.DisplayProgressBar("Building for Steam", $"Building {platform}...", 0.3f);
             try
             {
