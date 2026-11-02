@@ -13,27 +13,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (context.Platform != PlatformType.Android || context.Config == null)
                 return true;
 
-            if (context.Config.keystoreSource == KeystoreSource.RemoteVault)
+            if (context.Config.keystoreSource == KeystoreSource.AppDeployHubVault)
             {
-                context.Log("Fetching Android keystore credentials from Remote Vault...");
-                var token = KeystoreVaultClient.GetEffectiveToken(context.Config);
-                var profileId = context.Config.vaultProfileId;
-                var bundleId = context.Config.defaultBundleIdentifier;
-
-                var result = KeystoreVaultClient.FetchCredentialsSync(context.Config.vaultUrl, profileId, bundleId, token);
-                if (!result.Success || result.Credentials == null)
+                context.Log("Fetching Android keystore from the AppDeployHub vault...");
+                var result = AppDeployHubVaultClient.FetchKeystore(context.Config.appDeployHubUrl, context.Config.vaultKeystoreCredentialId);
+                if (!result.Success || result.Keystore == null)
                 {
-                    context.LogError($"Failed to fetch keystore from Vault: {result.Message}");
+                    context.LogError($"Failed to fetch keystore from the AppDeployHub vault: {result.Message}");
                     return false;
                 }
 
-                var creds = result.Credentials;
-                PlayerSettings.Android.keystoreName = creds.KeystorePath;
-                PlayerSettings.Android.keystorePass = creds.KeystorePass;
-                PlayerSettings.Android.keyaliasName = creds.KeyAliasName;
-                PlayerSettings.Android.keyaliasPass = creds.KeyAliasPass;
+                var keystore = result.Keystore;
+                PlayerSettings.Android.keystoreName = keystore.KeystorePath;
+                PlayerSettings.Android.keystorePass = keystore.KeystorePassword;
+                PlayerSettings.Android.keyaliasName = keystore.Alias;
+                PlayerSettings.Android.keyaliasPass = keystore.KeyPassword;
 
-                context.Log($"[Vault] Successfully configured Android Keystore '{creds.KeystoreFileName}' from Vault (Alias: {creds.KeyAliasName})");
+                context.Log($"[Vault] Android keystore '{keystore.Label}' configured from AppDeployHub (alias: {keystore.Alias}).");
                 return true;
             }
             else

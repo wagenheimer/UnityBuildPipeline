@@ -28,7 +28,17 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// </summary>
     public static class BuildProfileValidator
     {
-        public static List<BuildProfileIssue> Validate(ProjectBuildConfig config, BuildCatalogTracking tracking)
+        public static List<BuildProfileIssue> Validate(ProjectBuildConfig config, BuildCatalogTracking tracking) =>
+            Validate(config, tracking, null);
+
+        /// <summary>
+        /// Full validation. With a <paramref name="registry"/>, also checks each documented define's
+        /// requiredWhen/forbiddenWhen against the profile's final stack (<paramref name="stackFor"/>, default:
+        /// <see cref="DefineEnvironment.StackFor"/>) and flags profile defines nobody documented.
+        /// </summary>
+        public static List<BuildProfileIssue> Validate(
+            ProjectBuildConfig config, BuildCatalogTracking tracking, DefineRegistry registry,
+            Func<PublisherProfile, DefineStack> stackFor = null)
         {
             var issues = new List<BuildProfileIssue>();
 
@@ -77,6 +87,20 @@ namespace Wagenheimer.BuildPipeline.Editor
                 CheckOutput(issues, profile, id, byOutput);
                 CheckPresets(issues, config, profile, id);
                 CheckDefines(issues, config, profile, id, tracking);
+                CheckLanguage(issues, profile, id);
+                CheckSteam(issues, profile, id);
+
+                if (registry != null)
+                    CheckRegistry(issues, config, profile, id, registry, stackFor ?? (p => DefineEnvironment.StackFor(config, p)));
+            }
+
+            if (registry != null)
+            {
+                foreach (var conflict in registry.Conflicts)
+                {
+                    Add(issues, BuildProfileIssueSeverity.Warning, "(defines)", "define-declared-twice",
+                        $"'{conflict.Key}' é declarado por mais de uma fonte: {string.Join(", ", conflict.Value)}.");
+                }
             }
 
             return issues;
@@ -274,6 +298,63 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 Add(issues, BuildProfileIssueSeverity.Warning, id, "tracking-off-ios",
                     $"'{tracking.scriptingDefine}' é de ATT (iOS) e aparece num perfil {profile.platform}.");
+            }
+        }
+
+        private static void CheckLanguage(List<BuildProfileIssue> issues, PublisherProfile profile, string id)
+        {
+            if (profile.languageMode == ProfileLanguageMode.Locked && profile.lockedLanguage == GameLanguage.AutoDetect)
+            {
+                Add(issues, BuildProfileIssueSeverity.Warning, id, "language-lock-auto",
+                    "Idioma marcado como Travado, mas o idioma escolhido é AutoDetect: o build sai automático. Escolha o idioma ou volte para Auto.");
+            }
+        }
+
+        private static void CheckSteam(List<BuildProfileIssue> issues, PublisherProfile profile, string id)
+        {
+            if (profile.isSteam && profile.platform is PlatformType.Android or PlatformType.iOS or PlatformType.WebGL)
+            {
+                Add(issues, BuildProfileIssueSeverity.Warning, id, "steam-platform",
+                    $"Perfil marcado como Steam numa plataforma {profile.platform}; Steam só existe para Windows/Mac/Linux.");
+            }
+
+            if (!profile.isSteam && PublisherProfile.LooksLikeSteam(profile))
+            {
+                Add(issues, BuildProfileIssueSeverity.Warning, id, "steam-unflagged",
+                    "O nome/publisher sugere Steam, mas o perfil não está marcado como Steam (sem define do NativeSocial nem limpeza Steam).");
+            }
+        }
+
+        private static void CheckRegistry(
+            List<BuildProfileIssue> issues, ProjectBuildConfig config, PublisherProfile profile, string id,
+            DefineRegistry registry, Func<PublisherProfile, DefineStack> stackFor)
+        {
+            DefineStack stack;
+            try
+            {
+                stack = stackFor(profile);
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            foreach (var violation in DefineRules.Check(registry, profile, stack))
+            {
+                Add(issues, violation.Declaration.RuleIsWarning ? BuildProfileIssueSeverity.Warning : BuildProfileIssueSeverity.Error, id,
+                    violation.Required ? "define-required-missing" : "define-forbidden-present", violation.Message);
+            }
+
+            var undocumented = BuildDefineResolver.Resolve(config, profile)
+                .Select(raw => raw.TrimStart('!', '-').Trim())
+                .Where(name => name.Length > 0 && !registry.IsDeclared(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (undocumented.Count > 0)
+            {
+                Add(issues, BuildProfileIssueSeverity.Warning, id, "define-undocumented",
+                    $"Define(s) sem documentação: {string.Join(", ", undocumented)}. Declare em Defines → Registro (jogo) ou no package.json do pacote dono.");
             }
         }
 

@@ -12,7 +12,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         [MenuItem("Tools/Wagenheimer/Build Pipeline/Add Build Debug Overlay to Scene", priority = 112)]
         public static void AddOverlayToScene()
         {
-            var existing = Object.FindObjectOfType<BuildDebugOverlay>();
+            var existing = Object.FindAnyObjectByType<BuildDebugOverlay>();
             if (existing != null)
             {
                 Selection.activeGameObject = existing.gameObject;

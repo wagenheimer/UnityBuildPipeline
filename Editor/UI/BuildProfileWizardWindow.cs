@@ -20,7 +20,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private TextField outputField;
         private Label errorLabel;
 
-        [MenuItem("Tools/Build Pipeline/New Profile...", priority = 203)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/New Profile...", priority = 20)]
         public static void Open()
         {
             var window = GetWindow<BuildProfileWizardWindow>();
@@ -126,6 +126,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             Debug.Log($"[BuildPipeline] Perfil criado: {created.EffectiveId} ({created.displayName}).");
             Close();
+            BuildPipelineWindow.ShowSection(BuildPipelineSections.Profiles, created.EffectiveId);
         }
     }
 }

@@ -11,24 +11,23 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// Small editor for <see cref="ProjectBuildConfig.definePresets"/>: id, label and one define per
     /// line, with usage count. The profile card only references the preset id.
     /// </summary>
-    public sealed class BuildDefinePresetWindow : EditorWindow
+    internal sealed class BuildDefinePresetPanel
     {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildDefinePresetPanel()
+        {
+            CreateGUI();
+        }
+
         private static readonly Color MutedColor = new Color(0.62f, 0.65f, 0.71f);
 
         private ScrollView list;
 
-        [MenuItem("Tools/Build Pipeline/Define Presets...", priority = 204)]
-        public static void Open()
-        {
-            var window = GetWindow<BuildDefinePresetWindow>();
-            window.titleContent = new GUIContent("Define Presets");
-            window.minSize = new Vector2(520, 420);
-            window.Show();
-        }
 
         private void CreateGUI()
         {
-            var root = rootVisualElement;
+            var root = Root;
             root.style.paddingLeft = 12;
             root.style.paddingRight = 12;
             root.style.paddingTop = 10;

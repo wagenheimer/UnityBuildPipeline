@@ -47,7 +47,35 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static void RegisterPreStep(IPreBuildStep step) => PreSteps.Add(step);
         public static void RegisterPostStep(IPostBuildStep step) => PostSteps.Add(step);
 
+        /// <summary>
+        /// Runs the pipeline. Steps that change ProjectSettings (scripting defines, player settings) are always
+        /// restored: after a successful build by the post steps, and on ANY other exit (a pre-step failing or
+        /// throwing, a failed build, BuildPlayer/SwitchActiveBuildTarget throwing) by the finally block.
+        /// </summary>
         public static BuildResultSummary Execute(BuildContext context)
+        {
+            bool restored = false;
+            try
+            {
+                return ExecuteCore(context, () => restored = true);
+            }
+            finally
+            {
+                if (!restored)
+                    RunCleanup(context, null, "build aborted");
+            }
+        }
+
+        private static void RunCleanup(BuildContext context, BuildReport report, string reason)
+        {
+            foreach (var cleanup in new IPostBuildStep[] { new ApplyScriptingDefinesStep(), new ApplyPlayerSettingsStep() })
+            {
+                try { cleanup.ExecutePostBuild(context, report); }
+                catch (Exception ex) { context.LogError($"Exception in cleanup step {cleanup.GetType().Name} ({reason}): {ex}"); }
+            }
+        }
+
+        private static BuildResultSummary ExecuteCore(BuildContext context, Action markRestored)
         {
             var stopwatch = Stopwatch.StartNew();
             var variantText = string.IsNullOrEmpty(context.VariantId) ? "" : $" | Variant: {context.VariantLabel}";
@@ -143,7 +171,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 context.Log($"<color=#2ecc71>BUILD SUCCEEDED!</color> Time: {stopwatch.Elapsed:mm\\:ss}, Size: {summary.totalSize / (1024 * 1024):F1} MB");
 
-                // Execute Post-Build Steps
+                // Execute Post-Build Steps (they include the ProjectSettings restore).
                 foreach (var step in PostSteps.OrderBy(s => s.Order))
                 {
                     try
@@ -155,6 +183,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                         context.LogError($"Exception in post-build step {step.GetType().Name}: {ex}");
                     }
                 }
+
+                markRestored();
 
                 if (context.Platform == PlatformType.Android && context.AutoRun && !Application.isBatchMode)
                 {
@@ -172,11 +202,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 // On failure the normal post steps are skipped, but the cleanup steps that keep
                 // ProjectSettings pristine must still run (scripting defines + version-code restore).
-                foreach (var cleanup in new IPostBuildStep[] { new ApplyScriptingDefinesStep(), new ApplyPlayerSettingsStep() })
-                {
-                    try { cleanup.ExecutePostBuild(context, report); }
-                    catch (Exception ex) { context.LogError($"Exception in cleanup step {cleanup.GetType().Name} after failed build: {ex}"); }
-                }
+                RunCleanup(context, report, "after failed build");
+                markRestored();
             }
 
             return result;

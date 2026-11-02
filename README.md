@@ -9,21 +9,30 @@ A modular, multi-project build automation pipeline for Unity. Designed for multi
 
 ## ✨ Features
 
-- **Store & Publisher Management**: Out-of-the-box profiles for Steam, Big Fish Games, GameHouse, Alawar, itch.io, Google Play, Amazon Appstore, iOS App Store, Mac App Store, Samsung Galaxy Store, and direct site distribution.
-- **Game Config Extension & Build Variants**: games extend `GameConfig` with their own serialized fields (editions, analytics switches, store ids) without touching this package. Declared *build variants* are compiled automatically by the matrix, quick build and CLI, with their own output suffix.
-- **Language Matrix Batch Generator**: Automatically compile dozens or hundreds of target combinations (Publishers × Languages × Cheat Mode ON/OFF × Dev Builds) with real-time progress and cancellation.
-- **Headless Unity CLI & CI/CD**: 100% callable outside Unity via `-executeMethod` and PowerShell. Never hangs on `EditorUtility.DisplayDialog`. Returns proper exit codes (`0` on success, `1` on error).
-- **Post-Processing Lifecycle**: Built-in splash screen copying (`splash_{publisher}.jpg` into `StreamingAssets/splash1.jpg`), obsolete file cleanup (`UnityCrashHandler*.exe`), and automatic ZIP archiving (.NET `ZipFile` or 7-Zip).
-- **Modern UI Toolkit Window & Hub**: 100% UI Toolkit interface with custom USS stylesheet (`BuildPipelineCommon.uss`), digital version stepper controls (+Major, +Minor, +Build, release date, bundle code, iOS build number), and 6 dedicated hubs:
-  - ⚡ **Quick Build**: 1-click execution for desktop (Windows/macOS) and mobile (Android/iOS) store targets.
-  - 🏭 **Matrix Batch**: Multi-publisher × Multi-language localized batch compilation with live progress tracking.
-  - 🕘 **Recent Builds**: Build history with size calculation, folder reveal shortcuts, and ADB/bundletool install triggers.
-  - 🔐 **Keystore & Vault**: Android signing keys and remote HTTPS credential vault tester.
-  - 💻 **CLI & Automation**: Interactive headless command generator for PowerShell, Bash, and batchmode Unity CLI.
-  - ⚙️ **Project Config**: Native UI Toolkit inspector data-binding with live dirty-state tracking.
-- **Native UI Toolkit Inspectors**: `ProjectBuildConfigCustomEditor`, `GameConfigCustomEditor`, and `BuildDebugOverlayEditor` are fully converted to `CreateInspectorGUI()`, replacing legacy IMGUI completely.
-
----
+- **One window, one place per setting** (`Tools ▸ Wagenheimer ▸ Build Pipeline ▸ Open Build Pipeline`): a sidebar grouped by
+  intent — **Build** (one-click or batch, with a plan table) · **History** · **Profiles** · **Defines** · **Languages** ·
+  **Project** · **Signing** · **Steam** · **CLI & Forge** — and an always-visible **health bar** (validator, external
+  changes to the global defines, catalog freshness). The asset inspector only links to it.
+- **`ProjectBuildConfig` is the single source of truth.** The editor, the CLI and AppDeployHub/Forge read the same profile
+  stack; the Forge never overrides defines or language.
+- **Per-profile language**: *Auto* (project default, normally AutoDetect) or *Locked* to one language (e.g. a German-only
+  build for a publisher — `_DE` folder suffix, `GameConfig.IsLanguageLocked` so the game hides its selector). A one-off
+  language can still be picked for a single build without touching the profile.
+- **Defines center**: every symbol with its documentation, the profiles that get it, a layered stack per profile
+  (PlayerSettings globals → presets → profile → pipeline auto-defines → CLI), **🔍 find usages** in `Assets/`, embedded
+  packages and `Library/PackageCache` (`#if/#elif`, `[Conditional]`, asmdef `defineConstraints`/`versionDefines`, `csc.rsp`)
+  with click-to-open, **dead/orphan** detection, **Free × Full code impact** and a detector for code that writes global
+  defines behind your back.
+- **Package-declared define registry**: each package documents its symbols and rules (`requiredWhen`/`forbiddenWhen`) in its
+  own `package.json`; the game documents its own in the window. Broken rules show in the window, the confirmation dialog,
+  the catalog and the Forge.
+- **Store & publisher profiles** for Steam (explicit flag), Big Fish, GameHouse, Alawar, itch.io, Google Play, Amazon,
+  iOS, Mac App Store, Samsung and direct site distribution; Free ↔ Full duplication with the ad/tracking defines.
+- **Game config extension & build variants** (Collector's / Standard Edition…) compiled by the batch, the single build and
+  the CLI.
+- **Android signing from the AppDeployHub vault** (same source as the Forge CI) or a local keystore.
+- **Headless CLI & CI** (`-executeMethod`, `build.ps1`/`build.sh`), JSON manifest per build (with language source and the
+  full define stack) and `ProjectBuildConfig.catalog.json` (schema 4) for AppDeployHub.
 
 ## 📦 Installation
 
@@ -58,12 +67,13 @@ Or for local development:
 
 ## 🚀 Quick Start
 
-1. Go to **Tools > Build Pipeline > Open Build Window** (or `Window > Build Pipeline`).
-2. If this is the first time running in the project, the system will automatically create `Assets/_Game/Settings/ProjectBuildConfig.asset` and link your existing `GameConfig.asset`.
-3. Use the **Quick Build** tab to build for any common target with a single click.
-4. Use the **Matrix Batch Builder** tab to select multiple publishers and languages, then click **Generate Builds**.
+1. **Tools ▸ Wagenheimer ▸ Build Pipeline ▸ Open Build Pipeline** (or `Window ▸ Wagenheimer ▸ Build Pipeline`).
+2. First run creates `Assets/_Game/Settings/ProjectBuildConfig.asset` and links your `GameConfig.asset`.
+3. **Profiles**: check each store profile (id, bundle, Free/Full, Steam, language, defines).
+4. **Defines**: document the game's own symbols (e.g. `ADS` → required when `free`, forbidden when `full`).
+5. **Build**: ⚡ on a profile builds it now; tick several profiles + languages for a batch and review the plan table.
 
----
+Upgrading from 1.x? See **Migrating to 2.0** below.
 
 ## 🧩 Extending GameConfig per game (game-specific fields & editions)
 
@@ -113,6 +123,105 @@ The pipeline treats the list as data:
 No package changes are required to add a new edition to any game.
 
 ---
+
+## 🌐 Build language
+
+| Profile mode | What the build gets |
+|---|---|
+| **Auto** (default) | `ProjectBuildConfig.defaultLanguage` (normally `AutoDetect`: the game follows the device). |
+| **Locked** | Always `lockedLanguage`. The output folder gets the language suffix (`_DE`) and `GameConfig.IsLanguageLocked` is true, so the game hides its language selector. Batch builds build a locked profile once, ignoring the selected languages. |
+
+A **one-off override** (Build section picker, CLI `-language de`) wins over both and is recorded in the manifest
+(`languageSource: Override`). It never changes the profile.
+
+## 🧬 Defines
+
+### The stack a build applies
+
+1. **Global** — PlayerSettings scripting defines of the target group (Windows, Mac and Linux share *Standalone*).
+2. **Preset** — `ProjectBuildConfig.definePresets` referenced by the profile.
+3. **Profile** — the profile's own `scriptingDefines` (`!X` removes X for this build).
+4. **Auto** — added by the pipeline (UnityNativeSocial's Steam define on Steam profiles when Steamworks.NET is installed).
+5. **CLI** — `-defines` (manual CI only; the Forge no longer sends it).
+
+Removals are applied before additions, and everything is restored after the build. asmdef `versionDefines` are shown as
+*assembly-scoped*: they are defined automatically but **only inside that assembly**.
+
+The same resolver (`DefineStackResolver`) feeds the build step, the window, the confirmation dialog, the manifest and the
+catalog, so what you see is what is compiled.
+
+### Declaring a package's defines (for package authors)
+
+Add a `wagenheimer.defines` block to the package's `package.json`; Unity ignores the extra key and the pipeline picks it up:
+
+```json
+"wagenheimer": {
+  "defines": [
+    {
+      "symbol": "WAGENHEIMER_NATIVESOCIAL_STEAM",
+      "description": "Compiles NativeSocial's Steam backend.",
+      "scope": "global",
+      "autoFromPackage": "com.rlabrecque.steamworks.net",
+      "requiredWhen": ["steam"],
+      "forbiddenWhen": [],
+      "platforms": ["Standalone"],
+      "severity": "error",
+      "docsUrl": "https://github.com/wagenheimer/UnityNativeSocial#steam"
+    }
+  ]
+}
+```
+
+- `scope`: `global` (PlayerSettings/profile define, visible to every assembly) or `assembly` (asmdef `versionDefine`).
+- `requiredWhen` / `forbiddenWhen`: rules over profile tags — `steam`, `free`, `full`, `demo`, `android`, `ios`, `mac`,
+  `windows`, `linux`, `webgl`, `mobile`, `desktop`, `publisher:<Name>`, `id:<profileId>`. `+` = AND, `!` = NOT
+  (e.g. `ios+free`, `android+!full`). Each list entry is an alternative (OR).
+- `severity`: `error` (default) or `warning`.
+
+The game declares its own symbols in **Defines ▸ Defines do jogo** (`ProjectBuildConfig.gameDefines`, same schema).
+Undocumented profile defines are reported as warnings.
+
+### Find usages and impact
+
+**Defines ▸ Central** scans the code on a background thread (cached per file in `Library/BuildPipeline`) and lists, for
+each symbol, every `#if`/`#elif`, `[Conditional]`, asmdef constraint (which drops the whole assembly), `versionDefine`,
+`csc.rsp` entry and local `#define`, grouped by package, with click-to-open at the line. For each profile it shows how
+many code locations change if the symbol is removed; **Profiles ▸ Defines ▸ Compare with** lists the blocks that differ
+between two profiles (e.g. Free × Full). **Globals** shows the PlayerSettings defines per group, what changed since you
+last reviewed them and every script that calls `SetScriptingDefineSymbols`.
+
+## 🧳 Migrating a project with its own GameConfig.cs
+
+Old games declare `GameConfig`, `Publisher`, `GameLanguage` and `GameVersion` themselves — the same global types this
+package ships — so the project does not compile with both and Unity never loads the package. With Unity **closed**:
+
+```powershell
+./Tools/migrate-legacy-project.ps1 -ProjectPath "K:\Games\MyGame"          # dry run: what would change
+./Tools/migrate-legacy-project.ps1 -ProjectPath "K:\Games\MyGame" -Apply   # migrate (backup in temp_migration_backup/)
+```
+
+Game-only GameConfig fields go to a generated `<Game>Config : GameConfig` (values kept), `GameConfig X;` declarations
+are retyped to it, other types of the old file (e.g. `GameDate`) are kept, the asset's script GUID is fixed and the
+package is added to `Packages/manifest.json`. Then open the project: the assistant asks to create the
+ProjectBuildConfig and **Project ▸ Migração** lists what is left (e.g. game-only `Publisher` values).
+Projects that already have the package (or no own GameConfig.cs) only get the in-editor question.
+
+## 🧭 Migrating to 2.0
+
+- Requires **Unity 6** (`6000.0`).
+- `PublisherProfile.isSteam` is now an explicit flag. The first load fills it from the 1.x heuristic (publisher `Steam`,
+  or "steam" in the id/name) and the validator warns when a profile looks like Steam but is not flagged.
+- **Editor builds now apply the profile defines.** In 1.x only the CLI did; Quick Build/Matrix/Steam builds from the
+  editor compiled without the profile's `scriptingDefines` (e.g. a Free build without its ad define).
+- The CLI matrix now expands define presets (1.x used only the profile's own list).
+- `-language` is a one-off override; without it the profile decides. `build.ps1`/`build.sh` no longer send `-language AutoDetect` by default.
+- The wagenheimer.com keystore vault is retired: `-vaultUrl/-vaultProfile/-vaultToken` are gone and
+  `keystoreSource: RemoteVault` became `AppDeployHubVault` (same serialized value — pick the credential in **Signing**).
+- Menus moved under `Tools ▸ Wagenheimer ▸ Build Pipeline`. Profile Matrix, Define Presets and Steam Upload are now
+  sections of the window; the *Steam Upload...* menu opens the Steam section.
+- Catalog schema **4** adds `languageMode`, `lockedLanguage`, `isSteam`, `notes`, `finalDefines`, `defineStack`,
+  `defineRuleViolations`, `globalDefines` and `defineRegistry`. AppDeployHub.Forge reads it and shows defines/language
+  read-only.
 
 ## 💻 Unity CLI & Headless Builds
 
@@ -179,9 +288,9 @@ runtime proof of a dashboard override; the step also logs a warning when it is n
 | `-buildProfile` | Profile `id` (or publisher name) | **Preferred.** Selects a `PublisherProfile` by its stable `id`; overrides `-publisher`/`-platform`. An `id` that does not exist in the ProjectBuildConfig **fails the build** (the target would otherwise compile without its bundle id, ad and tracking defines). |
 | `-allowMissingProfile` | `true` / `false` | Escape hatch for the check above: log a warning and continue with `-publisher`/`-platform` instead of failing. |
 | `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile (used when `-buildProfile` is absent). |
-| `-language` | `en`, `de`, `fr`, `English`, `German`, etc. | Language code or name. |
+| `-language` | `en`, `de`, `fr`, `English`, `German`, `auto`... | **One-off** language for this build (wins over a locked profile, recorded as `languageSource: Override`). Omit it to let the profile decide. |
 | `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
-| `-defines` | `"A;B;C"` | Extra scripting define symbols for this build, applied then restored. Prefix a symbol with `!` (e.g. `!DISABLESTEAMWORKS`) to remove it for this build only. |
+| `-defines` | `"A;B;C"` | Extra symbols on top of the profile stack (manual CI only — the Forge no longer sends it). `!X` removes X for this build. A CLI symbol that undoes a profile removal is reported in `cliOverrides`. |
 | `-variant` | `ce`, `se`, any declared id | Game-specific build variant for a single build (applied via `ApplyBuildVariant`). |
 | `-matrixVariants` | `ce,se` | Variants for matrix generation (defaults to the GameConfig's `enabledByDefault` entries). |
 | `-manifest` | Full path | Write a JSON result manifest (see above). |
@@ -194,48 +303,23 @@ runtime proof of a dashboard override; the step also logs a warning when it is n
 | `-matrixLanguages` | Comma-separated codes/names | Languages for matrix generation. |
 | `-outputPath` | Full path | Custom output executable or directory. |
 | `-autoRun` | `true` / `false` | (Android) Install and run on connected device; opens Android Logcat. |
-| `-vaultUrl` | HTTPS URL | Endpoint for remote keystore vault. |
-| `-vaultProfile` | Profile ID | Slug identifier of the keystore in the vault. |
-| `-vaultToken` | Bearer Token | Secret authentication token for the vault. |
-| `-keystoreSource` | `LocalDisk` / `RemoteVault` | Choose between local disk or remote vault. |
+| `-keystoreSource` | `LocalDisk` / `AppDeployHubVault` | Android keystore source for this build (`-keystorePath` forces `LocalDisk`). |
 
 ---
 
-## 🔐 Centralized Keystore & Credentials Vault
+## 🔐 Android signing (AppDeployHub vault)
 
-To ensure digital certificates (`.keystore` / `.jks`) and signing passwords are never committed into git repositories, `com.wagenheimer.buildpipeline` integrates an **Online Keystore Vault** architecture.
+Editor builds can read the Android keystore from the **AppDeployHub vault** (`/api/v1/vault`), the same single source the
+Forge CI uses:
 
-### How It Works
-1. **Fetch on Demand**: Before compiling an Android build, `SetupKeystoreStep` calls the configured Vault API via HTTPS using Bearer token authentication.
-2. **Local Caching**: The binary `.keystore` is cached into `Library/KeystoreCache/{filename}` (which is already gitignored).
-3. **In-Memory Injection**: Passwords (`keystorePass`, `keyaliasPass`) and alias names are injected directly into `PlayerSettings.Android` in memory.
-4. **Post-Build Zeroing**: After the build completes (success or failure), `PlayerSettings.Android` passwords are wiped clean to prevent leakage.
+1. **Signing** section → *Origem* = `AppDeployHubVault`, set the AppDeployHub URL.
+2. Paste an API key with `Purpose = vault` (AppDeployHub → Cofre → Conectar o Forge). It is stored per machine
+   (EditorPrefs) or read from `APPDEPLOYHUB_VAULT_KEY` — never in the asset.
+3. **List keystores** → *Use this* on the `AndroidKeystore` credential.
 
-### Self-Hosting Your Own Vault
-This build pipeline is completely vendor-neutral. Any developer or studio can host their own vault using ASP.NET Core, Node.js, Python, or Go by implementing two simple endpoints:
-
-#### Endpoint 1: Fetch Keystore by Profile ID
-`GET /api/vault/keystore/{profileId}`
-- **Headers**: `Authorization: Bearer <SecretToken>`
-- **Response JSON**:
-```json
-{
-  "profileId": "greensauce-master",
-  "name": "Green Sauce Games (Upload Certificate)",
-  "company": "Green Sauce Games",
-  "keystoreFileName": "GreenSauceKeystore (Upload Certificate).keystore",
-  "keystoreBase64": "<base64-encoded-binary-keystore>",
-  "keystorePass": "secret-pass",
-  "keyAliasName": "upload key",
-  "keyAliasPass": "secret-pass"
-}
-```
-
-#### Endpoint 2: Fetch Keystore by Bundle ID (Auto-Discovery)
-`GET /api/vault/by-bundle/{bundleId}`
-- Allows Unity to omit the profile ID entirely and fetch the exact keystore matching the project's Android package name (e.g. `com.company.gamename`).
-
----
+Before an Android build, `SetupKeystoreStep` downloads it into `Library/KeystoreCache/` (gitignored), injects the passwords
+in memory and clears them after the build. `LocalDisk` (keystore path + password env vars) remains available, and CI
+passes `-keystorePath` + `ANDROID_KEYSTORE_PASS`/`ANDROID_KEYALIAS_PASS` exactly as before.
 
 ## 📱 Android Auto-Run & Android Logcat
 
@@ -321,7 +405,7 @@ and CI do not have to parse Unity YAML.
 - `tracking`: mirrored from `com.wagenheimer.tracking` (`null` when the package is absent).
 - `configHash`: lets a consumer detect a stale catalog.
 
-Menu: **Tools > Build Pipeline > Export Profile Catalog** / **Validate Profiles**.
+Menu: **Tools ▸ Wagenheimer ▸ Build Pipeline ▸ Export Profile Catalog** / **Validate Profiles**.
 
 ### CLI
 
@@ -377,7 +461,7 @@ The inspector shows the presets card, and the validator fails on unknown or dupl
 
 ### Profile matrix
 
-**Tools > Build Pipeline > Profile Matrix** shows every profile with platform, Free/Full, bundle,
+**Profiles ▸ Matriz & validação** shows every profile with platform, Free/Full, bundle,
 output and the effective defines, plus:
 
 - a **Free ↔ Full diff** per store (defines only in Free / only in Full, shared bundle/output);

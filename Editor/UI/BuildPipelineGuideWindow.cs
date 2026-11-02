@@ -156,15 +156,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "• ZipArchiveStep: Creates ZIP archives in your Dropbox/archive folder using built-in .NET ZipFile (or 7-Zip if configured in ProjectBuildConfig).");
             scroll.Add(card7);
 
-            // 8. Remote Keystore Vault
-            var card8 = BuildPipelineUIStyle.CreateCard("#8 Remote Keystore Vault & Credentials Security",
-                "Keep credentials and signing certificates out of git entirely with the Centralized Keystore Vault:\n\n" +
-                "• Remote Vault Mode: Before compilation, UnityBuildPipeline calls /api/vault/keystore/{id} (or /by-bundle/{bundleId}), downloads the .keystore into Library/KeystoreCache/ (gitignored), and injects passwords purely in memory.\n" +
-                "• Post-Build Hygiene: Passwords in PlayerSettings.Android are immediately zeroed out after build execution.\n" +
-                "• Open-Source Self-Hosting: Anyone can host their own vault using any web framework (ASP.NET, Node.js, Go, PHP) by returning JSON with { keystoreBase64, keystorePass, keyAliasName, keyAliasPass } protected by Bearer auth.\n" +
-                "• Admin Portal: Integrated into WagenheimerDotCom (/admin/keystores) with profile management, file upload, bundle mapping, and copyable secrets.");
+            // 8. Android signing via the AppDeployHub vault
+            var card8 = BuildPipelineUIStyle.CreateCard("#8 Android Signing (AppDeployHub Vault)",
+                "Editor builds read the Android keystore from the AppDeployHub vault, the same single source the Forge CI uses:\n\n" +
+                "• Signing section: pick the AndroidKeystore credential (GET /api/v1/vault/credentials) once per project.\n" +
+                "• Before an Android build, SetupKeystoreStep downloads it into Library/KeystoreCache/ (gitignored) and injects the passwords in memory; they are zeroed after the build.\n" +
+                "• The API key (Purpose = vault) is per machine: APPDEPLOYHUB_VAULT_KEY or the Signing section (EditorPrefs). Never in the asset.\n" +
+                "• Forge CI is unchanged: it passes -keystorePath and the password env vars.");
             card8.Add(CreateCodeBox(
-                "$env:VAULT_SECRET_TOKEN = \"my-secret-token\"\n" +
+                "$env:APPDEPLOYHUB_VAULT_KEY = \"adh_...\"\n" +
                 "./build.ps1 -publisher GoogleAndroidFree -development -autoRun"));
             scroll.Add(card8);
 
@@ -201,11 +201,13 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // 11. Migration Wizard
             var card11 = BuildPipelineUIStyle.CreateCard("#11 1-Click Migration Wizard for Other Projects",
-                "To migrate any other Green Sauce Games project (Secrets of Magic, Ancient Relics, etc.):\n\n" +
-                "1. Add \"com.wagenheimer.buildpipeline\" to Packages/manifest.json.\n" +
-                "2. Delete local duplicate GameConfig.cs and GameConfigEditor.cs.\n" +
-                "3. Click Tools → Build Pipeline → Migrate or Create Project Config.\n" +
-                "4. All bundle IDs, names, and paths will be auto-populated into ProjectBuildConfig.asset!");
+                "To migrate a project that still has its own GameConfig.cs / GameConfigEditor.cs (Secrets of Magic, Ancient Relics, etc.):\n\n" +
+                "1. With Unity CLOSED run Tools/migrate-legacy-project.ps1 -ProjectPath <game> (dry run), then again with -Apply.\n" +
+                "   It moves the game-only GameConfig fields into a <Game>Config subclass (values kept), fixes the asset script,\n" +
+                "   backs up and removes the old scripts and adds the package to Packages/manifest.json.\n" +
+                "2. Open the project: the Build Pipeline asks to create the ProjectBuildConfig and shows the remaining checklist\n" +
+                "   (Project section ▸ Migração).\n" +
+                "3. Projects without the old scripts only need step 2.");
 
             var migBtn = new Button(() => EditorApplication.ExecuteMenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config"));
             BuildPipelineUIStyle.ApplyIconText(migBtn, "⚡ Run Migration Wizard Now");
@@ -278,7 +280,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             editorCol.Add(eBadge);
 
             editorCol.Add(new Label("• Output paths (Dropbox, local)"));
-            editorCol.Add(new Label("• Android keystore & remote vault"));
+            editorCol.Add(new Label("• Android keystore (local or AppDeployHub vault)"));
             editorCol.Add(new Label("• Publisher profiles & store rules"));
             editorCol.Add(new Label("• Enabled localization languages"));
             editorCol.Add(new Label("• Only exists during build phase"));

@@ -9,13 +9,20 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     public enum KeystoreSource
     {
-        LocalDisk,
-        RemoteVault
+        /// <summary>Keystore file on this machine (also what the Forge CI uses via -keystorePath).</summary>
+        LocalDisk = 0,
+        /// <summary>Keystore credential read from the AppDeployHub vault (/api/v1/vault) at build time.</summary>
+        AppDeployHubVault = 1
     }
 
     [CreateAssetMenu(fileName = "ProjectBuildConfig", menuName = "Build Pipeline/Project Build Config", order = 1)]
     public class ProjectBuildConfig : ScriptableObject
     {
+        // 0 on purpose: Unity fills a field missing from an old asset with its initializer, so 0 is how
+        // the migrator recognises pre-2.0 data. New assets are migrated to the current schema in OnEnable.
+        [Tooltip("Data schema of this asset. Migrated automatically by ProjectBuildConfigMigrator.")]
+        public int schemaVersion;
+
         [Header("Runtime GameConfig Reference")]
         [Tooltip("Reference to the project's GameConfig.asset instance for runtime synchronization.")]
         public GameConfig gameConfig;
@@ -36,7 +43,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string levelEditorScenePath = "Assets/_Game/Scenes/editor.unity";
 
         [Header("Android Keystore Mode")]
-        public KeystoreSource keystoreSource = KeystoreSource.RemoteVault;
+        public KeystoreSource keystoreSource = KeystoreSource.LocalDisk;
 
         [Header("Android Keystore (Local Disk)")]
         public string androidKeystorePath = "E:/Games/Unity/Android Keystore/GreenSauceKeystore (Upload Certificate).keystore";
@@ -48,15 +55,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string androidKeyaliasPassEnvVar = "ANDROID_KEYALIAS_PASS";
         public string androidKeyaliasPassFallback = "greengeisha";
 
-        [Header("Remote Keystore Vault")]
-        [Tooltip("URL of the Keystore Vault API endpoint (e.g. https://wagenheimer.com/api/vault/keystore or http://localhost:5000/api/vault/keystore)")]
-        public string vaultUrl = "https://wagenheimer.com/api/vault/keystore";
-        [Tooltip("Profile ID in the vault (e.g. greensauce-master). If empty, auto-detects by bundle ID.")]
-        public string vaultProfileId = "greensauce-master";
-        [Tooltip("Environment variable name to read Bearer token from (default: VAULT_SECRET_TOKEN).")]
-        public string vaultTokenEnvVar = "VAULT_SECRET_TOKEN";
-        [Tooltip("Fallback Bearer token when env variable is not set.")]
-        public string vaultTokenFallback = "cw-vault-sec-9a8f4c21e0b573d82a1f9e4c";
+        [Header("AppDeployHub Vault (Android keystore)")]
+        [Tooltip("AppDeployHub base URL. The API key is per machine (Signing section / APPDEPLOYHUB_VAULT_KEY), never stored in this asset.")]
+        public string appDeployHubUrl = "https://appdeployhub.com";
+        [Tooltip("Id of the AndroidKeystore credential in the AppDeployHub vault.")]
+        public string vaultKeystoreCredentialId = "";
+        [Tooltip("Label of the chosen credential (display only).")]
+        public string vaultKeystoreLabel = "";
 
         [Header("Archiving & Compression")]
         public bool enableZipArchiving = false;
@@ -70,6 +75,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         [Tooltip("Reusable define groups. A profile references them by id in 'definePresets'; the build expands presets before the profile's own list.")]
         public List<BuildDefinePreset> definePresets = new List<BuildDefinePreset>();
 
+        [Header("Game Defines")]
+        [Tooltip("Defines owned by this game (e.g. ST2_ADS): description and the rules that require/forbid them. Same schema packages use in package.json → wagenheimer.defines.")]
+        public List<DefineDeclaration> gameDefines = new List<DefineDeclaration>();
+
         [Header("Steam Upload")]
         public SteamUploadConfig steamUpload = new SteamUploadConfig();
 
@@ -77,6 +86,12 @@ namespace Wagenheimer.BuildPipeline.Editor
         [Tooltip("Default build language for single and Quick Builds. AutoDetect is recommended for modern multi-language games.")]
         public GameLanguage defaultLanguage = GameLanguage.AutoDetect;
         public List<LanguageProfile> languages = new List<LanguageProfile>();
+
+        private void OnEnable()
+        {
+            if (ProjectBuildConfigMigrator.Migrate(this))
+                EditorApplication.delayCall += () => { if (this != null) EditorUtility.SetDirty(this); };
+        }
 
         public string GetEffectiveKeystorePassword()
         {

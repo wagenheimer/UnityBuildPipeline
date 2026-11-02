@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -22,6 +23,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string appliedDefines;  // ';'-joined final define symbols after the removals
         public List<string> profileDefines = new List<string>();  // declared by the profile
         public List<string> cliOverrides = new List<string>();    // -defines that undo a profile removal
+        public string language;        // GameLanguage built (AutoDetect, German...)
+        public string languageSource;  // ProjectDefault | ProfileLock | Override
+        public List<BuildManifestDefine> defineStack = new List<BuildManifestDefine>(); // every layer, with origin
         public string version;
         public string buildNumber;
         public string outputDirectory;
@@ -45,7 +49,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 platform = context.Platform.ToString(),
                 profileId = string.IsNullOrEmpty(context.ProfileId) ? context.Publisher.ToString() : context.ProfileId,
                 variant = context.VariantId ?? "",
-                defines = context.ScriptingDefines != null ? string.Join(";", context.ScriptingDefines) : "",
+                defines = string.Join(";", BuildDefineResolver.Resolve(context.Config, context.PublisherProfile)
+                    .Concat(context.ScriptingDefines ?? new List<string>())),
+                language = context.Language.ToString(),
+                languageSource = context.LanguageSource.ToString(),
                 appliedDefines = string.Join(";", GetExtraList(context, ApplyScriptingDefinesStep.AppliedDefinesKey)),
                 profileDefines = GetExtraList(context, ApplyScriptingDefinesStep.ProfileDefinesKey),
                 cliOverrides = GetExtraList(context, ApplyScriptingDefinesStep.CliOverridesKey),
@@ -65,6 +72,18 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (context.Platform == PlatformType.iOS)
                 entry.xcodeProjectPath = context.ResolvedOutputFilePath;
+
+            if (context.ExtraData.TryGetValue(ApplyScriptingDefinesStep.StackKey, out var stackObj) && stackObj is DefineStack stack)
+            {
+                foreach (var item in stack.Entries)
+                    entry.defineStack.Add(new BuildManifestDefine
+                    {
+                        symbol = item.symbol,
+                        layer = item.layer.ToString(),
+                        removes = item.removes,
+                        source = item.source
+                    });
+            }
 
             return entry;
         }
@@ -103,6 +122,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 default: return "";
             }
         }
+    }
+
+    [Serializable]
+    public class BuildManifestDefine
+    {
+        public string symbol;
+        public string layer;   // Global | Preset | Profile | Auto | Cli
+        public bool removes;
+        public string source;
     }
 
     [Serializable]

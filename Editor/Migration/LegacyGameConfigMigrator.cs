@@ -7,22 +7,43 @@ namespace Wagenheimer.BuildPipeline.Editor
     public static class LegacyGameConfigMigrator
     {
         [MenuItem("Tools/Wagenheimer/Build Pipeline/Migrate or Create Project Config", priority = 113)]
-        public static void MigrateOrCreate()
+        public static void MigrateOrCreateFromMenu()
+        {
+            MigrateOrCreate();
+            BuildPipelineWindow.ShowSection(BuildPipelineSections.Project);
+        }
+
+        /// <summary>The project's ProjectBuildConfig, or null. Never creates nor changes anything.</summary>
+        public static ProjectBuildConfig FindProjectBuildConfig()
+        {
+            var guids = AssetDatabase.FindAssets("t:ProjectBuildConfig");
+            return guids.Length > 0 ? AssetDatabase.LoadAssetAtPath<ProjectBuildConfig>(AssetDatabase.GUIDToAssetPath(guids[0])) : null;
+        }
+
+        /// <summary>True when the project has a GameConfig asset (a candidate for migration).</summary>
+        public static bool HasGameConfigAsset() => AssetDatabase.FindAssets("t:GameConfig").Length > 0;
+
+        /// <summary>
+        /// Creates (or completes) the ProjectBuildConfig from the GameConfig — links it, copies the project name,
+        /// bundle ids and the per-store bundle ids into the profiles — saves it and returns it.
+        /// </summary>
+        public static ProjectBuildConfig MigrateOrCreate()
         {
             var config = FindOrCreateProjectBuildConfig();
             if (config != null)
             {
                 EditorUtility.SetDirty(config);
                 AssetDatabase.SaveAssets();
+                string path = AssetDatabase.GetAssetPath(config);
+                if (!string.IsNullOrEmpty(path))
+                    BuildProfileCatalog.Write(config, path);
             }
+
             Selection.activeObject = config;
             EditorGUIUtility.PingObject(config);
-
-            if (!Application.isBatchMode) EditorUtility.DisplayDialog(
-                "Build Pipeline Migration",
-                $"ProjectBuildConfig successfully configured!\n\nAsset: {AssetDatabase.GetAssetPath(config)}\nLinked GameConfig: {(config.gameConfig != null ? config.gameConfig.name : "None")}",
-                "OK"
-            );
+            LegacyMigrationRecord.MarkUnityStepDone();
+            Debug.Log($"[BuildPipeline] Migração: ProjectBuildConfig em {AssetDatabase.GetAssetPath(config)} (GameConfig: {(config != null && config.gameConfig != null ? config.gameConfig.name : "nenhum")}).");
+            return config;
         }
 
         public static ProjectBuildConfig FindOrCreateProjectBuildConfig()

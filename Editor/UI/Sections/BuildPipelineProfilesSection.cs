@@ -1,0 +1,404 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Wagenheimer.BuildPipeline.Editor
+{
+    /// <summary>
+    /// Profiles: master list grouped by platform on the left, the selected profile on the right in focused
+    /// blocks (Identity · Language · Platform · Defines · Output · Notes). The Defines block shows the full
+    /// layered stack, the registry rules and what changes in the code against another profile.
+    /// The second tab is the matrix/validator with one-click fixes.
+    /// </summary>
+    internal sealed class BuildPipelineProfilesSection
+    {
+        private readonly BuildPipelineSectionContext _ctx;
+        private readonly ProjectBuildConfig _config;
+        private readonly BuildPipelineSelectionState _selection;
+        private SerializedObject _so;
+        private VisualElement _definesHost;
+
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildPipelineProfilesSection(BuildPipelineSectionContext ctx)
+        {
+            _ctx = ctx;
+            _config = ctx.Config;
+            _selection = ctx.Selection;
+
+            Root.Add(Tabs());
+            if (_selection.profilesTab == "matrix")
+            {
+                Root.Add(new BuildProfileMatrixPanel().Root);
+                return;
+            }
+
+            DefineUsageIndex.EnsureScanned();
+            _so = new SerializedObject(_config);
+
+            var split = new VisualElement();
+            split.AddToClassList("bp-split");
+            split.Add(BuildList());
+
+            var detail = new VisualElement();
+            detail.AddToClassList("bp-split-detail");
+            int index = SelectedIndex();
+            if (index >= 0)
+                BuildDetail(detail, index);
+            else
+                detail.Add(BuildPipelineUIStyle.CreateCallout("Nenhum perfil. Clique em '＋ Novo perfil'.", "info"));
+
+            split.Add(detail);
+            Root.Add(split);
+            Root.Bind(_so);
+        }
+
+        private VisualElement Tabs()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("bp-subtabs");
+            void Add(string id, string text)
+            {
+                var button = new Button(() =>
+                {
+                    _selection.profilesTab = id;
+                    _ctx.SaveSelection();
+                    _ctx.RebuildSection();
+                });
+                BuildPipelineUIStyle.ApplyIconText(button, text);
+                button.AddToClassList("bp-subtab");
+                if ((_selection.profilesTab ?? "") == id) button.AddToClassList("bp-subtab--active");
+                row.Add(button);
+            }
+
+            Add("", "📋 Editor de perfis");
+            Add("matrix", "🧮 Matriz & validação");
+            return row;
+        }
+
+        private int SelectedIndex()
+        {
+            var list = _config.publishers;
+            int index = list.FindIndex(p => p != null && string.Equals(p.EffectiveId, _selection.selectedProfileId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+                index = list.FindIndex(p => p != null && !p.hidden);
+            if (index < 0 && list.Count > 0)
+                index = 0;
+            return index;
+        }
+
+        // ── Master list ──────────────────────────────────────────────────────
+
+        private VisualElement BuildList()
+        {
+            var list = new VisualElement();
+            list.AddToClassList("bp-split-list");
+
+            var tools = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 6 } };
+            tools.Add(BuildPipelineBuildSection.SmallButton("＋ Novo perfil", () => BuildProfileWizardWindow.Open()));
+            var hidden = new Toggle("ocultos") { value = _selection.showHiddenProfiles, style = { marginLeft = 6 } };
+            hidden.RegisterValueChangedCallback(evt =>
+            {
+                _selection.showHiddenProfiles = evt.newValue;
+                _ctx.SaveSelection();
+                _ctx.RebuildSection();
+            });
+            tools.Add(hidden);
+            list.Add(tools);
+
+            var issues = BuildPipelineHealth.Compute(_config).Issues;
+            int selected = SelectedIndex();
+            foreach (var group in ProfileGroups.Build(_config, _selection.showHiddenProfiles || IsHiddenSelected(selected)))
+            {
+                var title = BuildPipelineUIStyle.CreateText(group.Title, "bp-group-title");
+                list.Add(title);
+
+                foreach (int index in group.Indices)
+                {
+                    var profile = _config.publishers[index];
+                    var item = new Button(() =>
+                    {
+                        _selection.selectedProfileId = profile.EffectiveId;
+                        _ctx.SaveSelection();
+                        _ctx.RebuildSection();
+                    });
+                    item.AddToClassList("bp-list-item");
+                    if (index == selected) item.AddToClassList("bp-list-item--active");
+                    if (profile.hidden) item.AddToClassList("bp-profile-row--hidden");
+
+                    var mine = issues.Where(i => string.Equals(i.ProfileId, profile.EffectiveId, StringComparison.OrdinalIgnoreCase)).ToList();
+                    string mark = mine.Any(i => i.Severity == BuildProfileIssueSeverity.Error) ? "⛔ " : mine.Count > 0 ? "⚠ " : "";
+                    string lockMark = profile.IsLanguageLocked ? $" 🔒{profile.lockedLanguage.AsLanguageCode().ToUpperInvariant()}" : "";
+                    BuildPipelineUIStyle.ApplyIconText(item, $"{mark}{profile.displayName}{lockMark}");
+                    item.style.justifyContent = Justify.FlexStart;
+                    item.tooltip = $"{profile.EffectiveId}\n" + string.Join("\n", mine.Select(i => i.Message));
+                    list.Add(item);
+                }
+            }
+
+            return list;
+        }
+
+        private bool IsHiddenSelected(int index) =>
+            index >= 0 && index < _config.publishers.Count && _config.publishers[index] != null && _config.publishers[index].hidden;
+
+        // ── Detail ───────────────────────────────────────────────────────────
+
+        private void BuildDetail(VisualElement detail, int index)
+        {
+            var profile = _config.publishers[index];
+            var element = _so.FindProperty("publishers").GetArrayElementAtIndex(index);
+            PropertyField Field(string name, string label) => new PropertyField(element.FindPropertyRelative(name), label);
+
+            detail.Add(DetailHeader(profile, index));
+
+            var identity = BuildPipelineUIStyle.CreateCard("🪪 Identidade", "O id é o que o Forge e o CI usam (-buildProfile). Mude com cuidado.");
+            identity.Add(Field("id", "Id (CI / Forge)"));
+            identity.Add(Field("displayName", "Nome"));
+            identity.Add(Field("publisher", "Publisher"));
+            identity.Add(Field("platform", "Plataforma"));
+            identity.Add(Field("bundleIdentifier", "Bundle id"));
+            identity.Add(Field("isFullGame", "Jogo completo (Full)"));
+            identity.Add(Field("isDemo", "Demo"));
+            identity.Add(Field("isSteam", "Steam"));
+            identity.Add(Field("requiresSplash", "Splash do publisher"));
+            identity.Add(Field("hidden", "Oculto no editor"));
+            detail.Add(identity);
+
+            detail.Add(LanguageCard(profile, element));
+
+            var platform = BuildPipelineUIStyle.CreateCard("🧩 Plataforma");
+            platform.Add(Field("scriptingBackend", "Scripting backend"));
+            if (profile.platform == PlatformType.macOS)
+            {
+                platform.Add(Field("macArchitecture", "Arquitetura Mac"));
+                platform.Add(Field("macAppStoreValidation", "Validação de recibo Mac App Store"));
+            }
+            detail.Add(platform);
+
+            var defines = BuildPipelineUIStyle.CreateCard("🧬 Defines",
+                "Presets primeiro, depois a lista do perfil. '!X' remove X só neste build. A tabela mostra TODAS as camadas que o build aplica.");
+            defines.Add(Field("definePresets", "Presets"));
+            defines.Add(Field("scriptingDefines", "Defines do perfil"));
+            _definesHost = new VisualElement();
+            defines.Add(_definesHost);
+            detail.Add(defines);
+            RefreshDefines(profile);
+            defines.TrackSerializedObjectValue(_so, _ => defines.schedule.Execute(() => RefreshDefines(profile)).ExecuteLater(300));
+
+            var output = BuildPipelineUIStyle.CreateCard("📁 Saída");
+            output.Add(Field("outputSubfolder", "Subpasta ({Publisher})"));
+            output.Add(Field("zipAfterBuild", "Zipar depois do build"));
+            output.Add(Field("zipDestinationTemplate", "Destino do zip"));
+            output.Add(new Label("Pasta: " + ProfileOutputPreview.Folder(_config, profile, profile.platform)) { style = { fontSize = 10, color = new Color(0.62f, 0.65f, 0.71f) } });
+            detail.Add(output);
+
+            var notes = BuildPipelineUIStyle.CreateCard("📝 Notas");
+            notes.Add(Field("notes", ""));
+            detail.Add(notes);
+        }
+
+        private VisualElement DetailHeader(PublisherProfile profile, int index)
+        {
+            var header = new VisualElement();
+            header.AddToClassList("bp-detail-header");
+
+            var title = new VisualElement { style = { flexGrow = 1 } };
+            title.Add(new Label(profile.displayName) { style = { fontSize = 16, unityFontStyleAndWeight = FontStyle.Bold } });
+            title.Add(new Label($"{profile.EffectiveId} · {profile.platform} · {profile.publisher}") { style = { color = new Color(0.62f, 0.65f, 0.71f) } });
+            header.Add(title);
+
+            var issues = BuildPipelineHealth.Compute(_config).Issues;
+            foreach (var badge in ProfileBadges.For(_config, profile, issues))
+                header.Add(badge);
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, marginLeft = 8 } };
+            actions.Add(BuildPipelineBuildSection.SmallButton("⧉ Duplicar", () => Duplicate(index)));
+            if (PublisherProfileDuplicator.TryGetCounterpart(profile.publisher, out _))
+                actions.Add(BuildPipelineBuildSection.SmallButton(profile.isFullGame ? "→ Free" : "→ Full", () => Counterpart(index)));
+            actions.Add(BuildPipelineBuildSection.SmallButton(profile.hidden ? "👁 Mostrar" : "🙈 Ocultar", () =>
+            {
+                profile.hidden = !profile.hidden;
+                _ctx.SaveConfig();
+            }));
+            var remove = BuildPipelineBuildSection.SmallButton("✕", () => Remove(index));
+            remove.AddToClassList("bp-btn--danger");
+            remove.tooltip = "Excluir perfil";
+            actions.Add(remove);
+            header.Add(actions);
+            return header;
+        }
+
+        private VisualElement LanguageCard(PublisherProfile profile, SerializedProperty element)
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🌐 Idioma",
+                "Auto = padrão do projeto (normalmente AutoDetect) ou o idioma escolhido na hora do build. " +
+                "Travado = o build SEMPRE sai nesse idioma e o jogo esconde o seletor (GameConfig.IsLanguageLocked).");
+
+            var mode = new PropertyField(element.FindPropertyRelative("languageMode"), "Modo");
+            var locked = new PropertyField(element.FindPropertyRelative("lockedLanguage"), "Idioma travado");
+            card.Add(mode);
+            card.Add(locked);
+
+            var info = new Label();
+            info.style.whiteSpace = WhiteSpace.Normal;
+            info.style.marginTop = 4;
+            card.Add(info);
+
+            void Refresh()
+            {
+                locked.style.display = profile.languageMode == ProfileLanguageMode.Locked ? DisplayStyle.Flex : DisplayStyle.None;
+                var language = BuildLanguageResolver.Resolve(_config, profile, null, out var source);
+                info.text = "Build sem override sai em: " + BuildLanguageResolver.Describe(language, source) +
+                            (profile.IsLanguageLocked ? $" · pasta com sufixo {profile.lockedLanguage.FolderNameLanguage()}" : "");
+            }
+
+            Refresh();
+            card.TrackSerializedObjectValue(_so, _ => Refresh());
+            return card;
+        }
+
+        private void RefreshDefines(PublisherProfile profile)
+        {
+            if (_definesHost == null)
+                return;
+
+            _definesHost.Clear();
+            var registry = DefineRegistry.Load(_config);
+            var stack = DefineEnvironment.StackFor(_config, profile);
+            DefineStackResolver.AddAssemblyScoped(stack, DefineUsageIndex.VersionDefines());
+
+            var showGlobals = new Toggle("Mostrar também os globais (PlayerSettings)") { value = _selection.showUnityDefines };
+            showGlobals.RegisterValueChangedCallback(evt =>
+            {
+                _selection.showUnityDefines = evt.newValue;
+                _ctx.SaveSelection();
+                RefreshDefines(profile);
+            });
+            _definesHost.Add(showGlobals);
+            _definesHost.Add(DefineViews.StackTable(stack, registry, OpenSymbol, _selection.showUnityDefines));
+
+            foreach (var violation in DefineRules.Check(registry, profile, stack))
+                _definesHost.Add(BuildPipelineUIStyle.CreateCallout("⛔ " + violation.Message, "warn"));
+
+            var final = new Label($"Resultado final ({stack.TargetGroup}): " + (stack.Final.Count == 0 ? "(nenhum)" : string.Join("; ", stack.Final)));
+            final.AddToClassList("bp-code-box");
+            final.selection.isSelectable = true;
+            _definesHost.Add(final);
+
+            _definesHost.Add(CompareBlock(profile, stack));
+        }
+
+        private VisualElement CompareBlock(PublisherProfile profile, DefineStack stack)
+        {
+            var box = new VisualElement { style = { marginTop = 8 } };
+            var others = _config.publishers.Where(p => p != null && p != profile).ToList();
+            if (others.Count == 0)
+                return box;
+
+            var counterpart = others.FirstOrDefault(p => p.platform == profile.platform && p.isFullGame != profile.isFullGame) ?? others[0];
+            var compare = others.FirstOrDefault(p => string.Equals(p.EffectiveId, _selection.compareProfileId, StringComparison.OrdinalIgnoreCase)) ?? counterpart;
+
+            var names = others.Select(p => $"{p.displayName} ({p.EffectiveId})").ToList();
+            var picker = new PopupField<string>("Comparar com", names, others.IndexOf(compare));
+            picker.RegisterValueChangedCallback(evt =>
+            {
+                _selection.compareProfileId = others[names.IndexOf(evt.newValue)].EffectiveId;
+                _ctx.SaveSelection();
+                RefreshDefines(profile);
+            });
+            box.Add(picker);
+
+            var other = DefineEnvironment.StackFor(_config, compare);
+            var onlyHere = stack.Final.Except(other.Final, StringComparer.Ordinal).ToList();
+            var onlyThere = other.Final.Except(stack.Final, StringComparer.Ordinal).ToList();
+            box.Add(new Label($"Só neste: {(onlyHere.Count == 0 ? "—" : string.Join(", ", onlyHere))}   ·   Só em {compare.EffectiveId}: {(onlyThere.Count == 0 ? "—" : string.Join(", ", onlyThere))}")
+            {
+                style = { whiteSpace = WhiteSpace.Normal, marginTop = 4 }
+            });
+
+            if (stack.TargetGroup != other.TargetGroup)
+                box.Add(new Label($"Grupos diferentes ({stack.TargetGroup} × {other.TargetGroup}): os globais também diferem.") { style = { fontSize = 10, color = new Color(0.9f, 0.7f, 0.4f) } });
+
+            var impact = DefineImpact.Compare(stack.FinalSet(), other.FinalSet(), DefineUsageIndex.Usages);
+            var foldout = new Foldout { text = $"O que muda no código ({(DefineUsageIndex.HasResult ? impact.Count.ToString() : "…")})", value = impact.Count > 0 && impact.Count <= 40 };
+            foldout.Add(DefineViews.ImpactList(impact, profile.EffectiveId, compare.EffectiveId));
+            box.Add(foldout);
+            return box;
+        }
+
+        private void OpenSymbol(string symbol)
+        {
+            _selection.selectedDefine = symbol;
+            _selection.definesTab = "";
+            _ctx.SaveSelection();
+            _ctx.Navigate(BuildPipelineSections.Defines);
+        }
+
+        // ── Actions ──────────────────────────────────────────────────────────
+
+        private void Duplicate(int index)
+        {
+            var source = _config.publishers[index];
+            var copy = JsonUtility.FromJson<PublisherProfile>(JsonUtility.ToJson(source));
+            copy.displayName += " (cópia)";
+            copy.id = string.IsNullOrEmpty(source.id) ? "" : source.id + "-copy";
+            _config.publishers.Insert(index + 1, copy);
+            _selection.selectedProfileId = copy.EffectiveId;
+            _ctx.SaveSelection();
+            _ctx.SaveConfig();
+        }
+
+        private void Counterpart(int index)
+        {
+            var source = _config.publishers[index];
+            var tracking = BuildProfileCatalog.ReadTrackingPolicy();
+            var clone = PublisherProfileDuplicator.Create(source, tracking?.adsDefine ?? "", tracking?.scriptingDefine ?? "");
+            if (clone == null)
+                return;
+
+            if (_config.publishers.Any(p => string.Equals(p.EffectiveId, clone.EffectiveId, StringComparison.OrdinalIgnoreCase)) &&
+                !EditorUtility.DisplayDialog("Duplicar perfil", $"Já existe um perfil com o id '{clone.EffectiveId}'. Duplicar mesmo assim?", "Duplicar", "Cancelar"))
+                return;
+
+            clone.isSteam = source.isSteam;
+            clone.languageMode = source.languageMode;
+            clone.lockedLanguage = source.lockedLanguage;
+            _config.publishers.Insert(index + 1, clone);
+            _selection.selectedProfileId = clone.EffectiveId;
+            _ctx.SaveSelection();
+            _ctx.SaveConfig();
+        }
+
+        private void Remove(int index)
+        {
+            var profile = _config.publishers[index];
+            if (!EditorUtility.DisplayDialog("Excluir perfil",
+                    $"Excluir '{profile.displayName}' ({profile.EffectiveId})?\n\nO Forge e o CI deixam de encontrar este id. Para só tirar da lista, use Ocultar.",
+                    "Excluir", "Cancelar"))
+                return;
+
+            _config.publishers.RemoveAt(index);
+            _selection.selectedProfileId = "";
+            _ctx.SaveSelection();
+            _ctx.SaveConfig();
+        }
+    }
+
+    /// <summary>Best-effort absolute output folder of a profile (before a build resolves version/date/language).</summary>
+    internal static class ProfileOutputPreview
+    {
+        public static string Folder(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform)
+        {
+            var root = config.GetEffectiveBuildOutputRoot(platform);
+            var sub = (profile.outputSubfolder ?? "Builds/").Replace("{Publisher}", profile.publisher.ToString());
+            try { return Path.GetFullPath(Path.Combine(root, sub)); }
+            catch { return Path.Combine(root, sub); }
+        }
+    }
+}

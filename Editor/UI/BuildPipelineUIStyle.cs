@@ -82,6 +82,29 @@ namespace Wagenheimer.BuildPipeline.Editor
             return badge;
         }
 
+        /// <summary>Badge whose leading icon gets its own box (same overlap fix as <see cref="ApplyIconText"/>).</summary>
+        public static VisualElement CreateIconBadge(string text, string type = "ok")
+        {
+            SplitLeadingIcon(text, out var icon, out _);
+            if (string.IsNullOrEmpty(icon))
+                return CreateBadge(text, type);
+
+            var badge = CreateIconLabel(text);
+            badge.AddToClassList("bp-badge");
+            badge.AddToClassList("bp-badge--" + type);
+            return badge;
+        }
+
+        /// <summary>Plain label, or an icon + text row when <paramref name="text"/> starts with an icon.</summary>
+        public static VisualElement CreateText(string text, string className = null)
+        {
+            SplitLeadingIcon(text, out var icon, out _);
+            VisualElement element = string.IsNullOrEmpty(icon) ? new Label(text) : CreateIconLabel(text);
+            if (!string.IsNullOrEmpty(className))
+                element.AddToClassList(className);
+            return element;
+        }
+
         public static void SetBadge(Label badge, string text, string type)
         {
             if (badge == null) return;

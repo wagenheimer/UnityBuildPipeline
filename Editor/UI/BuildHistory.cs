@@ -480,8 +480,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 var fileName = Path.GetFileName(assetUrl);
                 var destPath = Path.Combine(destDir, fileName);
 
-                var outp = DownloadFile(assetUrl, destPath, fileName);
-                if (outp == null) return null; // cancelled / failed (already logged)
+                if (!DownloadFile(assetUrl, destPath, fileName))
+                    return null; // cancelled / failed (already logged)
 
                 EditorUtility.ClearProgressBar();
 

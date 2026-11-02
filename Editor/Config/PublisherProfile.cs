@@ -15,6 +15,15 @@ namespace Wagenheimer.BuildPipeline.Editor
         Universal = 2,
     }
 
+    /// <summary>How a profile picks its build language.</summary>
+    public enum ProfileLanguageMode
+    {
+        /// <summary>Uses the project default (normally AutoDetect) or the language picked for that build.</summary>
+        Auto = 0,
+        /// <summary>Always builds <see cref="PublisherProfile.lockedLanguage"/>; the game hides its language selector.</summary>
+        Locked = 1,
+    }
+
     [Serializable]
     public class PublisherProfile
     {
@@ -47,15 +56,33 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// <summary>Effective CI id: explicit <see cref="id"/> when set, otherwise the publisher enum name.</summary>
         public string EffectiveId => string.IsNullOrEmpty(id) ? publisher.ToString() : id;
 
+        [Tooltip("Steam build (Windows/Mac/Linux). Enables the Steam section, the NativeSocial Steam define and the Steam cleanup steps.")]
+        public bool isSteam = false;
+
+        [Tooltip("Auto = project default or the language picked for the build. Locked = always this language (e.g. a German-only build for a publisher); the game hides its language selector.")]
+        public ProfileLanguageMode languageMode = ProfileLanguageMode.Auto;
+
+        [Tooltip("Language used when Language Mode is Locked.")]
+        public GameLanguage lockedLanguage = GameLanguage.English;
+
+        [Tooltip("Free notes: who asked for this build, why a define is here, store quirks.")]
+        [TextArea(1, 5)]
+        public string notes = "";
+
+        /// <summary>True when this profile is a Steam build (explicit <see cref="isSteam"/> flag).</summary>
+        public bool IsSteamProfile => isSteam;
+
+        public bool IsLanguageLocked => languageMode == ProfileLanguageMode.Locked && lockedLanguage != GameLanguage.AutoDetect;
+
         /// <summary>
-        /// True when this profile is a Steam build: either <see cref="publisher"/> is the <c>Publisher.Steam</c>
-        /// enum value, or "steam" appears in its <see cref="id"/>/<see cref="displayName"/> (covers custom/duplicated
-        /// profiles like "Steam Demo" that a project made without changing the publisher enum).
+        /// The pre-2.0 heuristic (publisher Steam, or "steam" in id/displayName). Only used once, by the
+        /// migration that fills <see cref="isSteam"/>.
         /// </summary>
-        public bool IsSteamProfile =>
-            publisher == Publisher.Steam ||
-            (!string.IsNullOrEmpty(displayName) && displayName.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0) ||
-            (!string.IsNullOrEmpty(id) && id.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0);
+        public static bool LooksLikeSteam(PublisherProfile profile) =>
+            profile != null &&
+            (profile.publisher == Publisher.Steam ||
+             (!string.IsNullOrEmpty(profile.displayName) && profile.displayName.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0) ||
+             (!string.IsNullOrEmpty(profile.id) && profile.id.IndexOf("steam", StringComparison.OrdinalIgnoreCase) >= 0));
 
         /// <summary>Scripting define required by UnityNativeSocial for Steam achievement/leaderboard calls to compile in.</summary>
         public const string NativeSocialSteamDefine = "WAGENHEIMER_NATIVESOCIAL_STEAM";
@@ -71,6 +98,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             isFullGame = full;
             isDemo = demo;
             outputSubfolder = $"Builds/Publishers/{pub}/";
+            isSteam = pub == Publisher.Steam;
         }
 
         public static List<PublisherProfile> GetDefaultProfiles()

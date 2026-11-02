@@ -47,6 +47,56 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         /// <summary>Defines the profile removes.</summary>
         public List<string> removedDefines = new List<string>();
+
+        /// <summary>Auto | Locked. Locked profiles always build <see cref="lockedLanguage"/>.</summary>
+        public string languageMode = "Auto";
+        public string lockedLanguage = "";
+
+        /// <summary>Explicit Steam flag (drives the Steam section, define and cleanup).</summary>
+        public bool isSteam;
+
+        public string notes = "";
+
+        /// <summary>Final symbol set the build gets (PlayerSettings globals + stack), at catalog time.</summary>
+        public List<string> finalDefines = new List<string>();
+
+        /// <summary>Every layer with its origin, in application order.</summary>
+        public List<BuildCatalogDefine> defineStack = new List<BuildCatalogDefine>();
+
+        /// <summary>Broken requiredWhen/forbiddenWhen rules of the define registry.</summary>
+        public List<string> defineRuleViolations = new List<string>();
+    }
+
+    [Serializable]
+    public sealed class BuildCatalogDefine
+    {
+        public string symbol = "";
+        /// <summary>Global | Preset | Profile | Auto | Cli</summary>
+        public string layer = "";
+        public bool removes;
+        public string source = "";
+    }
+
+    /// <summary>A documented define (package manifest or game declaration).</summary>
+    [Serializable]
+    public sealed class BuildCatalogDefineDeclaration
+    {
+        public string symbol = "";
+        public string description = "";
+        public string source = "";
+        public string scope = "";
+        public string autoFromPackage = "";
+        public List<string> requiredWhen = new List<string>();
+        public List<string> forbiddenWhen = new List<string>();
+        public List<string> platforms = new List<string>();
+        public string docsUrl = "";
+    }
+
+    [Serializable]
+    public sealed class BuildCatalogGlobalGroup
+    {
+        public string group = "";
+        public List<string> defines = new List<string>();
     }
 
     /// <summary>One validator finding exported to the catalog (AppDeployHub shows it before queueing).</summary>
@@ -76,7 +126,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     [Serializable]
     public sealed class BuildProfileCatalog
     {
-        public const int CurrentSchema = 3;
+        public const int CurrentSchema = 4;
         public const string FileSuffix = ".catalog.json";
 
         public int schema = CurrentSchema;
@@ -87,6 +137,12 @@ namespace Wagenheimer.BuildPipeline.Editor
         public BuildCatalogTracking tracking;
         public BuildCatalogValidation validation = new BuildCatalogValidation();
         public List<BuildCatalogProfile> profiles = new List<BuildCatalogProfile>();
+
+        /// <summary>PlayerSettings scripting defines per target group the profiles use.</summary>
+        public List<BuildCatalogGlobalGroup> globalDefines = new List<BuildCatalogGlobalGroup>();
+
+        /// <summary>Documented defines (package.json → wagenheimer.defines + ProjectBuildConfig.gameDefines).</summary>
+        public List<BuildCatalogDefineDeclaration> defineRegistry = new List<BuildCatalogDefineDeclaration>();
 
         public static string GetCatalogPath(string configAssetPath)
         {
@@ -110,6 +166,32 @@ namespace Wagenheimer.BuildPipeline.Editor
                 tracking = ReadTrackingPolicy()
             };
 
+            var registry = SafeLoadRegistry(config);
+            foreach (var declaration in registry?.Declarations ?? new List<DefineDeclaration>())
+            {
+                catalog.defineRegistry.Add(new BuildCatalogDefineDeclaration
+                {
+                    symbol = declaration.symbol,
+                    description = declaration.description,
+                    source = declaration.source,
+                    scope = declaration.scope,
+                    autoFromPackage = declaration.autoFromPackage,
+                    requiredWhen = new List<string>(declaration.requiredWhen),
+                    forbiddenWhen = new List<string>(declaration.forbiddenWhen),
+                    platforms = new List<string>(declaration.platforms),
+                    docsUrl = declaration.docsUrl
+                });
+            }
+
+            foreach (var platform in DefineEnvironment.RepresentativePlatforms(config))
+            {
+                catalog.globalDefines.Add(new BuildCatalogGlobalGroup
+                {
+                    group = DefineEnvironment.TargetGroupName(platform),
+                    defines = DefineEnvironment.GlobalDefines(platform)
+                });
+            }
+
             if (config?.publishers != null)
             {
                 foreach (var profile in config.publishers)
@@ -117,12 +199,23 @@ namespace Wagenheimer.BuildPipeline.Editor
                     if (profile == null)
                         continue;
 
-                    catalog.profiles.Add(ToCatalogProfile(config, profile));
+                    var entry = ToCatalogProfile(config, profile);
+                    var stack = DefineEnvironment.StackFor(config, profile);
+                    entry.finalDefines = new List<string>(stack.Final);
+                    entry.defineStack = stack.Entries.Select(item => new BuildCatalogDefine
+                    {
+                        symbol = item.symbol,
+                        layer = item.layer.ToString(),
+                        removes = item.removes,
+                        source = item.source
+                    }).ToList();
+                    entry.defineRuleViolations = DefineRules.Check(registry, profile, stack).Select(v => v.Message).ToList();
+                    catalog.profiles.Add(entry);
                 }
             }
 
             // The linter result travels with the catalog so the dashboard can show it before queueing.
-            foreach (var issue in BuildProfileValidator.Validate(config, catalog.tracking))
+            foreach (var issue in BuildProfileValidator.Validate(config, catalog.tracking, registry))
             {
                 catalog.validation.issues.Add(new BuildCatalogIssue
                 {
@@ -154,6 +247,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 hidden = profile.hidden,
                 bundleIdentifier = profile.bundleIdentifier ?? "",
                 outputSubfolder = profile.outputSubfolder ?? "",
+                languageMode = profile.languageMode.ToString(),
+                lockedLanguage = profile.IsLanguageLocked ? profile.lockedLanguage.ToString() : "",
+                isSteam = profile.isSteam,
+                notes = profile.notes ?? "",
                 presetIds = (profile.definePresets ?? new List<string>())
                     .Where(id => !string.IsNullOrWhiteSpace(id))
                     .Select(id => id.Trim())
@@ -189,6 +286,19 @@ namespace Wagenheimer.BuildPipeline.Editor
                 .ToList();
 
             return entry;
+        }
+
+        private static DefineRegistry SafeLoadRegistry(ProjectBuildConfig config)
+        {
+            try
+            {
+                return DefineRegistry.Load(config);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[BuildPipeline] Registro de defines indisponível: " + ex.Message);
+                return DefineRegistry.Build(null, config);
+            }
         }
 
         /// <summary>Reads the catalog path for the project config and writes it. Returns the path or empty.</summary>

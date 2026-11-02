@@ -13,43 +13,25 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// live log, and keeps a history of past uploads — all driven from config that lives on this
     /// project's own <see cref="ProjectBuildConfig"/> asset, not the shared ContentBuilder folder.
     /// </summary>
-    public class SteamUploadWindow : EditorWindow
+    internal sealed class SteamUploadPanel
     {
-        [MenuItem("Tools/Wagenheimer/Build Pipeline/Steam Upload...", priority = 210)]
-        public static void Open()
-        {
-            var win = GetWindow<SteamUploadWindow>("Steam Upload");
-            win.minSize = new Vector2(560, 520);
-        }
-
-        private ProjectBuildConfig _config;
+        private readonly ProjectBuildConfig _config;
+        private readonly Action _onConfigChanged;
         private string _lastImportReport;
         private ScrollView _logView;
-        private VisualElement _root;
-        private Label _statusLabel;
+        private readonly VisualElement _root = new VisualElement();
+        private PublisherProfile _steamProfile;
 
-        private void OnEnable()
+        public VisualElement Root => _root;
+
+        public SteamUploadPanel(ProjectBuildConfig config, Action onConfigChanged = null)
         {
-            _config = FindConfig();
-            SteamUploadRunner.OnLogLine += AppendLog;
-        }
-
-        private void OnDisable() => SteamUploadRunner.OnLogLine -= AppendLog;
-
-        private static ProjectBuildConfig FindConfig()
-        {
-            var guids = AssetDatabase.FindAssets("t:ProjectBuildConfig");
-            return guids.Length > 0 ? AssetDatabase.LoadAssetAtPath<ProjectBuildConfig>(AssetDatabase.GUIDToAssetPath(guids[0])) : null;
-        }
-
-        public void CreateGUI()
-        {
-            rootVisualElement.Clear();
-            BuildPipelineUIStyle.Apply(rootVisualElement);
-
-            _root = new VisualElement { style = { paddingTop = 10, paddingBottom = 10, paddingLeft = 10, paddingRight = 10 } };
-            rootVisualElement.Add(new ScrollView(ScrollViewMode.Vertical) { style = { flexGrow = 1 } }.Also(sv => sv.Add(_root)));
-
+            _config = config;
+            _onConfigChanged = onConfigChanged;
+            BuildPipelineUIStyle.Apply(_root);
+            _root.RegisterCallback<AttachToPanelEvent>(_ => SteamUploadRunner.OnLogLine += AppendLog);
+            _root.RegisterCallback<DetachFromPanelEvent>(_ => SteamUploadRunner.OnLogLine -= AppendLog);
+            _steamProfile = _config?.publishers?.FirstOrDefault(p => p != null && p.isSteam);
             Rebuild();
         }
 
@@ -67,6 +49,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var cfg = _config.steamUpload;
 
+            _root.Add(BuildProfilesCard());
             _root.Add(BuildImportCard(cfg));
             _root.Add(BuildConfigCard(cfg));
             _root.Add(BuildDepotsCard(cfg));
@@ -181,23 +164,14 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private void BuildOnePlatform(PlatformType platform)
         {
-            var steamProfile = _config.publishers?.FirstOrDefault(p => p.IsSteamProfile);
+            var steamProfile = _steamProfile;
             if (steamProfile == null)
             {
-                EditorUtility.DisplayDialog("No Steam Profile", "Add a Steam publisher profile first (Project Build Config > Publishers & Store Profiles).", "OK");
+                EditorUtility.DisplayDialog("Sem perfil Steam", "Marque um perfil como Steam em Perfis (campo 'Steam') primeiro.", "OK");
                 return;
             }
 
-            var context = new BuildContext
-            {
-                Config = _config,
-                Publisher = steamProfile.publisher,
-                PublisherProfile = steamProfile,
-                Platform = platform,
-                Language = _config != null ? _config.defaultLanguage : GameLanguage.AutoDetect,
-                Demo = steamProfile.isDemo
-            };
-
+            var context = BuildContextFactory.Create(_config, steamProfile, new BuildContextFactory.Options { Platform = platform });
             if (!BuildConfirmation.Confirm(context, _config, $"Confirm Steam Build ({platform})"))
                 return;
 
@@ -214,6 +188,69 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 EditorUtility.ClearProgressBar();
             }
+        }
+
+        // ── Steam profiles ───────────────────────────────────────────────────────
+
+        private VisualElement BuildProfilesCard()
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🎮 Perfis Steam",
+                "Perfis marcados como Steam (Perfis → Identidade → Steam). Um perfil Steam compila Windows, Mac e Linux; " +
+                "os três usam o MESMO conjunto de defines (grupo Standalone do Unity).");
+
+            var steamProfiles = (_config.publishers ?? new System.Collections.Generic.List<PublisherProfile>())
+                .Where(p => p != null && p.isSteam).ToList();
+
+            if (steamProfiles.Count == 0)
+            {
+                card.Add(BuildPipelineUIStyle.CreateCallout(
+                    "Nenhum perfil marcado como Steam. Abra Perfis, escolha o perfil e ligue 'Steam'.", "warn"));
+                return card;
+            }
+
+            if (_steamProfile == null || !steamProfiles.Contains(_steamProfile))
+                _steamProfile = steamProfiles[0];
+
+            var names = steamProfiles.Select(p => $"{p.displayName} ({p.EffectiveId})").ToList();
+            var picker = new PopupField<string>("Perfil para build/upload", names, steamProfiles.IndexOf(_steamProfile));
+            picker.RegisterValueChangedCallback(evt =>
+            {
+                _steamProfile = steamProfiles[names.IndexOf(evt.newValue)];
+                Rebuild();
+            });
+            card.Add(picker);
+
+            var stack = DefineEnvironment.StackFor(_config, _steamProfile);
+            bool hasSocialDefine = stack.Has(PublisherProfile.NativeSocialSteamDefine);
+            string defineText = hasSocialDefine
+                ? $"✔ '{PublisherProfile.NativeSocialSteamDefine}' entra neste build ({string.Join(", ", stack.For(PublisherProfile.NativeSocialSteamDefine).Select(e => e.source))})."
+                : DefineEnvironment.IsSteamworksPresent()
+                    ? $"⚠ '{PublisherProfile.NativeSocialSteamDefine}' não entra neste build: o perfil o remove."
+                    : $"ℹ Steamworks.NET não está instalado: '{PublisherProfile.NativeSocialSteamDefine}' não é injetado (achievements Steam ficam desligados).";
+            card.Add(BuildPipelineUIStyle.CreateCallout(defineText, hasSocialDefine ? "ok" : "warn"));
+
+            card.Add(new Label("Defines finais (Standalone): " + (stack.Final.Count == 0 ? "(nenhum)" : string.Join("; ", stack.Final)))
+            {
+                style = { fontSize = 10, whiteSpace = WhiteSpace.Normal, color = new Color(0.7f, 0.75f, 0.8f), marginTop = 4 }
+            });
+
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
+            void AddButton(string text, Action action, bool primary = false)
+            {
+                var button = new Button(action);
+                BuildPipelineUIStyle.ApplyIconText(button, text);
+                button.AddToClassList("bp-btn");
+                if (primary) button.AddToClassList("bp-btn--primary");
+                button.style.marginRight = 6;
+                row.Add(button);
+            }
+
+            AddButton("🪟 Build Windows", () => BuildOnePlatform(PlatformType.Windows64));
+            AddButton("🍎 Build Mac", () => BuildOnePlatform(PlatformType.macOS));
+            AddButton("🐧 Build Linux", () => BuildOnePlatform(PlatformType.Linux64));
+            AddButton("🧬 Ver defines do perfil", () => BuildPipelineWindow.ShowSection(BuildPipelineSections.Profiles, _steamProfile.EffectiveId));
+            card.Add(row);
+            return card;
         }
 
         // ── Actions ──────────────────────────────────────────────────────────────
@@ -310,6 +347,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             EditorUtility.SetDirty(_config);
             AssetDatabase.SaveAssetIfDirty(_config);
+            _onConfigChanged?.Invoke();
         }
 
         private VisualElement TextRow(string label, string value, Action<string> onChanged, bool browseFile = false)
@@ -338,6 +376,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             return row;
         }
+    }
+
+    /// <summary>Kept for existing callers and the menu: Steam now lives in the Build Pipeline window.</summary>
+    public static class SteamUploadWindow
+    {
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Steam Upload...", priority = 30)]
+        public static void Open() => BuildPipelineWindow.ShowSection(BuildPipelineSections.Steam);
     }
 
     internal static class VisualElementExtensions

@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-02
+
+### Added
+- One Build Pipeline window with a sidebar (Build · History · Profiles · Defines · Languages · Project · Signing · Steam · CLI & Forge) and an always-visible health bar.
+- Per-profile language: Auto or Locked (folder suffix, `GameConfig.IsLanguageLocked`), plus a one-off override per build; the batch builds a locked profile once.
+- Defines center: layered stack per profile (globals, presets, profile, auto, CLI), find usages in code (`#if`, `[Conditional]`, asmdef constraints/versionDefines, csc.rsp) with click-to-open, dead/orphan detection, code impact of removing a symbol and Free × Full code diff.
+- Define registry: packages declare their symbols and rules in `package.json` (`wagenheimer.defines`); the game declares its own in `ProjectBuildConfig.gameDefines`. Validator rules `define-required-missing`, `define-forbidden-present`, `define-undocumented`, `define-declared-twice`.
+- Detector for changes to the PlayerSettings global defines and the list of scripts that write them.
+- Explicit `PublisherProfile.isSteam` flag (migrated from the old name heuristic) and profile notes.
+- Android signing from the AppDeployHub vault (`/api/v1/vault`, per-machine API key).
+- Catalog schema 4 (language, Steam, notes, final defines, define stack, rule violations, globals, registry) and manifest fields `language`, `languageSource`, `defineStack`.
+- Build plan table before a batch and a confirmation dialog with the language source, final defines and broken rules.
+- Legacy migration: `Tools/migrate-legacy-project.ps1` (dry run by default, `-Apply` to change) moves a game off its own GameConfig.cs/GameConfigEditor.cs — game-only fields go to a generated `<Game>Config : GameConfig` subclass (values kept, `#if` blocks kept), other types of the old file are preserved, the asset script GUID is fixed, the old scripts are backed up and removed and the package is added to the manifest.
+- Migration assistant: on open, a project with a GameConfig but no ProjectBuildConfig is asked to migrate (nothing is created silently any more); the 1.x → 2.0 upgrade notes and the remaining checklist show in Project ▸ Migração and in the health bar.
+
+### Changed
+- Requires Unity 6 (6000.0).
+- `ProjectBuildConfig` is the single source of truth: one `BuildContextFactory` and one `DefineStackResolver` for the editor, CLI, catalog and UI. AppDeployHub.Forge no longer sends `-defines`/`-language`.
+- Menus unified under Tools ▸ Wagenheimer ▸ Build Pipeline; Profile Matrix, Define Presets and Steam Upload became window sections; the asset inspector is a summary with shortcuts.
+- `-language` is a one-off override; `build.ps1`/`build.sh` only send it when given.
+
+### Fixed
+- Editor builds (Quick Build, Matrix, inspector, Steam) did not apply the profile's scripting defines.
+- CLI matrix builds ignored define presets.
+- Quick Build picked the first profile with the same publisher enum instead of the chosen profile.
+- Steam builds used the first Steam profile even when several existed.
+- Scripting defines and player settings were left applied in ProjectSettings when a pre-build step failed or `BuildPlayer` threw; every exit path now restores them.
+- `-keystoreSource` with an unknown value was ignored silently (now warns; `RemoteVault` maps to `AppDeployHubVault`).
+- Bundletool download failures were not detected (`DownloadFile` result compared to null).
+- `build.ps1`/`build.sh` always sent `-language AutoDetect`, overriding the profile.
+
+### Removed
+- wagenheimer.com keystore vault client and the `-vaultUrl`, `-vaultProfile`, `-vaultToken` arguments (`RemoteVault` is now `AppDeployHubVault`).
+
 ## [1.45.3] - 2026-11-02
 
 ### Changed

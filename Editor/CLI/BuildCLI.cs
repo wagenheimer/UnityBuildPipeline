@@ -169,15 +169,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             Debug.Log("[BuildCLI] Starting Single Headless Build...");
             var config = FindOrCreateConfig();
 
-            // Override Vault settings via CLI if provided
-            if (CommandLineArgs.Has("vaultUrl"))
-                config.vaultUrl = CommandLineArgs.Get("vaultUrl");
-            if (CommandLineArgs.Has("vaultProfile"))
-                config.vaultProfileId = CommandLineArgs.Get("vaultProfile");
-            if (CommandLineArgs.Has("vaultToken"))
-                config.vaultTokenFallback = CommandLineArgs.Get("vaultToken");
-            if (CommandLineArgs.Has("keystoreSource") && Enum.TryParse<KeystoreSource>(CommandLineArgs.Get("keystoreSource"), true, out var ks))
-                config.keystoreSource = ks;
+            ApplyKeystoreSourceArg(config);
 
             // CI: Android keystore via args (Forge injects the central keystore). Passwords come from the
             // ANDROID_KEYSTORE_PASS / ANDROID_KEYALIAS_PASS env vars, already read by GetEffective*Password().
@@ -232,9 +224,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (profile != null)
             {
                 publisher = profile.publisher;
-                var definesLabel = profile.scriptingDefines == null || profile.scriptingDefines.Count == 0
-                    ? "(none)"
-                    : string.Join(",", profile.scriptingDefines);
+                var resolvedDefines = BuildDefineResolver.Resolve(config, profile);
+                var definesLabel = resolvedDefines.Count == 0 ? "(none)" : string.Join(",", resolvedDefines);
                 Debug.Log($"[BuildCLI] ✅ Resolved Profile: '{profile.displayName}' (Publisher: {publisher}, Platform: {profile.platform}, FullGame: {profile.isFullGame}, BundleId: {profile.bundleIdentifier}, Defines: {definesLabel})");
             }
             else
@@ -251,19 +242,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             }
 
-            // Parse Language
-            var defaultCliLang = config != null ? config.defaultLanguage.ToString() : "AutoDetect";
-            var langStr = CommandLineArgs.Get("language", defaultCliLang);
-            var language = GameLanguage.AutoDetect;
-            foreach (GameLanguage gl in Enum.GetValues(typeof(GameLanguage)))
-            {
-                if (gl.ToString().Equals(langStr, StringComparison.OrdinalIgnoreCase) ||
-                    gl.AsLanguageCode().Equals(langStr, StringComparison.OrdinalIgnoreCase))
-                {
-                    language = gl;
-                    break;
-                }
-            }
+            // Language: -language is a one-off override; without it the profile lock / project default apply.
+            var langArg = CommandLineArgs.Get("language", "");
+            GameLanguage? languageOverride = BuildLanguageResolver.Parse(langArg);
+            if (!string.IsNullOrEmpty(langArg) && languageOverride == null)
+                Debug.LogWarning($"[BuildCLI] -language '{langArg}' não reconhecido; usando o idioma do perfil/projeto.");
+            if (languageOverride.HasValue && profile != null && profile.IsLanguageLocked && profile.lockedLanguage != languageOverride.Value)
+                Debug.LogWarning($"[BuildCLI] Perfil '{profile.EffectiveId}' é travado em {profile.lockedLanguage}, mas -language pede {languageOverride.Value}. O build usa {languageOverride.Value} (override registrado no manifest).");
 
             // Parse Platform: explicit CLI argument takes precedence, otherwise use profile's platform
             var platStr = CommandLineArgs.Get("platform", "");
@@ -286,11 +271,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Debug.LogWarning($"[BuildCLI] No platform specified and no profile matched; defaulting to {platform}.");
             }
 
-            // Extra scripting defines: profile (presets + own list) + CLI -defines override (merged in the step)
-            var defines = BuildDefineResolver.Resolve(config, profile);
+            // Only the CLI extras go into the context: the step always applies the profile's own stack.
             var cliDefines = CommandLineArgs.Get("defines", "");
-            if (!string.IsNullOrEmpty(cliDefines))
-                defines.AddRange(cliDefines.Split(';', ','));
+            var extraDefines = string.IsNullOrEmpty(cliDefines) ? new List<string>() : cliDefines.Split(';', ',').ToList();
 
             ApplyVersionAndBuildNumberOverrides(config);
 
@@ -312,26 +295,26 @@ namespace Wagenheimer.BuildPipeline.Editor
                     Debug.Log($"[BuildCLI] Build variant: {variant.EffectiveDisplayName} ('{variantId}')");
             }
 
-            var context = new BuildContext
+            var context = BuildContextFactory.Create(config, profile, new BuildContextFactory.Options
             {
-                Config = config,
-                Publisher = publisher,
-                PublisherProfile = profile,
-                Language = language,
                 Platform = platform,
-                ProfileId = profile != null ? profile.EffectiveId : (string.IsNullOrEmpty(buildProfileId) ? publisher.ToString() : buildProfileId),
-                ScriptingDefines = defines,
+                Publisher = publisher,
+                LanguageOverride = languageOverride,
+                ExtraDefines = extraDefines,
                 CheatMode = CommandLineArgs.GetBool("cheat", false),
                 DevelopmentBuild = CommandLineArgs.GetBool("development", false),
-                Demo = CommandLineArgs.GetBool("demo", profile != null && profile.isDemo),
+                Demo = CommandLineArgs.Has("demo") ? CommandLineArgs.GetBool("demo", false) : (bool?)null,
                 LevelEditor = CommandLineArgs.GetBool("levelEditor", false),
                 LogLevelsInfo = CommandLineArgs.GetBool("logLevelsInfo", true),
-                AppBundle = CommandLineArgs.GetBool("autoRun", false) ? false : CommandLineArgs.GetBool("appBundle", true),
+                AppBundle = CommandLineArgs.GetBool("appBundle", true),
                 AutoRun = CommandLineArgs.GetBool("autoRun", false),
                 CustomOutputPath = CommandLineArgs.Get("outputPath", ""),
                 VariantId = variantId,
                 Variant = variant
-            };
+            });
+            if (profile == null && !string.IsNullOrEmpty(buildProfileId))
+                context.ProfileId = buildProfileId;
+            Debug.Log($"[BuildCLI] Idioma: {BuildLanguageResolver.Describe(context.Language, context.LanguageSource)}");
 
             var result = BuildPipelineRunner.Execute(context);
 
@@ -354,14 +337,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             Debug.Log("[BuildCLI] Starting Headless Matrix Build...");
             var config = FindOrCreateConfig();
 
-            if (CommandLineArgs.Has("vaultUrl"))
-                config.vaultUrl = CommandLineArgs.Get("vaultUrl");
-            if (CommandLineArgs.Has("vaultProfile"))
-                config.vaultProfileId = CommandLineArgs.Get("vaultProfile");
-            if (CommandLineArgs.Has("vaultToken"))
-                config.vaultTokenFallback = CommandLineArgs.Get("vaultToken");
-            if (CommandLineArgs.Has("keystoreSource") && Enum.TryParse<KeystoreSource>(CommandLineArgs.Get("keystoreSource"), true, out var ks))
-                config.keystoreSource = ks;
+            ApplyKeystoreSourceArg(config);
 
             ApplyVersionAndBuildNumberOverrides(config);
 
@@ -459,14 +435,24 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (variantsToBuild.Count == 0) variantsToBuild.Add(null);
 
-            var total = pubsToBuild.Count * langsToBuild.Count * ((cheatOn ? 1 : 0) + (cheatOff ? 1 : 0)) * variantsToBuild.Count;
+            // A profile locked to one language builds that language once, whatever -matrixLanguages says.
+            var plan = new List<KeyValuePair<PublisherProfile, GameLanguage>>();
+            foreach (var lang in langsToBuild)
+                foreach (var pub in pubsToBuild)
+                    if (!pub.IsLanguageLocked)
+                        plan.Add(new KeyValuePair<PublisherProfile, GameLanguage>(pub, lang));
+            foreach (var pub in pubsToBuild.Where(p => p.IsLanguageLocked))
+                plan.Add(new KeyValuePair<PublisherProfile, GameLanguage>(pub, pub.lockedLanguage));
+
+            var total = plan.Count * ((cheatOn ? 1 : 0) + (cheatOff ? 1 : 0)) * variantsToBuild.Count;
             var variantNames = string.Join(",", variantsToBuild.Select(v => v != null ? v.EffectiveId : "none"));
             Debug.Log($"[BuildCLI] Matrix planned: {total} builds ({pubsToBuild.Count} publishers x {langsToBuild.Count} languages x {variantsToBuild.Count} variants [{variantNames}]).");
 
             var allSuccess = true;
-            foreach (var lang in langsToBuild)
+            foreach (var entry in plan)
             {
-                foreach (var pub in pubsToBuild)
+                var pub = entry.Key;
+                var lang = entry.Value;
                 {
                     foreach (var variant in variantsToBuild)
                     {
@@ -497,24 +483,33 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static bool RunMatrixEntry(ProjectBuildConfig config, PublisherProfile pub, GameLanguage lang,
             bool dev, bool cheat, BuildManifest manifest, BuildVariant variant = null)
         {
-            var ctx = new BuildContext
+            var ctx = BuildContextFactory.Create(config, pub, new BuildContextFactory.Options
             {
-                Config = config,
-                Publisher = pub.publisher,
-                PublisherProfile = pub,
-                Language = lang,
-                Platform = pub.platform,
-                ProfileId = pub.EffectiveId,
-                ScriptingDefines = pub.scriptingDefines != null ? new List<string>(pub.scriptingDefines) : new List<string>(),
+                LanguageOverride = pub.IsLanguageLocked ? (GameLanguage?)null : lang,
                 CheatMode = cheat,
                 DevelopmentBuild = dev,
-                Demo = pub.isDemo,
                 VariantId = variant != null ? variant.EffectiveId : "",
                 Variant = variant
-            };
+            });
             var res = BuildPipelineRunner.Execute(ctx);
             manifest.Add(BuildManifestEntry.From(ctx, res));
             return res.Success;
+        }
+
+        /// <summary>-keystoreSource LocalDisk|AppDeployHubVault ("RemoteVault", the 1.x name, maps to the vault).</summary>
+        private static void ApplyKeystoreSourceArg(ProjectBuildConfig config)
+        {
+            if (!CommandLineArgs.Has("keystoreSource"))
+                return;
+
+            string value = CommandLineArgs.Get("keystoreSource");
+            if (string.Equals(value, "RemoteVault", StringComparison.OrdinalIgnoreCase))
+                value = nameof(KeystoreSource.AppDeployHubVault);
+
+            if (Enum.TryParse<KeystoreSource>(value, true, out var source))
+                config.keystoreSource = source;
+            else
+                Debug.LogWarning($"[BuildCLI] -keystoreSource '{value}' desconhecido (use LocalDisk ou AppDeployHubVault); mantendo {config.keystoreSource}.");
         }
 
         public static PublisherProfile FindPublisherProfile(ProjectBuildConfig config, string identifier, out Publisher resolvedPublisher)

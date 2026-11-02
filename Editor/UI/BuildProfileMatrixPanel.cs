@@ -11,8 +11,15 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// One screen with every profile and its effective defines, plus a Free/Full diff so a missing
     /// define, a duplicated bundle or a shared output folder is visible without reading the asset.
     /// </summary>
-    public sealed class BuildProfileMatrixWindow : EditorWindow
+    internal sealed class BuildProfileMatrixPanel
     {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildProfileMatrixPanel()
+        {
+            CreateGUI();
+        }
+
         private static readonly Color TextColor = new Color(0.88f, 0.89f, 0.92f);
         private static readonly Color MutedColor = new Color(0.62f, 0.65f, 0.71f);
         private static readonly Color ErrorColor = new Color(0.94f, 0.33f, 0.31f);
@@ -22,18 +29,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         private VisualElement body;
         private Label summary;
 
-        [MenuItem("Tools/Build Pipeline/Profile Matrix", priority = 202)]
-        public static void Open()
-        {
-            var window = GetWindow<BuildProfileMatrixWindow>();
-            window.titleContent = new GUIContent("Build Profile Matrix");
-            window.minSize = new Vector2(980, 620);
-            window.Show();
-        }
 
         private void CreateGUI()
         {
-            var root = rootVisualElement;
+            var root = Root;
             root.style.paddingLeft = 12;
             root.style.paddingRight = 12;
             root.style.paddingTop = 10;
@@ -53,7 +52,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             newProfile.style.marginRight = 4;
             header.Add(newProfile);
 
-            var presets = new Button(() => BuildDefinePresetWindow.Open()) { text = "Presets..." };
+            var presets = new Button(() => BuildPipelineWindow.ShowSection(BuildPipelineSections.Defines)) { text = "Presets..." };
             presets.style.height = 24;
             presets.style.marginRight = 4;
             header.Add(presets);

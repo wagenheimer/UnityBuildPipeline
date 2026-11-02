@@ -22,7 +22,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var config = (GameConfig)target;
 
             if (_linkedBuildConfig == null)
-                _linkedBuildConfig = LegacyGameConfigMigrator.FindOrCreateProjectBuildConfig();
+                _linkedBuildConfig = LegacyGameConfigMigrator.FindProjectBuildConfig();
 
             EnsureSubObjects(config);
 
@@ -52,6 +52,22 @@ namespace Wagenheimer.BuildPipeline.Editor
                 pingCfgBtn.style.height = 30;
                 pingCfgBtn.style.fontSize = 11;
                 actionRow.Add(pingCfgBtn);
+            }
+            else
+            {
+                // No ProjectBuildConfig yet: offer the migration instead of creating one behind the user's back.
+                var migrateBtn = new Button(() =>
+                {
+                    _linkedBuildConfig = LegacyGameConfigMigrator.MigrateOrCreate();
+                    BuildPipelineWindow.ShowSection(BuildPipelineSections.Project);
+                });
+                BuildPipelineUIStyle.ApplyIconText(migrateBtn, "⚡ Migrar para o Build Pipeline");
+                migrateBtn.tooltip = "Cria o ProjectBuildConfig a partir deste GameConfig (perfis, nome, bundle ids). Nada é apagado.";
+                migrateBtn.AddToClassList("bp-btn");
+                migrateBtn.AddToClassList("bp-btn--success");
+                migrateBtn.style.height = 30;
+                migrateBtn.style.fontSize = 11;
+                actionRow.Add(migrateBtn);
             }
 
             var guideBtn = new Button(BuildPipelineGuideWindow.Open);

@@ -13,6 +13,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public PublisherProfile PublisherProfile { get; set; }
         public Publisher Publisher { get; set; }
         public GameLanguage Language { get; set; }
+
+        /// <summary>Why <see cref="Language"/> has this value (profile lock, one-off override, project default).</summary>
+        public BuildLanguageSource LanguageSource { get; set; } = BuildLanguageSource.ProjectDefault;
         public PlatformType Platform { get; set; }
 
         public bool CheatMode { get; set; }
@@ -47,8 +50,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string ProfileId { get; set; } = "";
 
         /// <summary>
-        /// Extra scripting define symbols to apply for this build (profile defines + CLI -defines override),
-        /// applied by <see cref="ApplyScriptingDefinesStep"/> and restored afterwards.
+        /// Extra define symbols ON TOP of the profile (CLI -defines, custom hooks). The profile's presets and
+        /// scriptingDefines are always applied by <see cref="ApplyScriptingDefinesStep"/> from
+        /// <see cref="PublisherProfile"/> itself; do not copy them here. '!X' removes X for this build.
         /// </summary>
         public List<string> ScriptingDefines { get; set; } = new List<string>();
 

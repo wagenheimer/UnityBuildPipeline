@@ -43,6 +43,18 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public string quickVariantId = "";
 
+        // 2.0 sidebar window.
+        public string section = "";
+        public string selectedProfileId = "";
+        public string profilesTab = "";
+        public string definesTab = "";
+        public bool showHiddenProfiles;
+        public bool showUnityDefines;
+        public string selectedDefine = "";
+        public string compareProfileId = "";
+        /// <summary>One-off build language ("" = profile lock / project default). Never written to the asset.</summary>
+        public string buildLanguageOverride = "";
+
         // CLI & Automation tab: last command generator selections.
         public string cliPublisher = "";
         public string cliPlatform = "";
@@ -102,6 +114,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (cliPlatform == null) cliPlatform = string.Empty;
             if (cliLanguage == null) cliLanguage = string.Empty;
             if (cliVariantId == null) cliVariantId = string.Empty;
+            if (section == null) section = string.Empty;
+            if (selectedProfileId == null) selectedProfileId = string.Empty;
+            if (profilesTab == null) profilesTab = string.Empty;
+            if (definesTab == null) definesTab = string.Empty;
+            if (buildLanguageOverride == null) buildLanguageOverride = string.Empty;
+            if (selectedDefine == null) selectedDefine = string.Empty;
+            if (compareProfileId == null) compareProfileId = string.Empty;
 
             // JsonUtility does not always run field initializers, so a payload written by an older build
             // can arrive with the Matrix defaults zeroed out. Restore the documented defaults once.

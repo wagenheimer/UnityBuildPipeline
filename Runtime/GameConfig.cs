@@ -27,6 +27,12 @@ public class GameConfig : ScriptableObject
     public Publisher Publisher = Publisher.Default;
     public GameLanguage GameLanguage = GameLanguage.AutoDetect;
 
+    /// <summary>
+    /// True when the build was made for one language only (a profile locked to German, or a one-off German
+    /// build). Games hide their language selector when this is true; AutoDetect builds follow the device.
+    /// </summary>
+    public bool IsLanguageLocked => GameLanguage != GameLanguage.AutoDetect;
+
     public bool CheatMode;
     public bool FullGame = true;
     public bool Demo = false;

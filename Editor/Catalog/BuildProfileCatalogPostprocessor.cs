@@ -85,7 +85,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
     internal static class BuildProfilesMenu
     {
-        [MenuItem("Tools/Build Pipeline/Export Profile Catalog", priority = 200)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Export Profile Catalog", priority = 60)]
         private static void ExportCatalog()
         {
             var config = BuildCLI.FindOrCreateConfig();
@@ -102,7 +102,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             EditorUtility.RevealInFinder(catalog);
         }
 
-        [MenuItem("Tools/Build Pipeline/Validate Profiles", priority = 201)]
+        [MenuItem("Tools/Wagenheimer/Build Pipeline/Validate Profiles", priority = 61)]
         private static void ValidateProfiles()
         {
             var config = BuildCLI.FindOrCreateConfig();

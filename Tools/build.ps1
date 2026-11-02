@@ -14,7 +14,8 @@ param (
     [string]$buildProfile = "",
     [switch]$allowMissingProfile,
     [string]$publisher = "Default",
-    [string]$language = "AutoDetect",
+    # Empty = the profile decides (Auto or its locked language). Set it only for a one-off override.
+    [string]$language = "",
     [string]$variant = "",
     [string]$matrixVariants = "",
     [string]$platform = "",
@@ -25,9 +26,7 @@ param (
     [switch]$development,
     [switch]$demo,
     [switch]$autoRun,
-    [string]$vaultUrl = "",
-    [string]$vaultProfile = "",
-    [string]$vaultToken = "",
+    # LocalDisk | AppDeployHubVault (the vault key comes from $env:APPDEPLOYHUB_VAULT_KEY).
     [string]$keystoreSource = "",
     [string]$version = "",
     [string]$outputPath = "",
@@ -113,8 +112,10 @@ if ($matrix) {
     }
     $argsList += "-publisher"
     $argsList += "$publisher"
-    $argsList += "-language"
-    $argsList += "$language"
+    if (![string]::IsNullOrEmpty($language)) {
+        $argsList += "-language"
+        $argsList += "$language"
+    }
     if (![string]::IsNullOrEmpty($platform)) {
         $argsList += "-platform"
         $argsList += "$platform"
@@ -144,21 +145,6 @@ if ($matrix) {
 if (![string]::IsNullOrEmpty($version)) {
     $argsList += "-version"
     $argsList += "$version"
-}
-
-if (![string]::IsNullOrEmpty($vaultUrl)) {
-    $argsList += "-vaultUrl"
-    $argsList += "`"$vaultUrl`""
-}
-
-if (![string]::IsNullOrEmpty($vaultProfile)) {
-    $argsList += "-vaultProfile"
-    $argsList += "$vaultProfile"
-}
-
-if (![string]::IsNullOrEmpty($vaultToken)) {
-    $argsList += "-vaultToken"
-    $argsList += "$vaultToken"
 }
 
 if (![string]::IsNullOrEmpty($keystoreSource)) {

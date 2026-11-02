@@ -16,7 +16,7 @@ UNITY_PATH=""
 BUILD_PROFILE=""
 PUBLISHER=""
 PLATFORM=""
-LANGUAGE="AutoDetect"
+LANGUAGE=""  # empty = the profile decides (Auto or its locked language)
 DEFINES=""
 VERSION=""
 OUTPUT_PATH=""
@@ -114,7 +114,7 @@ else
   [[ -n "$PUBLISHER" ]]     && ARGS+=(-publisher "$PUBLISHER")
   [[ -n "$PLATFORM" ]]      && ARGS+=(-platform "$PLATFORM" -buildTarget "$PLATFORM")
   [[ -n "$VARIANT" ]]       && ARGS+=(-variant "$VARIANT")
-  ARGS+=(-language "$LANGUAGE")
+  [[ -n "$LANGUAGE" ]] && ARGS+=(-language "$LANGUAGE")
   [[ -n "$APP_BUNDLE" ]]    && ARGS+=(-appBundle "$APP_BUNDLE")
   [[ -n "$OUTPUT_PATH" ]]   && ARGS+=(-outputPath "$OUTPUT_PATH")
 fi

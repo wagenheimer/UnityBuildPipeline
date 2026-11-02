@@ -1,0 +1,274 @@
+using System;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Wagenheimer.BuildPipeline.Editor
+{
+    /// <summary>Default language, matrix languages and which profiles are locked.</summary>
+    internal sealed class BuildPipelineLanguagesSection
+    {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildPipelineLanguagesSection(BuildPipelineSectionContext ctx)
+        {
+            var config = ctx.Config;
+            var so = new SerializedObject(config);
+
+            var defaults = BuildPipelineUIStyle.CreateCard("🌐 Idioma padrão",
+                "Usado por perfis em modo Auto quando o build não escolhe outro. AutoDetect = o jogo segue o idioma do aparelho/sistema.");
+            defaults.Add(new PropertyField(so.FindProperty("defaultLanguage"), "Padrão do projeto"));
+            Root.Add(defaults);
+
+            var matrix = BuildPipelineUIStyle.CreateCard("📦 Idiomas da matriz",
+                "Os idiomas que aparecem para o build em lote (e o -matrixLanguages padrão do CLI). 'enabled' = vem marcado.");
+            matrix.Add(new PropertyField(so.FindProperty("languages"), "Idiomas"));
+            matrix.Add(BuildPipelineBuildSection.SmallButton("↺ Restaurar lista padrão", () =>
+            {
+                if (!EditorUtility.DisplayDialog("Restaurar idiomas", "Trocar a lista pelos idiomas padrão?", "Restaurar", "Cancelar"))
+                    return;
+                config.languages = LanguageProfile.GetDefaultLanguages();
+                ctx.SaveConfig(false);
+            }));
+            Root.Add(matrix);
+
+            var locked = BuildPipelineUIStyle.CreateCard("🔒 Perfis com idioma travado",
+                "Travar = build sempre nesse idioma, pasta com sufixo (_DE) e o jogo esconde o seletor (GameConfig.IsLanguageLocked). " +
+                "Para um pedido pontual ('manda um build em alemão') use o idioma da seção Build, sem mudar o perfil.");
+            var lockedProfiles = config.publishers.Where(p => p != null && p.languageMode == ProfileLanguageMode.Locked).ToList();
+            if (lockedProfiles.Count == 0)
+                locked.Add(new Label("Nenhum. Todos seguem o padrão do projeto.") { style = { color = new Color(0.62f, 0.65f, 0.71f) } });
+            foreach (var profile in lockedProfiles)
+            {
+                var row = new VisualElement();
+                row.AddToClassList("bp-usage-row");
+                var link = new Button(() => ctx.Navigate(BuildPipelineSections.Profiles, profile.EffectiveId)) { text = $"{profile.displayName} ({profile.EffectiveId})" };
+                link.AddToClassList("bp-link");
+                link.style.width = 300;
+                row.Add(link);
+                row.Add(BuildPipelineUIStyle.CreateText(profile.IsLanguageLocked ? $"🔒 {profile.lockedLanguage}" : "⚠ Travado em AutoDetect (sem efeito)"));
+                locked.Add(row);
+            }
+
+            Root.Add(locked);
+            Root.Bind(so);
+        }
+    }
+
+    /// <summary>GameConfig link, game-specific fields and variants, paths, scenes and archiving.</summary>
+    internal sealed class BuildPipelineProjectSection
+    {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildPipelineProjectSection(BuildPipelineSectionContext ctx)
+        {
+            var config = ctx.Config;
+            var so = new SerializedObject(config);
+
+            Root.Add(BuildPipelineWindow.MigrationCard(config, section => ctx.Navigate(section), ctx.RebuildAll));
+
+            var identity = BuildPipelineUIStyle.CreateCard("🪪 Projeto", "Vínculo com o GameConfig (verdade de runtime) e nomes.");
+            identity.Add(new PropertyField(so.FindProperty("gameConfig"), "GameConfig.asset"));
+            identity.Add(new PropertyField(so.FindProperty("projectName"), "Nome do projeto"));
+            identity.Add(new PropertyField(so.FindProperty("defaultBundleIdentifier"), "Bundle id padrão"));
+            identity.Add(new PropertyField(so.FindProperty("gameNameJapanese"), "Nome em japonês"));
+            Root.Add(identity);
+
+            var gameCard = GameSpecificCard(config);
+            if (gameCard != null)
+                Root.Add(gameCard);
+
+            var paths = BuildPipelineUIStyle.CreateCard("📁 Pastas e cenas");
+            paths.Add(new PropertyField(so.FindProperty("buildOutputRoot"), "Saída (Windows)"));
+            paths.Add(new PropertyField(so.FindProperty("macBuildOutputRoot"), "Saída (macOS)"));
+            paths.Add(new PropertyField(so.FindProperty("splashMasterFolder"), "Pasta mestre de splashes"));
+            paths.Add(new PropertyField(so.FindProperty("publisherSplashScenePath"), "Cena de splash do publisher"));
+            paths.Add(new PropertyField(so.FindProperty("defaultSplashScenePath"), "Cena de splash padrão"));
+            paths.Add(new PropertyField(so.FindProperty("levelEditorScenePath"), "Cena do editor de níveis"));
+            Root.Add(paths);
+
+            var zip = BuildPipelineUIStyle.CreateCard("🗜 Compactação");
+            zip.Add(new PropertyField(so.FindProperty("enableZipArchiving"), "Zipar builds"));
+            zip.Add(new PropertyField(so.FindProperty("useExternalSevenZip"), "Usar 7-Zip externo"));
+            zip.Add(new PropertyField(so.FindProperty("sevenZipExecutable"), "Executável do 7-Zip"));
+            Root.Add(zip);
+
+            Root.Bind(so);
+        }
+
+        private static VisualElement GameSpecificCard(ProjectBuildConfig config)
+        {
+            var gameConfig = config.gameConfig;
+            if (gameConfig == null)
+                return BuildPipelineUIStyle.CreateCallout("Nenhum GameConfig vinculado: versão, idioma de runtime e variantes não são sincronizados.", "warn");
+
+            var gameObject = new SerializedObject(gameConfig);
+            var fields = GameConfigCustomEditor.BuildExtensionFields(gameObject);
+            var variants = gameObject.FindProperty("buildVariants");
+
+            var card = BuildPipelineUIStyle.CreateCard($"🎮 {gameConfig.name} — campos do jogo",
+                "Campos da subclasse de GameConfig e as variantes (edições) que o build compila. Grava no GameConfig.asset.");
+            if (fields != null) card.Add(fields);
+            if (variants != null)
+            {
+                var field = new PropertyField(variants, "Variantes de build");
+                field.BindProperty(variants);
+                card.Add(field);
+            }
+
+            card.Add(BuildPipelineBuildSection.SmallButton("Abrir GameConfig.asset", () =>
+            {
+                Selection.activeObject = gameConfig;
+                EditorGUIUtility.PingObject(gameConfig);
+            }));
+            card.Bind(gameObject);
+            return card;
+        }
+    }
+
+    /// <summary>Android signing: local keystore file or the AppDeployHub vault (same source as the Forge).</summary>
+    internal sealed class BuildPipelineSigningSection
+    {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildPipelineSigningSection(BuildPipelineSectionContext ctx)
+        {
+            var config = ctx.Config;
+            var so = new SerializedObject(config);
+
+            var mode = BuildPipelineUIStyle.CreateCard("🔐 Origem do keystore Android",
+                "Vale para builds feitos NO EDITOR. O CI do Forge sempre injeta o keystore do cofre via -keystorePath (não depende disto).");
+            mode.Add(new PropertyField(so.FindProperty("keystoreSource"), "Origem"));
+            Root.Add(mode);
+
+            if (config.keystoreSource == KeystoreSource.LocalDisk)
+            {
+                var local = BuildPipelineUIStyle.CreateCard("💾 Arquivo local");
+                local.Add(new PropertyField(so.FindProperty("androidKeystorePath"), "Keystore (Windows)"));
+                local.Add(new PropertyField(so.FindProperty("androidKeystorePathMac"), "Keystore (macOS)"));
+                local.Add(new PropertyField(so.FindProperty("androidKeyAlias"), "Alias"));
+                local.Add(new PropertyField(so.FindProperty("androidKeystorePassEnvVar"), "Variável da senha do keystore"));
+                local.Add(new PropertyField(so.FindProperty("androidKeystorePassFallback"), "Senha do keystore (fallback)"));
+                local.Add(new PropertyField(so.FindProperty("androidKeyaliasPassEnvVar"), "Variável da senha do alias"));
+                local.Add(new PropertyField(so.FindProperty("androidKeyaliasPassFallback"), "Senha do alias (fallback)"));
+                string path = config.GetEffectiveKeystorePath();
+                local.Add(BuildPipelineUIStyle.CreateCallout(File.Exists(path) ? $"✔ Arquivo encontrado: {path}" : $"⚠ Arquivo não encontrado: {path}",
+                    File.Exists(path) ? "ok" : "warn"));
+                Root.Add(local);
+            }
+            else
+            {
+                Root.Add(VaultCard(ctx, so));
+            }
+
+            Root.Bind(so);
+            Root.TrackPropertyValue(so.FindProperty("keystoreSource"), _ => ctx.RebuildSection());
+        }
+
+        private static VisualElement VaultCard(BuildPipelineSectionContext ctx, SerializedObject so)
+        {
+            var config = ctx.Config;
+            var card = BuildPipelineUIStyle.CreateCard("🏦 Cofre do AppDeployHub",
+                "O keystore e as senhas vêm do cofre na hora do build e são apagados do PlayerSettings depois. " +
+                "A API key é do tipo 'vault' (AppDeployHub → Cofre → Conectar o Forge) e fica só nesta máquina.");
+
+            card.Add(new PropertyField(so.FindProperty("appDeployHubUrl"), "URL do AppDeployHub"));
+
+            var keyRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var keyField = new TextField("API key (esta máquina)") { isPasswordField = true, value = AppDeployHubVaultClient.GetApiKey(), style = { flexGrow = 1 } };
+            keyField.SetEnabled(!AppDeployHubVaultClient.KeyComesFromEnvironment);
+            keyRow.Add(keyField);
+            keyRow.Add(BuildPipelineBuildSection.SmallButton("Salvar", () => AppDeployHubVaultClient.SaveApiKey(keyField.value)));
+            card.Add(keyRow);
+            if (AppDeployHubVaultClient.KeyComesFromEnvironment)
+                card.Add(new Label($"Usando a variável {AppDeployHubVaultClient.KeyEnvVar}.") { style = { fontSize = 10 } });
+
+            string chosen = string.IsNullOrEmpty(config.vaultKeystoreCredentialId)
+                ? "⚠ Nenhuma credencial escolhida — o build Android pelo editor vai falhar."
+                : $"✔ {config.vaultKeystoreLabel} ({config.vaultKeystoreCredentialId})";
+            card.Add(BuildPipelineUIStyle.CreateCallout(chosen, string.IsNullOrEmpty(config.vaultKeystoreCredentialId) ? "warn" : "ok"));
+
+            var status = new Label { style = { whiteSpace = WhiteSpace.Normal, marginTop = 4 } };
+            var listHost = new VisualElement();
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 4 } };
+            actions.Add(BuildPipelineBuildSection.SmallButton("📋 Listar keystores do cofre", async () =>
+            {
+                status.text = "Consultando o cofre…";
+                listHost.Clear();
+                var result = await AppDeployHubVaultClient.ListKeystoresAsync(config.appDeployHubUrl);
+                status.text = result.Message;
+                foreach (var credential in result.Credentials)
+                {
+                    var row = new VisualElement();
+                    row.AddToClassList("bp-usage-row");
+                    var label = BuildPipelineUIStyle.CreateText($"{(credential.Active ? "🟢" : "⚪")} {credential.Label}  · alias '{credential.KeystoreAlias}'");
+                    label.style.flexGrow = 1;
+                    row.Add(label);
+                    var info = credential;
+                    row.Add(BuildPipelineBuildSection.SmallButton("Usar esta", () =>
+                    {
+                        config.vaultKeystoreCredentialId = info.Id;
+                        config.vaultKeystoreLabel = info.Label;
+                        ctx.SaveConfig(false);
+                    }));
+                    listHost.Add(row);
+                }
+            }));
+            actions.Add(BuildPipelineBuildSection.SmallButton("⚡ Testar a escolhida", async () =>
+            {
+                status.text = "Baixando keystore…";
+                var result = await AppDeployHubVaultClient.FetchKeystoreAsync(config.appDeployHubUrl, config.vaultKeystoreCredentialId);
+                status.text = result.Success ? "✔ " + result.Message + " (cache em Library/KeystoreCache)" : "✕ " + result.Message;
+            }));
+            card.Add(actions);
+            card.Add(status);
+            card.Add(listHost);
+            return card;
+        }
+    }
+
+    /// <summary>Headless commands and the catalog the Forge reads.</summary>
+    internal sealed class BuildPipelineAutomationSection
+    {
+        public VisualElement Root { get; } = new VisualElement();
+
+        public BuildPipelineAutomationSection(BuildPipelineSectionContext ctx)
+        {
+            var config = ctx.Config;
+            string assetPath = AssetDatabase.GetAssetPath(config);
+            string catalogPath = BuildProfileCatalog.GetCatalogPath(assetPath);
+            bool upToDate = BuildProfileCatalog.IsUpToDate(config, assetPath);
+
+            var regenerate = BuildPipelineBuildSection.SmallButton("↻ Regravar", () =>
+            {
+                BuildProfileCatalog.Write(config, assetPath);
+                ctx.RebuildAll();
+            });
+            var forge = BuildPipelineUIStyle.CreateCard("📄 O que o Forge lê",
+                "O Forge (AppDeployHub) lê ProjectBuildConfig.catalog.json — perfis, idioma, Steam, a pilha de defines e o registro — e não sobrescreve nada: " +
+                "defines e idioma só mudam aqui, no Unity, e chegam ao Forge pelo commit.", regenerate);
+            forge.Add(BuildPipelineUIStyle.CreateCallout(
+                upToDate ? $"✔ Catálogo em dia (schema {BuildProfileCatalog.CurrentSchema}): {catalogPath}" : $"⚠ Catálogo desatualizado ou ausente: {catalogPath}. Salve o asset ou clique em Regravar.",
+                upToDate ? "ok" : "warn"));
+
+            if (File.Exists(catalogPath))
+            {
+                string text = File.ReadAllText(catalogPath);
+                var preview = new Label(text.Length > 6000 ? text.Substring(0, 6000) + "\n…" : text);
+                preview.AddToClassList("bp-code-box");
+                preview.selection.isSelectable = true;
+                var fold = new Foldout { text = "Prévia do JSON", value = false };
+                fold.Add(preview);
+                forge.Add(fold);
+                forge.Add(BuildPipelineBuildSection.SmallButton("Abrir arquivo", () => EditorUtility.RevealInFinder(catalogPath)));
+            }
+
+            Root.Add(forge);
+            Root.Add(new BuildPipelineCliView(config, ctx.Selection).Root);
+        }
+    }
+}

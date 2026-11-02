@@ -30,15 +30,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// profile, then records the resolved output folder as that platform's depot content root.</summary>
         public static BuildResultSummary BuildPlatform(ProjectBuildConfig config, PublisherProfile steamProfile, PlatformType platform)
         {
-            var ctx = new BuildContext
-            {
-                Config = config,
-                Publisher = steamProfile.publisher,
-                PublisherProfile = steamProfile,
-                Language = config.defaultLanguage,
-                Platform = platform,
-                Demo = steamProfile.isDemo
-            };
+            var ctx = BuildContextFactory.Create(config, steamProfile, new BuildContextFactory.Options { Platform = platform });
 
             var result = BuildPipelineRunner.Execute(ctx);
             if (!result.Success || string.IsNullOrEmpty(result.OutputPath))
