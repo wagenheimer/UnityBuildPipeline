@@ -66,6 +66,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         [Header("Publishers & Stores")]
         public List<PublisherProfile> publishers = new List<PublisherProfile>();
 
+        [Header("Define Presets")]
+        [Tooltip("Reusable define groups. A profile references them by id in 'definePresets'; the build expands presets before the profile's own list.")]
+        public List<BuildDefinePreset> definePresets = new List<BuildDefinePreset>();
+
         [Header("Steam Upload")]
         public SteamUploadConfig steamUpload = new SteamUploadConfig();
 

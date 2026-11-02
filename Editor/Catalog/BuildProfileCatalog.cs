@@ -36,6 +36,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// <summary>Defines exactly as typed (including the '!DEFINE' removals).</summary>
         public List<string> scriptingDefines = new List<string>();
 
+        /// <summary>Preset ids referenced by the profile (expanded into scriptingDefines).</summary>
+        public List<string> presetIds = new List<string>();
+
         /// <summary>Defines that survive after removals — what the build ends up with from the profile.</summary>
         public List<string> effectiveDefines = new List<string>();
 
@@ -51,7 +54,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     [Serializable]
     public sealed class BuildProfileCatalog
     {
-        public const int CurrentSchema = 1;
+        public const int CurrentSchema = 2;
         public const string FileSuffix = ".catalog.json";
 
         public int schema = CurrentSchema;
@@ -92,13 +95,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (profile == null)
                     continue;
 
-                catalog.profiles.Add(ToCatalogProfile(profile));
+                catalog.profiles.Add(ToCatalogProfile(config, profile));
             }
 
             return catalog;
         }
 
-        public static BuildCatalogProfile ToCatalogProfile(PublisherProfile profile)
+        public static BuildCatalogProfile ToCatalogProfile(ProjectBuildConfig config, PublisherProfile profile)
         {
             var entry = new BuildCatalogProfile
             {
@@ -111,12 +114,17 @@ namespace Wagenheimer.BuildPipeline.Editor
                 isFullGame = profile.isFullGame,
                 isDemo = profile.isDemo,
                 bundleIdentifier = profile.bundleIdentifier ?? "",
-                outputSubfolder = profile.outputSubfolder ?? ""
+                outputSubfolder = profile.outputSubfolder ?? "",
+                presetIds = (profile.definePresets ?? new List<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Select(id => id.Trim())
+                    .ToList()
             };
 
             var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (string raw in profile.scriptingDefines ?? new List<string>())
+            // Presets expand before the profile's own list; the catalog carries the final list.
+            foreach (string raw in BuildDefineResolver.Resolve(config, profile))
             {
                 if (string.IsNullOrWhiteSpace(raw))
                     continue;

@@ -43,6 +43,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             var byBundle = new Dictionary<string, List<PublisherProfile>>(StringComparer.OrdinalIgnoreCase);
             var byOutput = new Dictionary<string, List<PublisherProfile>>(StringComparer.OrdinalIgnoreCase);
 
+            CheckPresetCatalog(issues, config);
+
             foreach (var profile in config.publishers)
             {
                 if (profile == null)
@@ -73,7 +75,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 CheckPublisherPlatform(issues, profile, id);
                 CheckBundle(issues, profile, id, byBundle);
                 CheckOutput(issues, profile, id, byOutput);
-                CheckDefines(issues, profile, id, tracking);
+                CheckPresets(issues, config, profile, id);
+                CheckDefines(issues, config, profile, id, tracking);
             }
 
             return issues;
@@ -179,14 +182,43 @@ namespace Wagenheimer.BuildPipeline.Editor
             list.Add(profile);
         }
 
+        private static void CheckPresets(
+            List<BuildProfileIssue> issues, ProjectBuildConfig config, PublisherProfile profile, string id)
+        {
+            var unknown = BuildDefineResolver.UnknownPresets(config, profile);
+
+            if (unknown.Count > 0)
+            {
+                Add(issues, BuildProfileIssueSeverity.Error, id, "preset-missing",
+                    $"Preset(s) não encontrados em 'definePresets': {string.Join(", ", unknown)}.");
+            }
+        }
+
+        private static void CheckPresetCatalog(List<BuildProfileIssue> issues, ProjectBuildConfig config)
+        {
+            var duplicateIds = (config.definePresets ?? new List<BuildDefinePreset>())
+                .Where(preset => preset != null && !string.IsNullOrWhiteSpace(preset.id))
+                .GroupBy(preset => preset.id.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToList();
+
+            if (duplicateIds.Count > 0)
+            {
+                Add(issues, BuildProfileIssueSeverity.Error, "(presets)", "preset-duplicate",
+                    $"Ids de preset duplicados: {string.Join(", ", duplicateIds)}.");
+            }
+        }
+
         private static void CheckDefines(
-            List<BuildProfileIssue> issues, PublisherProfile profile, string id, BuildCatalogTracking tracking)
+            List<BuildProfileIssue> issues, ProjectBuildConfig config, PublisherProfile profile, string id,
+            BuildCatalogTracking tracking)
         {
             var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var invalid = new List<string>();
 
-            foreach (string raw in profile.scriptingDefines ?? new List<string>())
+            foreach (string raw in BuildDefineResolver.Resolve(config, profile))
             {
                 if (string.IsNullOrWhiteSpace(raw))
                     continue;

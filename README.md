@@ -368,6 +368,24 @@ Unity -batchmode -quit -projectPath . \
 # add -apply to append it to ProjectBuildConfig
 ```
 
+### Define presets
+
+`ProjectBuildConfig.definePresets` holds reusable groups (`id`, `displayName`, `defines[]`). A profile
+references them in `Profile.definePresets`; the build expands presets **before** the profile's own
+`scriptingDefines`, and the catalog exports the expanded list (`presetIds` keeps the reference).
+The inspector shows the presets card, and the validator fails on unknown or duplicate preset ids.
+
+### Profile matrix
+
+**Tools > Build Pipeline > Profile Matrix** shows every profile with platform, Free/Full, bundle,
+output and the effective defines, plus:
+
+- a **Free ↔ Full diff** per store (defines only in Free / only in Full, shared bundle/output);
+- the **validator issues** per row (tooltip with the messages);
+- the **define presets** and how many profiles use each.
+
+The catalog schema is now **2** (adds `presetIds`); consumers ignore unknown fields, as before.
+
 ### Wagenheimer Unity ecosystem
 
 [Package Hub](https://github.com/wagenheimer/UnityPackageHub) ·

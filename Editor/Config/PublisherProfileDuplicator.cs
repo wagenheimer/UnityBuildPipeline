@@ -51,6 +51,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 macArchitecture = source.macArchitecture,
                 macAppStoreValidation = source.macAppStoreValidation,
                 scriptingDefines = new List<string>(source.scriptingDefines ?? new List<string>()),
+                definePresets = new List<string>(source.definePresets ?? new List<string>()),
                 outputSubfolder = source.outputSubfolder,
                 zipAfterBuild = source.zipAfterBuild,
                 zipDestinationTemplate = source.zipDestinationTemplate

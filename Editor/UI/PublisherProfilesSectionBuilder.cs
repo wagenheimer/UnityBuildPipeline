@@ -468,8 +468,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             foreach (var fieldName in new[]
             {
                 "id", "publisher", "displayName", "platform", "bundleIdentifier", "requiresSplash", "isFullGame",
-                "isDemo", "scriptingBackend", "macArchitecture", "macAppStoreValidation", "scriptingDefines",
-                "outputSubfolder", "zipAfterBuild", "zipDestinationTemplate"
+                "isDemo", "scriptingBackend", "macArchitecture", "macAppStoreValidation", "definePresets",
+                "scriptingDefines", "outputSubfolder", "zipAfterBuild", "zipDestinationTemplate"
             })
             {
                 var fieldProp = elementProp.FindPropertyRelative(fieldName);

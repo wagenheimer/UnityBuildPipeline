@@ -197,6 +197,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             // "Project Config" tab) via PublisherProfilesSectionBuilder so both stay in sync.
             root.Add(PublisherProfilesSectionBuilder.BuildSection(config, serializedObject));
 
+            // 7b. Define presets — expanded by the build; profiles reference them by id.
+            var presetsCard = BuildPipelineUIStyle.CreateCard(
+                "Define Presets",
+                "Grupos reutilizáveis (id + defines). O perfil referencia o id em 'definePresets'; a build expande antes da lista própria.");
+            presetsCard.Add(new PropertyField(serializedObject.FindProperty("definePresets"), "Presets"));
+            root.Add(presetsCard);
+
             // 8. Languages & Localizations
             var langsCard = BuildPipelineUIStyle.CreateCard("Languages & Localizations", "Default build language and optional batch matrix configuration");
 

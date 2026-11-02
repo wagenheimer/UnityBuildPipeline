@@ -34,6 +34,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public bool macAppStoreValidation = false;
         [Tooltip("Extra scripting define symbols applied for this profile's build target, then restored afterwards (e.g. DEMO_FREE, NO_ADS).")]
         public List<string> scriptingDefines = new List<string>();
+
+        [Tooltip("Ids of ProjectBuildConfig.definePresets expanded before scriptingDefines (e.g. 'free-ads', 'att').")]
+        public List<string> definePresets = new List<string>();
         public string outputSubfolder = "Builds/Publishers/{Publisher}/";
         public bool zipAfterBuild = false;
         public string zipDestinationTemplate = @"E:\Documentos\Dropbox\Builds\{ProjectName}\{Publisher}\";

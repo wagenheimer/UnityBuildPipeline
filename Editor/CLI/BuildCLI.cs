@@ -286,10 +286,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Debug.LogWarning($"[BuildCLI] No platform specified and no profile matched; defaulting to {platform}.");
             }
 
-            // Extra scripting defines: profile defines + CLI -defines override (merged in the step)
-            var defines = new List<string>();
-            if (profile != null && profile.scriptingDefines != null)
-                defines.AddRange(profile.scriptingDefines);
+            // Extra scripting defines: profile (presets + own list) + CLI -defines override (merged in the step)
+            var defines = BuildDefineResolver.Resolve(config, profile);
             var cliDefines = CommandLineArgs.Get("defines", "");
             if (!string.IsNullOrEmpty(cliDefines))
                 defines.AddRange(cliDefines.Split(';', ','));
