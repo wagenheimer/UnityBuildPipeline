@@ -29,7 +29,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectPath,
     [switch]$Apply,
-    [string]$PipelineRef = "v2.0.1",
+    [string]$PipelineRef = "v2.0.2",
     [string]$PackageHubRef = "v1.3.20",
     # Name of the generated subclass. Empty = derived from the project folder (StormTale -> StormTaleConfig).
     [string]$ConfigClassName = "",

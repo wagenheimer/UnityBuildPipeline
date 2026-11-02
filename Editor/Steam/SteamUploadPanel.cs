@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -49,6 +50,18 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var cfg = _config.steamUpload;
 
+            _root.Add(BuildMasterToggleCard(cfg));
+
+            if (!cfg.steamEnabled)
+            {
+                _root.Add(BuildPipelineUIStyle.CreateCallout(
+                    "A integração e diagnósticos da Steam estão DESATIVADOS para este projeto. " +
+                    "Marque 'Steam Ativado' acima caso este jogo seja publicado na Steam para verificar Steamworks.NET, SteamManager, steam_appid.txt e automação de builds/upload.",
+                    "info"));
+                return;
+            }
+
+            _root.Add(BuildDiagnosticsAndChecklistCard(cfg));
             _root.Add(BuildProfilesCard());
             _root.Add(BuildImportCard(cfg));
             _root.Add(BuildConfigCard(cfg));
@@ -56,6 +69,202 @@ namespace Wagenheimer.BuildPipeline.Editor
             _root.Add(BuildActionsCard(cfg));
             _root.Add(BuildLogCard());
             _root.Add(BuildHistoryCard());
+        }
+
+        // ── Master Toggle Card ───────────────────────────────────────────────────
+
+        private VisualElement BuildMasterToggleCard(SteamUploadConfig cfg)
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🎮 Integração Steam",
+                "Ativa ou desativa o ecossistema Steam para este projeto. Quando desativado, o painel silencia alertas e erros de SDKs ausentes.");
+
+            var toggleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
+            var toggle = new Toggle("Steam Ativado (S/N)")
+            {
+                value = cfg.steamEnabled,
+                style = { unityFontStyleAndWeight = FontStyle.Bold }
+            };
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                cfg.steamEnabled = evt.newValue;
+                SaveDirty();
+                Rebuild();
+            });
+            toggleRow.Add(toggle);
+            card.Add(toggleRow);
+
+            if (cfg.steamEnabled && !string.IsNullOrEmpty(cfg.appId))
+            {
+                var linksRow = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
+                void AddLinkBtn(string text, string url)
+                {
+                    var btn = new Button(() => Application.OpenURL(url));
+                    BuildPipelineUIStyle.ApplyIconText(btn, text);
+                    btn.AddToClassList("bp-btn");
+                    btn.style.marginRight = 6;
+                    linksRow.Add(btn);
+                }
+
+                AddLinkBtn("🌐 Painel do Jogo", $"https://partner.steamgames.com/apps/landing/{cfg.appId}");
+                AddLinkBtn("🚀 Builds (SteamPipe)", $"https://partner.steamgames.com/apps/builds/{cfg.appId}");
+                AddLinkBtn("🏆 Conquistas & Stats", $"https://partner.steamgames.com/apps/achievements/{cfg.appId}");
+                card.Add(linksRow);
+            }
+
+            return card;
+        }
+
+        // ── Diagnostics & Checklist ──────────────────────────────────────────────
+
+        private VisualElement BuildDiagnosticsAndChecklistCard(SteamUploadConfig cfg)
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🩺 Diagnóstico & Checklist do Steam",
+                "Verificação dos requisitos essenciais para compilar, executar e testar o jogo com a Steam no editor e standalone.");
+
+            // 1. Steamworks.NET
+            bool steamworksInstalled = DefineEnvironment.IsSteamworksPresent() || HasSteamworksPackage();
+            var swRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
+            var swLabel = new Label(steamworksInstalled
+                ? "✔ Steamworks.NET instalado no projeto."
+                : "⚠ Steamworks.NET não encontrado. (Necessário para a API Steam, conquistas, overlay e nuvem)")
+            {
+                style = { flexGrow = 1, color = steamworksInstalled ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
+            };
+            swRow.Add(swLabel);
+            if (!steamworksInstalled)
+            {
+                var installBtn = new Button(() =>
+                {
+                    AddSteamworksPackage();
+                    Rebuild();
+                });
+                BuildPipelineUIStyle.ApplyIconText(installBtn, "📦 Adicionar Steamworks.NET (UPM)");
+                installBtn.AddToClassList("bp-btn");
+                installBtn.AddToClassList("bp-btn--primary");
+                swRow.Add(installBtn);
+            }
+            card.Add(swRow);
+
+            // 2. steam_appid.txt
+            string appIdPath = GetSteamAppIdFilePath();
+            bool appIdFileExists = File.Exists(appIdPath);
+            string fileContent = appIdFileExists ? File.ReadAllText(appIdPath).Trim() : "";
+            bool idSynced = appIdFileExists && !string.IsNullOrEmpty(cfg.appId) && fileContent == cfg.appId.Trim();
+
+            var appIdRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
+            string appIdMsg = string.IsNullOrWhiteSpace(cfg.appId)
+                ? "⚠ App ID da Steam ainda não foi configurado na seção abaixo."
+                : !appIdFileExists
+                    ? $"⚠ steam_appid.txt ausente na raiz do projeto ({Path.GetFileName(Path.GetDirectoryName(Application.dataPath))}/steam_appid.txt)."
+                    : idSynced
+                        ? $"✔ steam_appid.txt presente e sincronizado (App ID: {cfg.appId})."
+                        : $"⚠ steam_appid.txt desatualizado (arquivo: '{fileContent}' vs config: '{cfg.appId}').";
+
+            var appIdLabel = new Label(appIdMsg)
+            {
+                style = { flexGrow = 1, color = idSynced ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
+            };
+            appIdRow.Add(appIdLabel);
+
+            if (!string.IsNullOrWhiteSpace(cfg.appId) && !idSynced)
+            {
+                var syncBtn = new Button(() =>
+                {
+                    try
+                    {
+                        File.WriteAllText(appIdPath, cfg.appId.Trim());
+                        AssetDatabase.Refresh();
+                        Rebuild();
+                        EditorUtility.DisplayDialog("steam_appid.txt", $"Arquivo gravado com App ID {cfg.appId} na raiz do projeto.", "OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        EditorUtility.DisplayDialog("Erro", ex.Message, "OK");
+                    }
+                });
+                BuildPipelineUIStyle.ApplyIconText(syncBtn, appIdFileExists ? "⚡ Sincronizar steam_appid.txt" : "⚡ Criar steam_appid.txt");
+                syncBtn.AddToClassList("bp-btn");
+                syncBtn.AddToClassList("bp-btn--primary");
+                appIdRow.Add(syncBtn);
+            }
+            card.Add(appIdRow);
+
+            // 3. SteamManager.cs
+            string managerPath = FindSteamManagerScriptPath();
+            bool hasManagerScript = !string.IsNullOrEmpty(managerPath);
+            var mgrRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
+            var mgrLabel = new Label(hasManagerScript
+                ? $"✔ SteamManager.cs encontrado em '{managerPath}'."
+                : "⚠ SteamManager.cs não encontrado em Assets/. (Script essencial para SteamAPI.Init no runtime)")
+            {
+                style = { flexGrow = 1, color = hasManagerScript ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
+            };
+            mgrRow.Add(mgrLabel);
+            if (!hasManagerScript)
+            {
+                var createMgrBtn = new Button(() =>
+                {
+                    CreateSteamManagerScript();
+                    Rebuild();
+                });
+                BuildPipelineUIStyle.ApplyIconText(createMgrBtn, "📄 Criar SteamManager.cs");
+                createMgrBtn.AddToClassList("bp-btn");
+                createMgrBtn.AddToClassList("bp-btn--primary");
+                mgrRow.Add(createMgrBtn);
+            }
+            card.Add(mgrRow);
+
+            // 4. Injeção na cena inicial
+            var firstScene = EditorBuildSettings.scenes?.FirstOrDefault(s => s.enabled);
+            var sceneRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
+            if (firstScene == null)
+            {
+                sceneRow.Add(new Label("⚠ Nenhuma cena habilitada em File > Build Settings.")
+                {
+                    style = { flexGrow = 1, color = new Color(0.95f, 0.75f, 0.35f), fontSize = 11 }
+                });
+            }
+            else
+            {
+                bool sceneHasManager = false;
+                string sceneFullPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, firstScene.path);
+                if (File.Exists(sceneFullPath))
+                {
+                    string sceneText = File.ReadAllText(sceneFullPath);
+                    if (sceneText.Contains("SteamManager"))
+                        sceneHasManager = true;
+                }
+                bool autoInit = hasManagerScript && File.Exists(managerPath) && File.ReadAllText(managerPath).Contains("RuntimeInitializeOnLoadMethod");
+
+                string sceneMsg = sceneHasManager
+                    ? $"✔ SteamManager presente na cena inicial ({Path.GetFileName(firstScene.path)})."
+                    : autoInit
+                        ? $"✔ SteamManager possui auto-inicialização em runtime ([RuntimeInitializeOnLoadMethod])."
+                        : $"⚠ SteamManager não detectado na primeira cena ({Path.GetFileName(firstScene.path)}).";
+
+                bool ok = sceneHasManager || autoInit;
+                var sceneLabel = new Label(sceneMsg)
+                {
+                    style = { flexGrow = 1, color = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
+                };
+                sceneRow.Add(sceneLabel);
+
+                if (!ok)
+                {
+                    var injectBtn = new Button(() =>
+                    {
+                        InjectSteamManagerIntoFirstScene(firstScene.path);
+                        Rebuild();
+                    });
+                    BuildPipelineUIStyle.ApplyIconText(injectBtn, "⚡ Injetar na Cena Inicial");
+                    injectBtn.AddToClassList("bp-btn");
+                    injectBtn.AddToClassList("bp-btn--primary");
+                    sceneRow.Add(injectBtn);
+                }
+            }
+            card.Add(sceneRow);
+
+            return card;
         }
 
         // ── Import ───────────────────────────────────────────────────────────────
@@ -341,6 +550,207 @@ namespace Wagenheimer.BuildPipeline.Editor
             return card;
         }
 
+        // ── Steam Diagnostic Helpers ─────────────────────────────────────────────
+
+        private static string GetSteamAppIdFilePath() =>
+            Path.Combine(Directory.GetParent(Application.dataPath).FullName, "steam_appid.txt");
+
+        private static bool HasSteamworksPackage()
+        {
+            try
+            {
+                string manifestPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Packages", "manifest.json");
+                if (File.Exists(manifestPath))
+                    return File.ReadAllText(manifestPath).Contains("com.rlabrecque.steamworks.net");
+            }
+            catch { }
+            return false;
+        }
+
+        private static void AddSteamworksPackage()
+        {
+            try
+            {
+                string manifestPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Packages", "manifest.json");
+                if (File.Exists(manifestPath))
+                {
+                    string text = File.ReadAllText(manifestPath);
+                    if (!text.Contains("com.rlabrecque.steamworks.net"))
+                    {
+                        int depIdx = text.IndexOf("\"dependencies\"");
+                        if (depIdx >= 0)
+                        {
+                            int openBrace = text.IndexOf('{', depIdx);
+                            if (openBrace >= 0)
+                            {
+                                string insertion = "\n    \"com.rlabrecque.steamworks.net\": \"https://github.com/rlabrecque/Steamworks.NET.git\",";
+                                text = text.Insert(openBrace + 1, insertion);
+                                File.WriteAllText(manifestPath, text);
+                                AssetDatabase.Refresh();
+                                EditorUtility.DisplayDialog("Steamworks.NET", "Pacote com.rlabrecque.steamworks.net adicionado ao manifest.json. O Unity começará o download.", "OK");
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.DisplayDialog("Erro", "Falha ao editar manifest.json: " + ex.Message, "OK");
+            }
+        }
+
+        private static string FindSteamManagerScriptPath()
+        {
+            string[] guids = AssetDatabase.FindAssets("SteamManager t:MonoScript");
+            foreach (var g in guids)
+            {
+                string p = AssetDatabase.GUIDToAssetPath(g);
+                if (Path.GetFileName(p).Equals("SteamManager.cs", StringComparison.OrdinalIgnoreCase))
+                    return p;
+            }
+            return null;
+        }
+
+        private static void CreateSteamManagerScript()
+        {
+            try
+            {
+                string targetDir = Path.Combine(Application.dataPath, "Scripts", "Steam");
+                if (!Directory.Exists(targetDir))
+                    Directory.CreateDirectory(targetDir);
+
+                string filePath = Path.Combine(targetDir, "SteamManager.cs");
+                File.WriteAllText(filePath, SteamManagerTemplate);
+                AssetDatabase.Refresh();
+                EditorUtility.DisplayDialog("SteamManager Criado", $"Script SteamManager.cs gerado com sucesso em '{filePath}'. Ele possui auto-inicialização em runtime antes da primeira cena.", "OK");
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.DisplayDialog("Erro", "Falha ao criar SteamManager.cs: " + ex.Message, "OK");
+            }
+        }
+
+        private static void InjectSteamManagerIntoFirstScene(string scenePath)
+        {
+            try
+            {
+                if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                {
+                    var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                    var existing = GameObject.Find("SteamManager") ?? GameObject.Find("[SteamManager]");
+                    if (existing == null)
+                    {
+                        var go = new GameObject("SteamManager");
+                        var managerType = AppDomain.CurrentDomain.GetAssemblies()
+                            .Select(a => a.GetType("SteamManager"))
+                            .FirstOrDefault(t => t != null);
+                        if (managerType != null)
+                            go.AddComponent(managerType);
+                        EditorSceneManager.MarkSceneDirty(scene);
+                        EditorSceneManager.SaveScene(scene);
+                        EditorUtility.DisplayDialog("Sucesso", $"Objeto SteamManager adicionado e salvo na cena '{scenePath}'.", "OK");
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog("Aviso", $"A cena '{scenePath}' já possui o objeto '{existing.name}'.", "OK");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.DisplayDialog("Erro ao injetar", ex.Message, "OK");
+            }
+        }
+
+        private const string SteamManagerTemplate = @"// The SteamManager is designed to work with Steamworks.NET
+#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
+#define DISABLESTEAMWORKS
+#endif
+
+using UnityEngine;
+#if !DISABLESTEAMWORKS
+using System.Collections;
+using Steamworks;
+#endif
+
+[DisallowMultipleComponent]
+public class SteamManager : MonoBehaviour {
+#if !DISABLESTEAMWORKS
+    protected static SteamManager s_instance;
+    protected static bool s_EverInitialized;
+
+    protected bool m_bInitialized;
+    public static bool Initialized => s_instance != null && s_instance.m_bInitialized;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void AutoInitialize() {
+        if (s_instance == null && !s_EverInitialized) {
+            var go = new GameObject(""[SteamManager]"");
+            DontDestroyOnLoad(go);
+            go.AddComponent<SteamManager>();
+        }
+    }
+
+    protected virtual void Awake() {
+        if (s_instance != null) {
+            Destroy(gameObject);
+            return;
+        }
+        s_instance = this;
+
+        if (s_EverInitialized) {
+            throw new System.Exception(""Tried to Initialize the SteamAPI twice in one session!"");
+        }
+        DontDestroyOnLoad(gameObject);
+
+        if (!Packsize.Test()) {
+            Debug.LogError(""[Steamworks.NET] Packsize Test returned false, the wrong version of Steamworks.NET is being run in this platform."", this);
+        }
+
+        if (!DllCheck.Test()) {
+            Debug.LogError(""[Steamworks.NET] DllCheck Test returned false, One or more of the Steamworks binaries seems to be the wrong version."", this);
+        }
+
+        try {
+            if (SteamAPI.RestartAppIfNecessary((AppId_t)0)) {
+                Application.Quit();
+                return;
+            }
+        }
+        catch (System.DllNotFoundException e) {
+            Debug.LogError(""[Steamworks.NET] Could not load [lib]steam_api.dll/so/dylib. It's likely not in the correct location. Refer to the README for more details.\n"" + e, this);
+            Application.Quit();
+            return;
+        }
+
+        m_bInitialized = SteamAPI.Init();
+        if (!m_bInitialized) {
+            Debug.LogError(""[Steamworks.NET] SteamAPI_Init() failed. Refer to Valve's documentation or the comment above this line for more information."", this);
+            return;
+        }
+        s_EverInitialized = true;
+    }
+
+    protected virtual void OnEnable() {
+        if (s_instance == null) s_instance = this;
+    }
+
+    protected virtual void Update() {
+        if (!m_bInitialized) return;
+        SteamAPI.RunCallbacks();
+    }
+
+    protected virtual void OnDestroy() {
+        if (s_instance != this) return;
+        s_instance = null;
+        if (!m_bInitialized) return;
+        SteamAPI.Shutdown();
+    }
+#endif
+}
+";
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private void SaveDirty()
@@ -367,7 +777,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 {
                     var picked = EditorUtility.OpenFilePanel("Locate steamcmd.exe", Path.GetDirectoryName(value) ?? "", "exe");
                     if (string.IsNullOrEmpty(picked)) return;
-                    field.value = picked; // triggers the change callback above
+                    field.value = picked;
                 })
                 { text = "..." };
                 browseBtn.AddToClassList("bp-btn");

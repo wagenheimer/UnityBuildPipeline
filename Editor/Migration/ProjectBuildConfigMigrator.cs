@@ -39,6 +39,12 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 config.gameDefines ??= new List<DefineDeclaration>();
 
+                if (config.steamUpload != null && !config.steamUpload.steamEnabled &&
+                    (!string.IsNullOrEmpty(config.steamUpload.appId) || flagged.Count > 0))
+                {
+                    config.steamUpload.steamEnabled = true;
+                }
+
                 // Only real 1.x assets get notes (a brand-new asset also starts at 0 but has no history).
                 bool upgradedAsset = (config.publishers?.Count ?? 0) > 0 && !string.IsNullOrEmpty(UnityEditor.AssetDatabase.GetAssetPath(config));
                 if (upgradedAsset)

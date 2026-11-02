@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2026-11-02
+
+### Added
+- Perfis: categoria dedicada '🎮 Steam' agrupando builds Windows, macOS e Linux da Steam com ícone de plataforma.
+- Perfis: contadores de perfis visíveis e ocultos por categoria e no resumo da lista.
+- Perfis: botões '👁 Exibir todos' e '🙈 Ocultar todos' para gerenciar visibilidade de perfis em lote.
+- Steam: toggle principal 'Steam Ativado (S/N)' para silenciar alertas de SDKs quando o jogo não usa Steam.
+- Steam: checklist e diagnóstico com 1 clique (instalação do Steamworks.NET via UPM, criação e sincronização do steam_appid.txt, geração do SteamManager.cs e injeção na cena inicial).
+- Steam: atalhos rápidos para o painel do parceiro Steamworks (App Admin, SteamPipe Builds, Achievements & Stats).
+
 ## [2.0.1] - 2026-11-02
 
 ### Added

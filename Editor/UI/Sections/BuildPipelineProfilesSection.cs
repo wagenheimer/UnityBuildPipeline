@@ -99,9 +99,27 @@ namespace Wagenheimer.BuildPipeline.Editor
             var list = new VisualElement();
             list.AddToClassList("bp-split-list");
 
-            var tools = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 6 } };
+            int total = _config.publishers?.Count ?? 0;
+            int visible = _config.publishers?.Count(p => p != null && !p.hidden) ?? 0;
+            int hiddenCount = total - visible;
+
+            var tools = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 4, alignItems = Align.Center } };
             tools.Add(BuildPipelineBuildSection.SmallButton("＋ Novo perfil", () => BuildProfileWizardWindow.Open()));
+            tools.Add(BuildPipelineBuildSection.SmallButton("👁 Exibir todos", () =>
+            {
+                if (_config.publishers == null) return;
+                foreach (var p in _config.publishers) if (p != null) p.hidden = false;
+                _ctx.SaveConfig();
+            }));
+            tools.Add(BuildPipelineBuildSection.SmallButton("🙈 Ocultar todos", () =>
+            {
+                if (_config.publishers == null) return;
+                foreach (var p in _config.publishers) if (p != null) p.hidden = true;
+                _ctx.SaveConfig();
+            }));
+
             var hidden = new Toggle("ocultos") { value = _selection.showHiddenProfiles, style = { marginLeft = 6 } };
+            hidden.tooltip = "Exibe os perfis marcados como ocultos nesta lista";
             hidden.RegisterValueChangedCallback(evt =>
             {
                 _selection.showHiddenProfiles = evt.newValue;
@@ -111,11 +129,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             tools.Add(hidden);
             list.Add(tools);
 
+            var summary = new Label($"Total: {total} perfil{(total == 1 ? "" : "s")} ({visible} visíve{(visible == 1 ? "l" : "is")} · {hiddenCount} oculto{(hiddenCount == 1 ? "" : "s")})")
+            {
+                style = { fontSize = 10, color = new Color(0.65f, 0.7f, 0.75f), marginBottom = 8 }
+            };
+            list.Add(summary);
+
             var issues = BuildPipelineHealth.Compute(_config).Issues;
             int selected = SelectedIndex();
             foreach (var group in ProfileGroups.Build(_config, _selection.showHiddenProfiles || IsHiddenSelected(selected)))
             {
-                var title = BuildPipelineUIStyle.CreateText(group.Title, "bp-group-title");
+                var title = BuildPipelineUIStyle.CreateText(group.SummaryText, "bp-group-title");
                 list.Add(title);
 
                 foreach (int index in group.Indices)
@@ -134,9 +158,12 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var mine = issues.Where(i => string.Equals(i.ProfileId, profile.EffectiveId, StringComparison.OrdinalIgnoreCase)).ToList();
                     string mark = mine.Any(i => i.Severity == BuildProfileIssueSeverity.Error) ? "⛔ " : mine.Count > 0 ? "⚠ " : "";
                     string lockMark = profile.IsLanguageLocked ? $" 🔒{profile.lockedLanguage.AsLanguageCode().ToUpperInvariant()}" : "";
-                    BuildPipelineUIStyle.ApplyIconText(item, $"{mark}{profile.displayName}{lockMark}");
+                    string platIcon = group.Title.Contains("Steam")
+                        ? (profile.platform == PlatformType.macOS ? "🍎 " : profile.platform == PlatformType.Linux64 ? "🐧 " : "🪟 ")
+                        : "";
+                    BuildPipelineUIStyle.ApplyIconText(item, $"{mark}{platIcon}{profile.displayName}{lockMark}");
                     item.style.justifyContent = Justify.FlexStart;
-                    item.tooltip = $"{profile.EffectiveId}\n" + string.Join("\n", mine.Select(i => i.Message));
+                    item.tooltip = $"{profile.EffectiveId} ({profile.platform})\n" + string.Join("\n", mine.Select(i => i.Message));
                     list.Add(item);
                 }
             }

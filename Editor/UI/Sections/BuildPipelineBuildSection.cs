@@ -198,7 +198,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var issues = BuildPipelineHealth.Compute(_config).Issues;
             foreach (var group in ProfileGroups.Build(_config, _selection.showHiddenProfiles))
             {
-                var header = BuildPipelineUIStyle.CreateText(group.Title, "bp-group-title");
+                var header = BuildPipelineUIStyle.CreateText(group.SummaryText, "bp-group-title");
                 card.Add(header);
 
                 foreach (int index in group.Indices)
@@ -521,13 +521,21 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
     }
 
-    /// <summary>Profiles grouped by platform, in a fixed, predictable order.</summary>
+    /// <summary>Profiles grouped by platform (and dedicated Steam group), in a fixed, predictable order.</summary>
     internal static class ProfileGroups
     {
         public sealed class Group
         {
             public string Title;
             public List<int> Indices = new List<int>();
+            public int VisibleCount;
+            public int HiddenCount;
+            public int TotalCount => VisibleCount + HiddenCount;
+
+            public string SummaryText =>
+                HiddenCount > 0
+                    ? $"{Title} ({VisibleCount} visíve{(VisibleCount == 1 ? "l" : "is")} · {HiddenCount} oculto{(HiddenCount == 1 ? "" : "s")})"
+                    : $"{Title} ({VisibleCount})";
         }
 
         private static readonly (PlatformType Platform, string Title)[] Order =
@@ -543,14 +551,40 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static List<Group> Build(ProjectBuildConfig config, bool includeHidden)
         {
             var groups = new List<Group>();
+            int total = config.publishers?.Count ?? 0;
+
+            // 1. Grupo dedicado para Steam (Windows / macOS / Linux)
+            var steamGroup = new Group { Title = "🎮 Steam" };
+            for (int i = 0; i < total; i++)
+            {
+                var profile = config.publishers[i];
+                if (profile != null && profile.IsSteamProfile)
+                {
+                    if (profile.hidden) steamGroup.HiddenCount++;
+                    else steamGroup.VisibleCount++;
+
+                    if (includeHidden || !profile.hidden)
+                        steamGroup.Indices.Add(i);
+                }
+            }
+            if (steamGroup.Indices.Count > 0)
+                groups.Add(steamGroup);
+
+            // 2. Grupos por plataforma (exclui perfis que já estão no grupo Steam)
             foreach (var (platform, title) in Order)
             {
                 var group = new Group { Title = title };
-                for (int i = 0; i < (config.publishers?.Count ?? 0); i++)
+                for (int i = 0; i < total; i++)
                 {
                     var profile = config.publishers[i];
-                    if (profile != null && profile.platform == platform && (includeHidden || !profile.hidden))
-                        group.Indices.Add(i);
+                    if (profile != null && !profile.IsSteamProfile && profile.platform == platform)
+                    {
+                        if (profile.hidden) group.HiddenCount++;
+                        else group.VisibleCount++;
+
+                        if (includeHidden || !profile.hidden)
+                            group.Indices.Add(i);
+                    }
                 }
 
                 if (group.Indices.Count > 0)
@@ -569,7 +603,11 @@ namespace Wagenheimer.BuildPipeline.Editor
             var badges = new List<VisualElement>();
             badges.Add(Badge(profile.isFullGame ? "Full" : "Free", profile.isFullGame ? "ok" : "info", null));
             if (profile.isDemo) badges.Add(Badge("Demo", "info", null));
-            if (profile.isSteam) badges.Add(Badge("Steam", "info", "Perfil Steam"));
+            if (profile.isSteam)
+            {
+                string plat = profile.platform == PlatformType.macOS ? "macOS" : profile.platform == PlatformType.Linux64 ? "Linux" : "Win";
+                badges.Add(Badge($"Steam ({plat})", "info", $"Perfil Steam para {profile.platform}"));
+            }
             if (profile.IsLanguageLocked) badges.Add(Badge("🔒 " + profile.lockedLanguage.AsLanguageCode().ToUpperInvariant(), "warn", $"Idioma travado em {profile.lockedLanguage}"));
             if (profile.hidden) badges.Add(Badge("oculto", "warn", "Escondido das listas; o CI ainda builda pelo id."));
 

@@ -13,6 +13,9 @@ namespace Wagenheimer.BuildPipeline.Editor
     [Serializable]
     public class SteamUploadConfig
     {
+        [Tooltip("Habilita a integração e diagnósticos da Steam para este projeto. Quando desmarcado, silencia alertas de SDKs ausentes.")]
+        public bool steamEnabled = false;
+
         [Tooltip("Steam App ID for this game (from Steamworks > App Admin). Empty disables Steam upload.")]
         public string appId = "";
 
