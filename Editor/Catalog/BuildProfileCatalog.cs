@@ -30,6 +30,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public int platformValue;
         public bool isFullGame;
         public bool isDemo;
+
+        /// <summary>Hidden from the editor list; still present in the asset and buildable by id.</summary>
+        public bool hidden;
         public string bundleIdentifier = "";
         public string outputSubfolder = "";
 
@@ -148,6 +151,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 platformValue = (int)profile.platform,
                 isFullGame = profile.isFullGame,
                 isDemo = profile.isDemo,
+                hidden = profile.hidden,
                 bundleIdentifier = profile.bundleIdentifier ?? "",
                 outputSubfolder = profile.outputSubfolder ?? "",
                 presetIds = (profile.definePresets ?? new List<string>())

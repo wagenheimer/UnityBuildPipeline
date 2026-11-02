@@ -72,6 +72,18 @@ namespace Wagenheimer.BuildPipeline.Tests
         }
 
         [Test]
+        public void CatalogProfileExportsHiddenFlag()
+        {
+            var profile = Profiles.Mobile(Publisher.iOSFree, "iOSFree", PlatformType.iOS, false);
+            profile.hidden = true;
+
+            var config = Config(null, profile);
+            var entry = BuildProfileCatalog.ToCatalogProfile(config, profile);
+
+            Assert.IsTrue(entry.hidden);
+        }
+
+        [Test]
         public void CatalogPathIsNextToTheAsset()
         {
             Assert.AreEqual(

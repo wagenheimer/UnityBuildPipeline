@@ -27,6 +27,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         public bool requiresSplash = false;
         public bool isFullGame = true;
         public bool isDemo = false;
+
+        [Tooltip("Esconde este perfil da lista do editor (não apaga nada e o CI continua conseguindo buildar por id). Use 'Mostrar ocultos' para trazê-lo de volta.")]
+        public bool hidden = false;
         public ScriptingImplementation scriptingBackend = ScriptingImplementation.IL2CPP;
         [Tooltip("macOS only. Universal (Intel + Apple Silicon) is required by Apple for App Store submissions unless the minimum OS is raised to 13.0+. Defaults to Universal so CI builds pass altool validation without manual Player Settings changes.")]
         public MacArchitecture macArchitecture = MacArchitecture.Universal;

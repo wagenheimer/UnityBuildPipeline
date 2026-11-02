@@ -29,6 +29,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     {
         private const string DefaultSteamOutputSubfolder = "Builds/Publishers/Steam/";
         private static readonly HashSet<int> ExpandedPublisherIndices = new HashSet<int>();
+        private static bool ShowHiddenPublishers;
 
         public static VisualElement BuildSection(ProjectBuildConfig config, SerializedObject so, Action onExternalChange = null)
         {
@@ -74,8 +75,29 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 var pubProp = so.FindProperty("publishers");
 
+                int hiddenCount = config.publishers.Count(p => p != null && p.hidden);
+                int visibleCount = config.publishers.Count - hiddenCount;
+
                 var listHeader = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 10, marginBottom = 4 } };
-                listHeader.Add(new Label($"All Publishers ({config.publishers.Count})") { style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1 } });
+                listHeader.Add(new Label(hiddenCount > 0
+                    ? $"All Publishers ({visibleCount} of {config.publishers.Count})"
+                    : $"All Publishers ({config.publishers.Count})") { style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1 } });
+
+                if (hiddenCount > 0)
+                {
+                    var showHiddenBtn = new Button(() =>
+                    {
+                        ShowHiddenPublishers = !ShowHiddenPublishers;
+                        Refresh();
+                    });
+                    BuildPipelineUIStyle.ApplyIconText(showHiddenBtn,
+                        ShowHiddenPublishers ? "🙈 Hide hidden" : $"👁 Show hidden ({hiddenCount})");
+                    showHiddenBtn.tooltip = "Perfis ocultos continuam no asset e buildáveis por id — o olho só limpa esta lista.";
+                    showHiddenBtn.AddToClassList("bp-btn");
+                    showHiddenBtn.style.marginRight = 6;
+                    listHeader.Add(showHiddenBtn);
+                }
+
                 var addPubBtn = new Button(() =>
                 {
                     config.publishers.Add(new PublisherProfile(Publisher.Default, "New Publisher", PlatformType.Windows64));
@@ -90,7 +112,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 body.Add(listHeader);
 
                 for (int i = 0; i < config.publishers.Count; i++)
+                {
+                    var listed = config.publishers[i];
+                    if (listed == null)
+                        continue;
+                    if (listed.hidden && !ShowHiddenPublishers)
+                        continue;
+
                     body.Add(BuildPublisherCard(config, so, pubProp, i, () => { Refresh(); onExternalChange?.Invoke(); }));
+                }
 
                 var rawFoldout = new Foldout { text = "Customize Publishers List (Raw Reorderable Array)", value = false };
                 rawFoldout.style.opacity = 0.85f;
@@ -300,6 +330,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var card = new VisualElement { style = { marginBottom = 8, paddingTop = 8, paddingBottom = 8, paddingLeft = 10, paddingRight = 10, backgroundColor = new Color(0.15f, 0.18f, 0.24f, 0.5f) } };
             card.style.borderTopLeftRadius = card.style.borderTopRightRadius = card.style.borderBottomLeftRadius = card.style.borderBottomRightRadius = 4;
+            if (profile.hidden)
+                card.style.opacity = 0.55f;
 
             var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
 
@@ -340,6 +372,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 demoBadge.style.marginLeft = 4;
                 titleRow.Add(demoBadge);
             }
+            if (profile.hidden)
+            {
+                var hiddenBadge = BuildPipelineUIStyle.CreateBadge("🙈 Oculto", "warn");
+                hiddenBadge.style.marginLeft = 4;
+                hiddenBadge.tooltip = "Some desta lista, mas continua no asset e buildável por id.";
+                titleRow.Add(hiddenBadge);
+            }
             var definesCount = profile.scriptingDefines?.Count ?? 0;
             if (definesCount > 0)
             {
@@ -355,6 +394,21 @@ namespace Wagenheimer.BuildPipeline.Editor
             header.Add(titleCol);
 
             var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexShrink = 0 } };
+
+            var eyeBtn = new Button(() =>
+            {
+                profile.hidden = !profile.hidden;
+                EditorUtility.SetDirty(config);
+                onListChanged();
+            });
+            BuildPipelineUIStyle.ApplyIconText(eyeBtn, profile.hidden ? "👁" : "🙈");
+            eyeBtn.tooltip = profile.hidden
+                ? "Reativar este perfil na lista"
+                : "Ocultar este perfil da lista (não apaga e o CI continua podendo buildar por id)";
+            eyeBtn.AddToClassList("bp-btn");
+            eyeBtn.style.width = 24;
+            eyeBtn.style.marginRight = 4;
+            actions.Add(eyeBtn);
 
             var upBtn = new Button(() =>
             {
