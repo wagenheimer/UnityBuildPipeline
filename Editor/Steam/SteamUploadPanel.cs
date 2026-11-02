@@ -557,6 +557,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static bool HasSteamworksPackage() => DefineEnvironment.IsSteamworksPresent();
 
+        public const string SteamworksGitPackageUrl = "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#20.0.0";
+
         private static void AddSteamworksPackage()
         {
             try
@@ -565,7 +567,13 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (File.Exists(manifestPath))
                 {
                     string text = File.ReadAllText(manifestPath);
-                    if (!text.Contains("com.rlabrecque.steamworks.net"))
+                    if (text.Contains("com.rlabrecque.steamworks.net"))
+                    {
+                        var regex = new System.Text.RegularExpressions.Regex("\"com\\.rlabrecque\\.steamworks\\.net\"\\s*:\\s*\"[^\"]*\"");
+                        text = regex.Replace(text, $"\"com.rlabrecque.steamworks.net\": \"{SteamworksGitPackageUrl}\"");
+                        File.WriteAllText(manifestPath, text);
+                    }
+                    else
                     {
                         int depIdx = text.IndexOf("\"dependencies\"");
                         if (depIdx >= 0)
@@ -573,15 +581,22 @@ namespace Wagenheimer.BuildPipeline.Editor
                             int openBrace = text.IndexOf('{', depIdx);
                             if (openBrace >= 0)
                             {
-                                string insertion = "\n    \"com.rlabrecque.steamworks.net\": \"https://github.com/rlabrecque/Steamworks.NET.git\",";
+                                string insertion = $"\n    \"com.rlabrecque.steamworks.net\": \"{SteamworksGitPackageUrl}\",";
                                 text = text.Insert(openBrace + 1, insertion);
                                 File.WriteAllText(manifestPath, text);
-                                AssetDatabase.Refresh();
-                                EditorUtility.DisplayDialog("Steamworks.NET", "Pacote com.rlabrecque.steamworks.net adicionado ao manifest.json. O Unity começará o download.", "OK");
-                                return;
                             }
                         }
                     }
+
+                    try
+                    {
+                        UnityEditor.PackageManager.Client.Resolve();
+                    }
+                    catch { }
+
+                    AssetDatabase.Refresh();
+                    EditorUtility.DisplayDialog("Steamworks.NET", $"Pacote configurado no manifest.json:\n\n{SteamworksGitPackageUrl}\n\nO Unity agora fará o download e importação dos arquivos do Steamworks.", "OK");
+                    return;
                 }
             }
             catch (Exception ex)
