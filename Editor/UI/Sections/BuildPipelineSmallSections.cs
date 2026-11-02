@@ -158,6 +158,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 local.Add(BuildPipelineUIStyle.CreateCallout(File.Exists(path) ? $"✔ Arquivo encontrado: {path}" : $"⚠ Arquivo não encontrado: {path}",
                     File.Exists(path) ? "ok" : "warn"));
                 Root.Add(local);
+
+                if (File.Exists(path))
+                    Root.Add(MigrateToVaultCard(ctx, so, path));
             }
             else
             {
@@ -168,6 +171,75 @@ namespace Wagenheimer.BuildPipeline.Editor
             Root.TrackPropertyValue(so.FindProperty("keystoreSource"), _ => ctx.RebuildSection());
         }
 
+        /// <summary>
+        /// Sends the local keystore (file + alias + passwords) to the AppDeployHub vault and switches this project to it,
+        /// so the keystore and its passwords no longer have to live on each machine or in the asset.
+        /// </summary>
+        private static VisualElement MigrateToVaultCard(BuildPipelineSectionContext ctx, SerializedObject so, string keystorePath)
+        {
+            var config = ctx.Config;
+            var card = BuildPipelineUIStyle.CreateCard("☁ Migrar para o cofre do AppDeployHub",
+                "Envia este keystore (arquivo, alias e senhas) para o cofre — a mesma fonte que o Forge usa — e passa o projeto a ler de lá. " +
+                "Se o cofre já tiver este keystore, a credencial existente é reutilizada (nada é duplicado). O arquivo local não é apagado.");
+
+            card.Add(KeyRow());
+            card.Add(new PropertyField(so.FindProperty("appDeployHubUrl"), "URL do AppDeployHub"));
+
+            var status = new Label { style = { whiteSpace = WhiteSpace.Normal, marginTop = 4 } };
+            var migrate = BuildPipelineBuildSection.SmallButton("☁ Migrar para o cofre", async () =>
+            {
+                so.ApplyModifiedProperties();
+                string alias = config.androidKeyAlias;
+                string label = $"{(string.IsNullOrEmpty(config.projectName) ? Application.productName : config.projectName)} — Keystore ({alias})";
+                if (!EditorUtility.DisplayDialog("Migrar keystore para o cofre",
+                        $"Enviar para {config.appDeployHubUrl}:\n\n• Arquivo: {keystorePath}\n• Alias: {alias}\n• Senhas: as do keystore local\n\n" +
+                        $"Nome no cofre: {label}\n\nDepois disso este projeto passa a assinar com a credencial do cofre.",
+                        "Enviar", "Cancelar"))
+                    return;
+
+                status.text = "Enviando para o cofre…";
+                var result = await AppDeployHubVaultClient.ImportKeystoreAsync(config.appDeployHubUrl, keystorePath, alias,
+                    config.GetEffectiveKeystorePassword(), config.GetEffectiveKeyaliasPassword(), label);
+                if (!result.Success)
+                {
+                    status.text = "✕ " + result.Message;
+                    return;
+                }
+
+                // Proves the round trip before switching: the build will read exactly this.
+                var check = await AppDeployHubVaultClient.FetchKeystoreAsync(config.appDeployHubUrl, result.CredentialId);
+                if (!check.Success)
+                {
+                    status.text = $"✕ Enviado (credencial {result.CredentialId}), mas a leitura de volta falhou: {check.Message}. O projeto continua no keystore local.";
+                    return;
+                }
+
+                config.keystoreSource = KeystoreSource.AppDeployHubVault;
+                config.vaultKeystoreCredentialId = result.CredentialId;
+                config.vaultKeystoreLabel = label;
+                Debug.Log($"[BuildPipeline] Keystore migrado para o cofre do AppDeployHub: {label} ({result.CredentialId}). {result.Message}");
+                ctx.SaveConfig(false);
+            });
+            migrate.AddToClassList("bp-btn--primary");
+            card.Add(migrate);
+            card.Add(status);
+            return card;
+        }
+
+        /// <summary>The per-machine vault API key field (never stored in the asset).</summary>
+        private static VisualElement KeyRow()
+        {
+            var keyRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var keyField = new TextField("API key (esta máquina)") { isPasswordField = true, value = AppDeployHubVaultClient.GetApiKey(), style = { flexGrow = 1 } };
+            keyField.SetEnabled(!AppDeployHubVaultClient.KeyComesFromEnvironment);
+            keyField.RegisterValueChangedCallback(e => AppDeployHubVaultClient.SaveApiKey(e.newValue));
+            keyRow.Add(keyField);
+            keyRow.Add(BuildPipelineBuildSection.SmallButton("Salvar", () => AppDeployHubVaultClient.SaveApiKey(keyField.value)));
+            if (AppDeployHubVaultClient.KeyComesFromEnvironment)
+                keyField.tooltip = $"Usando a variável {AppDeployHubVaultClient.KeyEnvVar}.";
+            return keyRow;
+        }
+
         private static VisualElement VaultCard(BuildPipelineSectionContext ctx, SerializedObject so)
         {
             var config = ctx.Config;
@@ -176,13 +248,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "A API key é do tipo 'vault' (AppDeployHub → Cofre → Conectar o Forge) e fica só nesta máquina.");
 
             card.Add(new PropertyField(so.FindProperty("appDeployHubUrl"), "URL do AppDeployHub"));
-
-            var keyRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-            var keyField = new TextField("API key (esta máquina)") { isPasswordField = true, value = AppDeployHubVaultClient.GetApiKey(), style = { flexGrow = 1 } };
-            keyField.SetEnabled(!AppDeployHubVaultClient.KeyComesFromEnvironment);
-            keyRow.Add(keyField);
-            keyRow.Add(BuildPipelineBuildSection.SmallButton("Salvar", () => AppDeployHubVaultClient.SaveApiKey(keyField.value)));
-            card.Add(keyRow);
+            card.Add(KeyRow());
             if (AppDeployHubVaultClient.KeyComesFromEnvironment)
                 card.Add(new Label($"Usando a variável {AppDeployHubVaultClient.KeyEnvVar}.") { style = { fontSize = 10 } });
 

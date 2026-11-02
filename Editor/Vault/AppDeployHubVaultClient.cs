@@ -137,6 +137,65 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
+        /// <summary>
+        /// Uploads a local keystore to the vault (<c>POST /api/v1/vault/credentials/import</c>). The vault upserts by
+        /// fingerprint, so importing the same keystore twice returns the existing credential instead of a duplicate.
+        /// </summary>
+        public static async Task<(bool Success, string Message, string CredentialId, bool Created)> ImportKeystoreAsync(
+            string baseUrl, string keystorePath, string alias, string keystorePassword, string keyPassword, string label)
+        {
+            string key = GetApiKey();
+            if (string.IsNullOrEmpty(key))
+                return (false, $"Sem API key do cofre. Cole a chave (tipo 'vault') no campo acima ou defina {KeyEnvVar}.", "", false);
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return (false, "URL do AppDeployHub vazia.", "", false);
+            if (string.IsNullOrWhiteSpace(keystorePath) || !File.Exists(keystorePath))
+                return (false, "Arquivo de keystore não encontrado: " + keystorePath, "", false);
+            if (string.IsNullOrWhiteSpace(alias))
+                return (false, "Informe o alias do keystore.", "", false);
+            if (string.IsNullOrEmpty(keystorePassword))
+                return (false, "Senha do keystore vazia (variável de ambiente e fallback).", "", false);
+
+            try
+            {
+                var payload = JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    ["type"] = KeystoreType,
+                    ["label"] = label,
+                    ["secret"] = Convert.ToBase64String(File.ReadAllBytes(keystorePath)),
+                    ["keystoreAlias"] = alias.Trim(),
+                    ["keystorePassword"] = keystorePassword,
+                    ["keyPassword"] = string.IsNullOrEmpty(keyPassword) ? keystorePassword : keyPassword
+                });
+
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                var response = await client.PostAsync(baseUrl.Trim().TrimEnd('/') + "/api/v1/vault/credentials/import",
+                    new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+                string body = await response.Content.ReadAsStringAsync();
+
+                if ((int)response.StatusCode == 401)
+                    return (false, "API key recusada (401). Confira a chave do cofre.", "", false);
+                if ((int)response.StatusCode == 403)
+                    return (false, "A chave não é do tipo 'vault' (403). Crie em AppDeployHub → Cofre → Conectar o Forge.", "", false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    string error = body;
+                    try { using var doc = JsonDocument.Parse(body); error = Str(doc.RootElement, "error"); } catch (Exception) { }
+                    return (false, $"O cofre recusou o keystore (HTTP {(int)response.StatusCode}): {error}", "", false);
+                }
+
+                using var document = JsonDocument.Parse(body);
+                string id = document.RootElement.TryGetProperty("id", out var idElement) ? idElement.ToString() : "";
+                bool created = document.RootElement.TryGetProperty("created", out var createdElement) && createdElement.ValueKind == JsonValueKind.True;
+                return (!string.IsNullOrEmpty(id), created ? "Keystore enviado para o cofre." : "O cofre já tinha este keystore; reutilizando a credencial.", id, created);
+            }
+            catch (Exception ex)
+            {
+                return (false, "Falha ao enviar o keystore: " + ex.Message, "", false);
+            }
+        }
+
         public static (bool Success, string Message, VaultKeystore Keystore) FetchKeystore(string baseUrl, string credentialId) =>
             Task.Run(() => FetchKeystoreAsync(baseUrl, credentialId)).GetAwaiter().GetResult();
 
