@@ -1,0 +1,23 @@
+{
+    "name": "Wagenheimer.BuildPipeline.Tests",
+    "rootNamespace": "Wagenheimer.BuildPipeline.Tests",
+    "references": [
+        "Wagenheimer.BuildPipeline.Runtime",
+        "Wagenheimer.BuildPipeline.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
