@@ -122,7 +122,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "Verificação dos requisitos essenciais para compilar, executar e testar o jogo com a Steam no editor e standalone.");
 
             // 1. Steamworks.NET
-            bool steamworksInstalled = DefineEnvironment.IsSteamworksPresent() || HasSteamworksPackage();
+            bool steamworksInstalled = DefineEnvironment.IsSteamworksPresent();
             var swRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
             var swLabel = new Label(steamworksInstalled
                 ? "✔ Steamworks.NET instalado no projeto."
@@ -555,17 +555,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static string GetSteamAppIdFilePath() =>
             Path.Combine(Directory.GetParent(Application.dataPath).FullName, "steam_appid.txt");
 
-        private static bool HasSteamworksPackage()
-        {
-            try
-            {
-                string manifestPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Packages", "manifest.json");
-                if (File.Exists(manifestPath))
-                    return File.ReadAllText(manifestPath).Contains("com.rlabrecque.steamworks.net");
-            }
-            catch { }
-            return false;
-        }
+        private static bool HasSteamworksPackage() => DefineEnvironment.IsSteamworksPresent();
 
         private static void AddSteamworksPackage()
         {

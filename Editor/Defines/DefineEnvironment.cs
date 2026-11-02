@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEngine;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
@@ -12,8 +14,6 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// </summary>
     public static class DefineEnvironment
     {
-        private static bool? _steamworksPresent;
-
         public static string TargetGroupName(PlatformType platform) => platform.ToBuildTargetGroup().ToString();
 
         public static List<string> GlobalDefines(PlatformType platform)
@@ -50,16 +50,51 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         public static bool IsSteamworksPresent()
         {
-            if (_steamworksPresent.HasValue)
-                return _steamworksPresent.Value;
-
-            _steamworksPresent = AppDomain.CurrentDomain.GetAssemblies().Any(assembly =>
+            // 1. Check assemblies in current AppDomain
+            bool inAssemblies = AppDomain.CurrentDomain.GetAssemblies().Any(assembly =>
             {
-                try { return assembly.GetType("Steamworks.SteamUserStats", false) != null; }
+                try
+                {
+                    return assembly.GetType("Steamworks.SteamUserStats", false) != null ||
+                           assembly.GetType("Steamworks.SteamAPI", false) != null ||
+                           assembly.GetType("SteamManager", false) != null;
+                }
                 catch (Exception) { return false; }
             });
+            if (inAssemblies) return true;
 
-            return _steamworksPresent.Value;
+            // 2. Check UPM package manifest (Packages/manifest.json)
+            try
+            {
+                var dataPath = Application.dataPath;
+                if (!string.IsNullOrEmpty(dataPath))
+                {
+                    var parent = Directory.GetParent(dataPath);
+                    if (parent != null)
+                    {
+                        string manifestPath = Path.Combine(parent.FullName, "Packages", "manifest.json");
+                        if (File.Exists(manifestPath) && File.ReadAllText(manifestPath).Contains("com.rlabrecque.steamworks.net"))
+                            return true;
+                    }
+                }
+            }
+            catch { }
+
+            // 3. Check assets / plugins
+            try
+            {
+                var dataPath = Application.dataPath;
+                if (!string.IsNullOrEmpty(dataPath))
+                {
+                    if (File.Exists(Path.Combine(dataPath, "Scripts", "Steam", "SteamManager.cs")) ||
+                        File.Exists(Path.Combine(dataPath, "SteamManager.cs")) ||
+                        Directory.Exists(Path.Combine(dataPath, "Plugins", "Steamworks.NET")))
+                        return true;
+                }
+            }
+            catch { }
+
+            return false;
         }
 
         /// <summary>Target groups the profiles build for (Standalone, Android, iOS, WebGL), distinct.</summary>
