@@ -382,8 +382,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             row.Add(edit);
 
             var openFolder = SmallButton("📂 Open Folder", () => BuildOutputFolderActions.Open(_config, profile, profile.platform));
-            openFolder.tooltip = "Open build output folder in file explorer:
-" + ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
+            openFolder.tooltip = "Open build output folder in file explorer:\n" + ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
             openFolder.style.marginLeft = 6;
             row.Add(openFolder);
 
@@ -545,12 +544,11 @@ namespace Wagenheimer.BuildPipeline.Editor
                 BumpBuildNumber(profile.platform);
 
             var result = BuildPipelineRunner.Execute(context);
+            string durationText = string.Format("{0:00}:{1:00}", (int)result.Duration.TotalMinutes, result.Duration.Seconds);
             EditorUtility.DisplayDialog(result.Success ? "Build Successful" : "Build Failed",
                 result.Success
-                    ? $"{profile.displayName} completed in {result.Duration:mm\:ss}.
-{result.OutputPath}"
-                    : $"{profile.displayName}: {result.TotalErrors} error(s). {result.ErrorMessage}
-Check the Console.",
+                    ? profile.displayName + " completed in " + durationText + ".\n" + result.OutputPath
+                    : profile.displayName + ": " + result.TotalErrors + " error(s). " + result.ErrorMessage + "\nCheck the Console.",
                 "OK");
             _ctx.RebuildAll();
         }
@@ -560,16 +558,16 @@ Check the Console.",
             if (plan.Count == 0)
                 return;
 
-            string summary = string.Join("
-", plan.Take(25).Select(item =>
+            var summaryLines = plan.Take(25).Select(item =>
             {
                 var context = Create(item.Profile, item.LanguageOverride, item.Variant, item.Cheat, false);
-                return $"• {item.Profile.EffectiveId} · {context.Language}" +
-                       (item.Variant != null ? $" · {item.Variant.EffectiveId}" : "") + (item.Cheat ? " · CHEAT" : "");
-            })) + (plan.Count > 25 ? $"
-… +{plan.Count - 25}" : "");
+                return "• " + item.Profile.EffectiveId + " · " + context.Language +
+                       (item.Variant != null ? " · " + item.Variant.EffectiveId : "") + (item.Cheat ? " · CHEAT" : "");
+            }).ToList();
+            if (plan.Count > 25) summaryLines.Add("… +" + (plan.Count - 25));
+            string summary = string.Join("\n", summaryLines);
 
-            if (!BuildConfirmation.ConfirmBatch($"Execute {plan.Count} build(s)", summary))
+            if (!BuildConfirmation.ConfirmBatch("Execute " + plan.Count + " build(s)", summary))
                 return;
 
             var failed = new List<string>();
@@ -579,7 +577,7 @@ Check the Console.",
                 {
                     var item = plan[i];
                     var context = Create(item.Profile, item.LanguageOverride, item.Variant, item.Cheat, false);
-                    string label = $"[{i + 1}/{plan.Count}] {item.Profile.displayName} ({context.Language})";
+                    string label = "[" + (i + 1) + "/" + plan.Count + "] " + item.Profile.displayName + " (" + context.Language + ")";
                     if (EditorUtility.DisplayCancelableProgressBar("Batch Building", label, (float)i / plan.Count))
                     {
                         failed.Add("(cancelled by user)");
@@ -596,9 +594,7 @@ Check the Console.",
             }
 
             EditorUtility.DisplayDialog("Batch Execution Finished",
-                failed.Count == 0 ? $"{plan.Count} build(s) completed successfully." : "Failed builds:
-" + string.Join("
-", failed), "OK");
+                failed.Count == 0 ? plan.Count + " build(s) completed successfully." : "Failed builds:\n" + string.Join("\n", failed), "OK");
             _ctx.RebuildAll();
         }
 
@@ -756,18 +752,14 @@ Check the Console.",
 
             var resolved = BuildDefineResolver.Resolve(config, profile);
             if (resolved.Count > 0)
-                badges.Add(Badge($"🧬 {resolved.Count}", "ok", "Profile defines (presets + local):
-" + string.Join("
-", resolved)));
+                badges.Add(Badge($"🧬 {resolved.Count}", "ok", "Profile defines (presets + local):\n" + string.Join("\n", resolved)));
 
             var mine = issues?.Where(i => string.Equals(i.ProfileId, profile.EffectiveId, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<BuildProfileIssue>();
             int errors = mine.Count(i => i.Severity == BuildProfileIssueSeverity.Error);
             if (errors > 0)
-                badges.Add(Badge($"⛔ {errors}", "fail", string.Join("
-", mine.Select(i => i.Message))));
+                badges.Add(Badge($"⛔ {errors}", "fail", string.Join("\n", mine.Select(i => i.Message))));
             else if (mine.Count > 0)
-                badges.Add(Badge($"⚠ {mine.Count}", "warn", string.Join("
-", mine.Select(i => i.Message))));
+                badges.Add(Badge($"⚠ {mine.Count}", "warn", string.Join("\n", mine.Select(i => i.Message))));
 
             return badges;
         }
