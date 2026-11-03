@@ -696,13 +696,40 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
 
+            var buildAndUploadBtn = new Button(() =>
+            {
+                if (!EditorUtility.DisplayDialog("Confirm Full Steam Deploy",
+                    $"This will sequentially compile all configured Steam platforms (Windows, macOS, Linux) and immediately upload them to Steam App {cfg.appId}.\n\nProceed?", "Build & Upload", "Cancel"))
+                    return;
+
+                _logView.Clear();
+                AppendLog($"=== Starting Full Build & Upload for App {cfg.appId} ===");
+
+                if (cfg.HasWindowsDepot) BuildOnePlatform(PlatformType.Windows64);
+                if (cfg.HasMacDepot) BuildOnePlatform(PlatformType.macOS);
+                if (cfg.HasLinuxDepot) BuildOnePlatform(PlatformType.Linux64);
+
+                AppendLog("=== Local builds completed. Starting SteamCmd upload... ===");
+                SteamUploadRunner.Upload(_config, (success, summary) =>
+                {
+                    AppendLog(success ? $"✔ {summary}" : $"✕ {summary}");
+                    Rebuild();
+                });
+                Rebuild();
+            });
+            BuildPipelineUIStyle.ApplyIconText(buildAndUploadBtn, "⚡ Build All & Upload to Steam");
+            buildAndUploadBtn.AddToClassList("bp-btn");
+            buildAndUploadBtn.AddToClassList("bp-btn--success");
+            buildAndUploadBtn.style.marginRight = 6;
+            row.Add(buildAndUploadBtn);
+
             var buildAllBtn = new Button(() =>
             {
                 if (cfg.HasWindowsDepot) BuildOnePlatform(PlatformType.Windows64);
                 if (cfg.HasMacDepot) BuildOnePlatform(PlatformType.macOS);
                 if (cfg.HasLinuxDepot) BuildOnePlatform(PlatformType.Linux64);
             });
-            BuildPipelineUIStyle.ApplyIconText(buildAllBtn, "🔨 Build All Configured Platforms");
+            BuildPipelineUIStyle.ApplyIconText(buildAllBtn, "🔨 Build All Platforms (No Upload)");
             buildAllBtn.AddToClassList("bp-btn");
             buildAllBtn.style.marginRight = 6;
             row.Add(buildAllBtn);
