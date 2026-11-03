@@ -186,6 +186,16 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             // Resolve profile: -buildProfile <id> takes precedence over -publisher
             var buildProfileId = CommandLineArgs.Get("buildProfile", "");
+
+            // Intercept virtual/composite Steam all-in-one profile from Forge
+            if (string.Equals(buildProfileId, "steam-all", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(buildProfileId, "steam-deploy", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(buildProfileId, "steam-all-upload", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log("[BuildCLI] -buildProfile steam-all detected: running full Steam deploy (Build Windows, Mac, Linux + SteamCmd Upload)...");
+                BuildAndUploadSteam();
+                return;
+            }
             var pubStr = CommandLineArgs.Get("publisher", "");
 
             PublisherProfile profile = null;
@@ -720,6 +730,9 @@ namespace Wagenheimer.BuildPipeline.Editor
             Debug.Log("[BuildCLI] Starting Full Build and Upload Steam Pipeline...");
             var config = FindOrCreateConfig();
 
+            var manifestPath = CommandLineArgs.Get("manifest", "");
+            var manifest = !string.IsNullOrEmpty(manifestPath) ? new BuildManifest() : null;
+
             // 1. Build all Steam profiles
             var steamProfiles = config.publishers.Where(p => p != null && p.isSteam && !p.hidden).ToList();
             if (steamProfiles.Count == 0)
@@ -729,29 +742,44 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return;
             }
 
+            int failedCount = 0;
             foreach (var profile in steamProfiles)
             {
                 Debug.Log($"[BuildCLI] Compiling {profile.displayName} ({profile.platform})...");
                 var context = BuildContextFactory.Create(config, profile, new BuildContextFactory.Options());
                 var result = BuildPipelineRunner.Execute(context);
+                if (manifest != null)
+                    manifest.Add(BuildManifestEntry.From(context, result));
+
                 if (!result.Success)
                 {
-                    Debug.LogError($"[BuildCLI] Build failed for {profile.displayName}. Aborting Steam upload.");
-                    if (Application.isBatchMode) EditorApplication.Exit(1);
-                    return;
+                    failedCount++;
+                    Debug.LogError($"[BuildCLI] Build failed for {profile.displayName}: {result.ErrorMessage}");
                 }
-
-                var contentRoot = Path.GetDirectoryName(result.OutputPath);
-                switch (profile.platform)
+                else
                 {
-                    case PlatformType.Windows64: config.steamUpload.lastBuiltPathWindows = contentRoot; break;
-                    case PlatformType.macOS: config.steamUpload.lastBuiltPathMac = contentRoot; break;
-                    case PlatformType.Linux64: config.steamUpload.lastBuiltPathLinux = contentRoot; break;
+                    var contentRoot = Path.GetDirectoryName(result.OutputPath);
+                    switch (profile.platform)
+                    {
+                        case PlatformType.Windows64: config.steamUpload.lastBuiltPathWindows = contentRoot; break;
+                        case PlatformType.macOS: config.steamUpload.lastBuiltPathMac = contentRoot; break;
+                        case PlatformType.Linux64: config.steamUpload.lastBuiltPathLinux = contentRoot; break;
+                    }
                 }
             }
 
             EditorUtility.SetDirty(config);
             AssetDatabase.SaveAssets();
+
+            if (manifest != null && !string.IsNullOrEmpty(manifestPath))
+                manifest.WriteTo(manifestPath);
+
+            if (failedCount > 0)
+            {
+                Debug.LogError($"[BuildCLI] {failedCount} Steam profile(s) failed to compile. Aborting Steam upload.");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                return;
+            }
 
             // 2. Upload to Steam
             string branch = CommandLineArgs.Get("steamBranch", "");

@@ -232,6 +232,27 @@ namespace Wagenheimer.BuildPipeline.Editor
                 }
             }
 
+            // Composite Steam All-in-One profile for Forge / AppDeployHub list
+            if (config?.steamUpload != null && config.steamUpload.steamEnabled && config.steamUpload.IsConfigured)
+            {
+                catalog.profiles.Add(new BuildCatalogProfile
+                {
+                    id = "steam-all",
+                    publisher = "Steam",
+                    publisherValue = (int)Publisher.Steam,
+                    displayName = "🎮 Steam (All Platforms + Upload)",
+                    platform = "Windows64",
+                    platformValue = (int)PlatformType.Windows64,
+                    isFullGame = true,
+                    isDemo = false,
+                    hidden = false,
+                    bundleIdentifier = "",
+                    outputSubfolder = "Publishers/Steam/" + config.GetEffectiveGameFolderName() + "/",
+                    isSteam = true,
+                    notes = "Builds Windows, macOS and Linux depots and uploads them to Steam via SteamCmd."
+                });
+            }
+
             if (config?.steamUpload != null)
             {
                 catalog.steamUpload = new BuildCatalogSteamUpload
