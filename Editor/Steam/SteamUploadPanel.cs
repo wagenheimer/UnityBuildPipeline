@@ -408,14 +408,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                 isInstalled ? "ok" : "warn"));
             statusRow.Add(statusLeft);
 
-            var installBtn = new Button(async () =>
+            var installBtn = new Button();
+            installBtn.clicked += async () =>
             {
                 installBtn.SetEnabled(false);
                 var (success, msg, path) = await SteamCmdInstaller.InstallAsync(cfg, (p, text) => { });
                 EditorUtility.DisplayDialog(success ? "SteamCmd Installed" : "Installation Failed", msg, "OK");
                 SaveDirty();
                 Rebuild();
-            });
+            };
             BuildPipelineUIStyle.ApplyIconText(installBtn, isInstalled ? "🔄 Reinstall SteamCmd" : "⬇️ Auto-Install SteamCmd");
             installBtn.AddToClassList("bp-btn");
             if (!isInstalled) installBtn.AddToClassList("bp-btn--primary");
