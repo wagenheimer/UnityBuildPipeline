@@ -141,6 +141,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             context.PlayerOptions = playerOptions;
             context.Log($"Building player to: {context.ResolvedOutputFilePath}...");
 
+            CleanConflictingBackendArtifacts(context);
+
             var report = UnityEditor.BuildPipeline.BuildPlayer(playerOptions);
             stopwatch.Stop();
 
@@ -207,6 +209,40 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             return result;
+        }
+
+        private static void CleanConflictingBackendArtifacts(BuildContext context)
+        {
+            try
+            {
+                var outputFolder = System.IO.Path.GetDirectoryName(context.ResolvedOutputFilePath);
+                if (string.IsNullOrEmpty(outputFolder) || !System.IO.Directory.Exists(outputFolder))
+                    return;
+
+                var targetBackend = context.Profile.scriptingBackend;
+                if (targetBackend == ScriptingImplementation.IL2CPP)
+                {
+                    var monoFolder = System.IO.Path.Combine(outputFolder, "MonoBleedingEdge");
+                    if (System.IO.Directory.Exists(monoFolder))
+                    {
+                        context.Log($"Removing leftover MonoBleedingEdge runtime directory from IL2CPP destination: {monoFolder}");
+                        System.IO.Directory.Delete(monoFolder, true);
+                    }
+                }
+                else if (targetBackend == ScriptingImplementation.Mono2x)
+                {
+                    var gameAssembly = System.IO.Path.Combine(outputFolder, "GameAssembly.dll");
+                    if (System.IO.File.Exists(gameAssembly))
+                    {
+                        context.Log($"Removing leftover IL2CPP GameAssembly.dll from Mono destination: {gameAssembly}");
+                        System.IO.File.Delete(gameAssembly);
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                context.LogWarning($"Could not clean conflicting backend artifacts: {ex.Message}");
+            }
         }
     }
 }
