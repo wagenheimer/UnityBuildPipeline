@@ -8,14 +8,15 @@ using UnityEngine.UIElements;
 namespace Wagenheimer.BuildPipeline.Editor
 {
     /// <summary>
-    /// Build section (Quick Build + Matrix in one place). Every profile is a row: ⚡ builds it now, the checkbox
-    /// adds it to the batch. The plan table shows exactly what the batch will produce (profile × language ×
-    /// variant × cheat, with the language source and the final defines) before anything runs.
+    /// Build section (Quick Single Build + Matrix Batch Builder).
+    /// Click ⚡ Build on any profile row to compile immediately with active single overrides.
+    /// Check profile boxes to assemble a multi-target batch; the Execution Plan displays
+    /// the full combination (Profile × Language × Variant × Cheat) before running.
     /// </summary>
     internal sealed class BuildPipelineBuildSection
     {
         private const string AutoBumpPrefs = "BuildPipeline_AutoBumpOnBuild";
-        private const string ProfileLanguageChoice = "Do perfil / padrão do projeto";
+        private const string ProfileLanguageChoice = "Profile / Project Default";
 
         private readonly BuildPipelineSectionContext _ctx;
         private readonly ProjectBuildConfig _config;
@@ -39,8 +40,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             _variantPicks = _selection.ResolveVariants(_config);
 
             Root.Add(BuildPipelineUIStyle.CreateCallout(
-                "⚡ compila um perfil agora. Marque vários perfis para montar um lote: a tabela 'Plano' mostra cada build, " +
-                "o idioma (e de onde ele veio) e os defines finais antes de executar.", "info"));
+                "⚡ Quick Build compiles a single profile instantly. Select checkboxes to build a Batch Matrix; the Plan table previews all generated builds, languages, and defines before execution.",
+                "info"));
 
             Root.Add(BuildOptionsCard());
             Root.Add(BuildProfilesCard());
@@ -54,74 +55,172 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildOptionsCard()
         {
-            var card = BuildPipelineUIStyle.CreateCard("Opções", "Valem para o próximo build; nada aqui é gravado nos perfis.");
+            var card = BuildPipelineUIStyle.CreateCard("⚙️ Build Execution Settings",
+                "Transient settings for upcoming builds. Profile assets are never permanently modified.");
 
-            var single = Row();
-            single.Add(RowTitle("⚡ Build individual"));
+            // ── 1. Single Build Overrides Box ────────────────────────────────
+            var singleBox = new VisualElement
+            {
+                style =
+                {
+                    backgroundColor = new Color(0, 0, 0, 0.16f),
+                    borderWidth = 1,
+                    borderColor = new Color(1, 1, 1, 0.08f),
+                    borderRadius = 6,
+                    paddingTop = 8,
+                    paddingBottom = 8,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    marginBottom = 10
+                }
+            };
+
+            var singleHeader = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 8 } };
+            var singleTitle = new Label("⚡ Quick Single Build Options (applies when clicking ⚡ Build on any profile)")
+            {
+                style = { fontSize = 12, unityFontStyleAndWeight = FontStyle.Bold, color = new Color(0.9f, 0.95f, 1f) }
+            };
+            singleHeader.Add(singleTitle);
+            singleBox.Add(singleHeader);
+
+            var singleControls = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap } };
 
             var languageChoices = new List<string> { ProfileLanguageChoice };
             languageChoices.AddRange(Enum.GetNames(typeof(GameLanguage)));
             string current = string.IsNullOrEmpty(_selection.buildLanguageOverride) ? ProfileLanguageChoice : _selection.buildLanguageOverride;
-            var languageField = new PopupField<string>("Idioma", languageChoices, languageChoices.Contains(current) ? current : ProfileLanguageChoice)
+            if (current == "Do perfil / padrão do projeto") current = ProfileLanguageChoice;
+
+            var languageField = new PopupField<string>("Language Override", languageChoices, languageChoices.Contains(current) ? current : ProfileLanguageChoice)
             {
-                tooltip = "Override só para este build. Perfis travados mostram 🔒; escolher outro idioma aqui ainda vence o lock (fica registrado no manifest)."
+                tooltip = "Override for the single build. Profiles with 🔒 lock can still be overridden here (logged in the manifest)."
             };
-            languageField.style.minWidth = 300;
+            languageField.style.width = 280;
+            languageField.style.marginRight = 16;
             languageField.RegisterValueChangedCallback(evt =>
             {
                 _selection.buildLanguageOverride = evt.newValue == ProfileLanguageChoice ? "" : evt.newValue;
                 _ctx.SaveSelection();
             });
-            single.Add(languageField);
+            singleControls.Add(languageField);
 
-            var cheat = new Toggle("Cheat") { value = _cheat, style = { marginLeft = 12 } };
+            var cheat = new Toggle("🪄 Cheat Mode") { value = _cheat, style = { marginRight = 16 } };
+            cheat.tooltip = "Enables cheat codes / debug hotkeys in this single build";
             cheat.RegisterValueChangedCallback(evt => _cheat = evt.newValue);
-            single.Add(cheat);
+            singleControls.Add(cheat);
 
-            var apk = new Toggle("Android: APK + instalar/rodar") { value = _apkAutoRun, style = { marginLeft = 12 } };
+            var apk = new Toggle("🤖 Android: Install & Launch APK") { value = _apkAutoRun, style = { marginRight = 16 } };
+            apk.tooltip = "After building APK, automatically install and launch on connected Android device via adb";
             apk.RegisterValueChangedCallback(evt => _apkAutoRun = evt.newValue);
-            single.Add(apk);
+            singleControls.Add(apk);
 
-            var bump = new Toggle("Auto-incrementar build number") { value = EditorPrefs.GetBool(AutoBumpPrefs, false), style = { marginLeft = 12 } };
+            var bump = new Toggle("🔢 Auto-increment Build #") { value = EditorPrefs.GetBool(AutoBumpPrefs, false), style = { marginRight = 16 } };
+            bump.tooltip = "Automatically increment bundleVersionCode / buildNumber on build";
             bump.RegisterValueChangedCallback(evt => EditorPrefs.SetBool(AutoBumpPrefs, evt.newValue));
-            single.Add(bump);
-            card.Add(single);
+            singleControls.Add(bump);
 
-            card.Add(BuildBatchOptions());
-
-            if (_config.gameConfig != null && _config.gameConfig.HasBuildVariants)
-                card.Add(BuildVariantOptions());
-
-            var dev = new Toggle("Development Build (individual e lote)") { value = _selection.matrixDevBuild };
+            var dev = new Toggle("🐞 Development Build") { value = _selection.matrixDevBuild };
+            dev.tooltip = "Enable Unity Development Build and script debugging";
             dev.RegisterValueChangedCallback(evt =>
             {
                 _selection.matrixDevBuild = evt.newValue;
                 _ctx.SaveSelection();
                 RefreshPlan();
             });
-            card.Add(dev);
+            singleControls.Add(dev);
+
+            singleBox.Add(singleControls);
+            card.Add(singleBox);
+
+            // ── 2. Batch Matrix Planner Box ──────────────────────────────────
+            card.Add(BuildBatchOptions());
+
+            // ── 3. Variants (if gameConfig has them) ─────────────────────────
+            if (_config.gameConfig != null && _config.gameConfig.HasBuildVariants)
+                card.Add(BuildVariantOptions());
+
             return card;
         }
 
         private VisualElement BuildBatchOptions()
         {
-            var box = new VisualElement { style = { marginTop = 6 } };
-            var header = Row();
-            header.Add(RowTitle("📦 Lote: idiomas"));
-            header.Add(SmallButton("Todos", () => SetAll(_languagePicks, true, () => _selection.CaptureLanguages(_config, _languagePicks))));
-            header.Add(SmallButton("Nenhum", () => SetAll(_languagePicks, false, () => _selection.CaptureLanguages(_config, _languagePicks))));
+            var box = new VisualElement
+            {
+                style =
+                {
+                    backgroundColor = new Color(0, 0, 0, 0.16f),
+                    borderWidth = 1,
+                    borderColor = new Color(1, 1, 1, 0.08f),
+                    borderRadius = 6,
+                    paddingTop = 8,
+                    paddingBottom = 8,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    marginBottom = 4
+                }
+            };
 
-            var cheatOff = new Toggle("sem Cheat") { value = _selection.matrixCheatOff, style = { marginLeft = 12 } };
+            // Top Header: Title and Cheats
+            var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, justifyContent = Justify.SpaceBetween, marginBottom = 8 } };
+
+            var leftTitle = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            var batchTitle = new Label("📦 Batch Matrix Options (Profiles × Languages × Cheats)")
+            {
+                style = { fontSize = 12, unityFontStyleAndWeight = FontStyle.Bold, color = new Color(0.9f, 0.95f, 1f), marginRight = 12 }
+            };
+            leftTitle.Add(batchTitle);
+            header.Add(leftTitle);
+
+            var rightCheats = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            rightCheats.Add(new Label("Matrix Cheats:") { style = { fontSize = 11, color = new Color(0.7f, 0.75f, 0.8f), marginRight = 8 } });
+            var cheatOff = new Toggle("Standard (No Cheat)") { value = _selection.matrixCheatOff, style = { marginRight = 12 } };
             cheatOff.RegisterValueChangedCallback(evt => { _selection.matrixCheatOff = evt.newValue; _ctx.SaveSelection(); RefreshPlan(); });
-            header.Add(cheatOff);
-            var cheatOn = new Toggle("com Cheat") { value = _selection.matrixCheatOn, style = { marginLeft = 6 } };
+            rightCheats.Add(cheatOff);
+
+            var cheatOn = new Toggle("With Cheat") { value = _selection.matrixCheatOn };
             cheatOn.RegisterValueChangedCallback(evt => { _selection.matrixCheatOn = evt.newValue; _ctx.SaveSelection(); RefreshPlan(); });
-            header.Add(cheatOn);
+            rightCheats.Add(cheatOn);
+            header.Add(rightCheats);
+
             box.Add(header);
 
-            var languages = Row();
-            languages.style.flexWrap = Wrap.Wrap;
-            languages.style.marginLeft = 130;
+            // Sub-header for languages with action buttons
+            var langBar = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginBottom = 6,
+                    paddingTop = 6,
+                    borderTopWidth = 1,
+                    borderTopColor = new Color(1, 1, 1, 0.05f)
+                }
+            };
+            langBar.Add(new Label("Target Languages:") { style = { fontSize = 11, unityFontStyleAndWeight = FontStyle.Bold, width = 120, color = new Color(0.85f, 0.9f, 0.95f) } });
+
+            langBar.Add(SmallButton("Select All", () => SetAll(_languagePicks, true, () => _selection.CaptureLanguages(_config, _languagePicks))));
+            langBar.Add(SmallButton("Clear All", () => SetAll(_languagePicks, false, () => _selection.CaptureLanguages(_config, _languagePicks))));
+
+            int activeCount = _languagePicks.Count(p => p);
+            var countBadge = new Label($"{activeCount} selected")
+            {
+                style = { fontSize = 10, color = new Color(0.55f, 0.85f, 0.55f), marginLeft = 8 }
+            };
+            langBar.Add(countBadge);
+            box.Add(langBar);
+
+            // Clean flex grid of languages: aligned columns
+            var languagesGrid = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    flexWrap = Wrap.Wrap,
+                    marginLeft = 4,
+                    marginBottom = 4
+                }
+            };
+
             for (int i = 0; i < _config.languages.Count; i++)
             {
                 var language = _config.languages[i];
@@ -129,10 +228,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                     continue;
 
                 int index = i;
-                var toggle = new Toggle(language.language == GameLanguage.AutoDetect ? "AutoDetect" : language.language.ToString())
+                string langName = language.language == GameLanguage.AutoDetect ? "🌐 AutoDetect" : language.language.ToString();
+                var toggle = new Toggle(langName)
                 {
                     value = _languagePicks[index],
-                    style = { marginRight = 10 }
+                    style =
+                    {
+                        width = 115,
+                        marginBottom = 4,
+                        marginRight = 6
+                    }
                 };
                 toggle.RegisterValueChangedCallback(evt =>
                 {
@@ -141,22 +246,46 @@ namespace Wagenheimer.BuildPipeline.Editor
                     _ctx.SaveSelection();
                     RefreshPlan();
                 });
-                languages.Add(toggle);
+                languagesGrid.Add(toggle);
             }
 
-            box.Add(languages);
-            box.Add(new Label("Perfis 🔒 travados ignoram esta lista e compilam só o idioma deles, uma vez.")
+            box.Add(languagesGrid);
+
+            var hintLabel = new Label("ℹ Profiles with a 🔒 locked language always compile in their designated language once, ignoring this matrix selection.")
             {
-                style = { marginLeft = 130, fontSize = 10, color = new Color(0.65f, 0.68f, 0.72f) }
-            });
+                style = { fontSize = 10, color = new Color(0.6f, 0.65f, 0.7f), marginLeft = 4, marginTop = 2 }
+            };
+            box.Add(hintLabel);
+
             return box;
         }
 
         private VisualElement BuildVariantOptions()
         {
-            var row = Row();
-            row.style.marginTop = 6;
-            row.Add(RowTitle("🎭 Variantes"));
+            var row = new VisualElement
+            {
+                style =
+                {
+                    backgroundColor = new Color(0, 0, 0, 0.16f),
+                    borderWidth = 1,
+                    borderColor = new Color(1, 1, 1, 0.08f),
+                    borderRadius = 6,
+                    paddingTop = 6,
+                    paddingBottom = 6,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    marginTop = 8,
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    flexWrap = Wrap.Wrap
+                }
+            };
+
+            var title = new Label("🎭 Build Variants:")
+            {
+                style = { fontSize = 11, unityFontStyleAndWeight = FontStyle.Bold, width = 120, color = new Color(0.85f, 0.9f, 0.95f) }
+            };
+            row.Add(title);
 
             var variants = _config.gameConfig.buildVariants;
             for (int i = 0; i < variants.Count; i++)
@@ -166,7 +295,11 @@ namespace Wagenheimer.BuildPipeline.Editor
                     continue;
 
                 int index = i;
-                var toggle = new Toggle(variant.EffectiveDisplayName) { value = _variantPicks[index], style = { marginRight = 10 } };
+                var toggle = new Toggle(variant.EffectiveDisplayName)
+                {
+                    value = _variantPicks[index],
+                    style = { marginRight = 12 }
+                };
                 toggle.RegisterValueChangedCallback(evt =>
                 {
                     _variantPicks[index] = evt.newValue;
@@ -177,7 +310,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 row.Add(toggle);
             }
 
-            row.Add(new Label("(o ⚡ usa a primeira marcada)") { style = { fontSize = 10, color = new Color(0.65f, 0.68f, 0.72f) } });
+            row.Add(new Label("(Single build ⚡ uses the first selected variant)")
+            {
+                style = { fontSize = 10, color = new Color(0.6f, 0.65f, 0.7f), marginLeft = 6 }
+            });
             return row;
         }
 
@@ -185,7 +321,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildProfilesCard()
         {
-            var showHidden = new Toggle("Mostrar ocultos") { value = _selection.showHiddenProfiles };
+            var showHidden = new Toggle("Show Hidden Profiles") { value = _selection.showHiddenProfiles };
             showHidden.RegisterValueChangedCallback(evt =>
             {
                 _selection.showHiddenProfiles = evt.newValue;
@@ -193,7 +329,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 _ctx.RebuildSection();
             });
 
-            var card = BuildPipelineUIStyle.CreateCard("Perfis", "Agrupados por plataforma. O lote compila os marcados.", showHidden);
+            var card = BuildPipelineUIStyle.CreateCard("📋 Build Profiles",
+                "Grouped by platform. Click ⚡ Build to build immediately, or check profiles to include in the Batch Plan below.",
+                showHidden);
 
             var issues = BuildPipelineHealth.Compute(_config).Issues;
             foreach (var group in ProfileGroups.Build(_config, _selection.showHiddenProfiles))
@@ -207,8 +345,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var actions = Row();
             actions.style.marginTop = 8;
-            actions.Add(SmallButton("Marcar visíveis", () => PickVisible(true)));
-            actions.Add(SmallButton("Desmarcar todos", () => PickVisible(false)));
+            actions.Add(SmallButton("Select All Visible", () => PickVisible(true)));
+            actions.Add(SmallButton("Deselect All", () => PickVisible(false)));
             card.Add(actions);
             return card;
         }
@@ -221,6 +359,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (profile.hidden) row.AddToClassList("bp-profile-row--hidden");
 
             var pick = new Toggle { value = index < _profilePicks.Length && _profilePicks[index] };
+            pick.tooltip = "Include in Batch Matrix plan";
             pick.RegisterValueChangedCallback(evt =>
             {
                 _profilePicks[index] = evt.newValue;
@@ -238,12 +377,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             foreach (var badge in ProfileBadges.For(_config, profile, issues))
                 row.Add(badge);
 
-            var edit = SmallButton("📋", () => _ctx.Navigate(BuildPipelineSections.Profiles, profile.EffectiveId));
-            edit.tooltip = "Abrir o perfil";
+            var edit = SmallButton("📋 Edit", () => _ctx.Navigate(BuildPipelineSections.Profiles, profile.EffectiveId));
+            edit.tooltip = "Configure this profile in the Profiles editor";
             row.Add(edit);
 
             var openFolder = SmallButton("📂 Open Folder", () => BuildOutputFolderActions.Open(_config, profile, profile.platform));
-            openFolder.tooltip = "Abrir a pasta de saída:\n" + ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
+            openFolder.tooltip = "Open build output folder in file explorer:
+" + ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
             openFolder.style.marginLeft = 6;
             row.Add(openFolder);
 
@@ -252,6 +392,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             build.AddToClassList("bp-btn");
             build.AddToClassList("bp-btn--primary");
             build.style.marginLeft = 6;
+            build.tooltip = $"Instantly compile {profile.displayName} with active single build options";
             row.Add(build);
             return row;
         }
@@ -333,22 +474,22 @@ namespace Wagenheimer.BuildPipeline.Editor
             _planHost.Clear();
             var plan = Plan();
 
-            var run = new Button(() => RunPlan(plan)) { tooltip = "Confirma e executa em sequência" };
-            BuildPipelineUIStyle.ApplyIconText(run, $"🏭 Executar {plan.Count} build(s)");
+            var run = new Button(() => RunPlan(plan)) { tooltip = "Confirm and run batch builds in sequence" };
+            BuildPipelineUIStyle.ApplyIconText(run, $"🚀 Build Batch ({plan.Count} build{(plan.Count == 1 ? "" : "s")})");
             run.AddToClassList("bp-btn");
             run.AddToClassList("bp-btn--success");
             run.SetEnabled(plan.Count > 0);
 
-            var card = BuildPipelineUIStyle.CreateCard($"Plano do lote — {plan.Count} build(s)",
-                plan.Count == 0 ? "Marque perfis, idiomas e ao menos uma opção de Cheat." : "Exatamente o que será compilado, nesta ordem.", run);
+            var card = BuildPipelineUIStyle.CreateCard($"🏭 Batch Execution Plan — {plan.Count} build{(plan.Count == 1 ? "" : "s")}",
+                plan.Count == 0 ? "Select profiles, target languages, and at least one Cheat option above to generate the plan." : "Review scheduled builds below. They will compile in this exact sequence.", run);
 
             var header = new VisualElement();
             header.AddToClassList("bp-table-header");
-            header.Add(Cell("Perfil", 220, true));
-            header.Add(Cell("Idioma", 220, true));
-            header.Add(Cell("Variante", 110, true));
-            header.Add(Cell("Cheat", 50, true));
-            header.Add(Cell("Defines finais", 0, true));
+            header.Add(Cell("Profile", 220, true));
+            header.Add(Cell("Language", 220, true));
+            header.Add(Cell("Variant", 110, true));
+            header.Add(Cell("Cheat", 60, true));
+            header.Add(Cell("Final Scripting Defines", 0, true));
             card.Add(header);
 
             foreach (var item in plan.Take(200))
@@ -361,16 +502,16 @@ namespace Wagenheimer.BuildPipeline.Editor
                 row.Add(Cell(item.Profile.displayName, 220));
                 row.Add(Cell(BuildLanguageResolver.Describe(context.Language, context.LanguageSource), 220));
                 row.Add(Cell(item.Variant != null ? item.Variant.EffectiveDisplayName : "—", 110));
-                row.Add(Cell(item.Cheat ? "sim" : "—", 50));
-                var defines = Cell(stack.Added.Count == 0 && stack.Removed.Count == 0 ? "(só globais)" :
+                row.Add(Cell(item.Cheat ? "Yes" : "—", 60));
+                var defines = Cell(stack.Added.Count == 0 && stack.Removed.Count == 0 ? "(globals only)" :
                     "+" + string.Join(" +", stack.Added) + (stack.Removed.Count > 0 ? "  −" + string.Join(" −", stack.Removed) : ""), 0);
-                defines.tooltip = "Final: " + string.Join("; ", stack.Final);
+                defines.tooltip = "Final defines: " + string.Join("; ", stack.Final);
                 row.Add(defines);
                 card.Add(row);
             }
 
             if (plan.Count > 200)
-                card.Add(new Label($"… e mais {plan.Count - 200}."));
+                card.Add(new Label($"… and {plan.Count - 200} more.") { style = { paddingLeft = 8, paddingTop = 4, color = new Color(0.6f, 0.6f, 0.65f) } });
 
             _planHost.Add(card);
         }
@@ -397,17 +538,19 @@ namespace Wagenheimer.BuildPipeline.Editor
             var variant = SelectedVariants().FirstOrDefault();
             var context = Create(profile, languageOverride, variant, _cheat, true);
 
-            if (!BuildConfirmation.Confirm(context, _config, "Confirmar build"))
+            if (!BuildConfirmation.Confirm(context, _config, "Confirm Build"))
                 return;
 
             if (EditorPrefs.GetBool(AutoBumpPrefs, false))
                 BumpBuildNumber(profile.platform);
 
             var result = BuildPipelineRunner.Execute(context);
-            EditorUtility.DisplayDialog(result.Success ? "Build concluído" : "Build falhou",
+            EditorUtility.DisplayDialog(result.Success ? "Build Successful" : "Build Failed",
                 result.Success
-                    ? $"{profile.displayName} em {result.Duration:mm\\:ss}.\n{result.OutputPath}"
-                    : $"{profile.displayName}: {result.TotalErrors} erro(s). {result.ErrorMessage}\nVeja o Console.",
+                    ? $"{profile.displayName} completed in {result.Duration:mm\:ss}.
+{result.OutputPath}"
+                    : $"{profile.displayName}: {result.TotalErrors} error(s). {result.ErrorMessage}
+Check the Console.",
                 "OK");
             _ctx.RebuildAll();
         }
@@ -417,14 +560,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (plan.Count == 0)
                 return;
 
-            string summary = string.Join("\n", plan.Take(25).Select(item =>
+            string summary = string.Join("
+", plan.Take(25).Select(item =>
             {
                 var context = Create(item.Profile, item.LanguageOverride, item.Variant, item.Cheat, false);
                 return $"• {item.Profile.EffectiveId} · {context.Language}" +
                        (item.Variant != null ? $" · {item.Variant.EffectiveId}" : "") + (item.Cheat ? " · CHEAT" : "");
-            })) + (plan.Count > 25 ? $"\n… +{plan.Count - 25}" : "");
+            })) + (plan.Count > 25 ? $"
+… +{plan.Count - 25}" : "");
 
-            if (!BuildConfirmation.ConfirmBatch($"Executar {plan.Count} build(s)", summary))
+            if (!BuildConfirmation.ConfirmBatch($"Execute {plan.Count} build(s)", summary))
                 return;
 
             var failed = new List<string>();
@@ -435,9 +580,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                     var item = plan[i];
                     var context = Create(item.Profile, item.LanguageOverride, item.Variant, item.Cheat, false);
                     string label = $"[{i + 1}/{plan.Count}] {item.Profile.displayName} ({context.Language})";
-                    if (EditorUtility.DisplayCancelableProgressBar("Build em lote", label, (float)i / plan.Count))
+                    if (EditorUtility.DisplayCancelableProgressBar("Batch Building", label, (float)i / plan.Count))
                     {
-                        failed.Add("(cancelado pelo usuário)");
+                        failed.Add("(cancelled by user)");
                         break;
                     }
 
@@ -450,8 +595,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 EditorUtility.ClearProgressBar();
             }
 
-            EditorUtility.DisplayDialog("Lote finalizado",
-                failed.Count == 0 ? $"{plan.Count} build(s) concluído(s)." : "Falharam:\n" + string.Join("\n", failed), "OK");
+            EditorUtility.DisplayDialog("Batch Execution Finished",
+                failed.Count == 0 ? $"{plan.Count} build(s) completed successfully." : "Failed builds:
+" + string.Join("
+", failed), "OK");
             _ctx.RebuildAll();
         }
 
@@ -493,15 +640,6 @@ namespace Wagenheimer.BuildPipeline.Editor
             _ctx.RebuildSection();
         }
 
-        private static VisualElement RowTitle(string text)
-        {
-            var title = BuildPipelineUIStyle.CreateText(text);
-            title.style.width = 130;
-            title.style.flexShrink = 0;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            return title;
-        }
-
         private static VisualElement Row() =>
             new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap, marginBottom = 2 } };
 
@@ -539,7 +677,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             public string SummaryText =>
                 HiddenCount > 0
-                    ? $"{Title} ({VisibleCount} visíve{(VisibleCount == 1 ? "l" : "is")} · {HiddenCount} oculto{(HiddenCount == 1 ? "" : "s")})"
+                    ? $"{Title} ({VisibleCount} visible · {HiddenCount} hidden)"
                     : $"{Title} ({VisibleCount})";
         }
 
@@ -558,7 +696,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var groups = new List<Group>();
             int total = config.publishers?.Count ?? 0;
 
-            // 1. Grupo dedicado para Steam (Windows / macOS / Linux)
+            // 1. Dedicated group for Steam (Windows / macOS / Linux)
             var steamGroup = new Group { Title = "🎮 Steam" };
             for (int i = 0; i < total; i++)
             {
@@ -575,7 +713,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (steamGroup.Indices.Count > 0)
                 groups.Add(steamGroup);
 
-            // 2. Grupos por plataforma (exclui perfis que já estão no grupo Steam)
+            // 2. Platform groups (excluding Steam profiles already grouped above)
             foreach (var (platform, title) in Order)
             {
                 var group = new Group { Title = title };
@@ -611,21 +749,25 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (profile.isSteam)
             {
                 string plat = profile.platform == PlatformType.macOS ? "macOS" : profile.platform == PlatformType.Linux64 ? "Linux" : "Win";
-                badges.Add(Badge($"Steam ({plat})", "info", $"Perfil Steam para {profile.platform}"));
+                badges.Add(Badge($"Steam ({plat})", "info", $"Steam profile for {profile.platform}"));
             }
-            if (profile.IsLanguageLocked) badges.Add(Badge("🔒 " + profile.lockedLanguage.AsLanguageCode().ToUpperInvariant(), "warn", $"Idioma travado em {profile.lockedLanguage}"));
-            if (profile.hidden) badges.Add(Badge("oculto", "warn", "Escondido das listas; o CI ainda builda pelo id."));
+            if (profile.IsLanguageLocked) badges.Add(Badge("🔒 " + profile.lockedLanguage.AsLanguageCode().ToUpperInvariant(), "warn", $"Language locked to {profile.lockedLanguage}"));
+            if (profile.hidden) badges.Add(Badge("hidden", "warn", "Hidden from list view; CI can still build by ID."));
 
             var resolved = BuildDefineResolver.Resolve(config, profile);
             if (resolved.Count > 0)
-                badges.Add(Badge($"🧬 {resolved.Count}", "ok", "Defines do perfil (presets + próprios):\n" + string.Join("\n", resolved)));
+                badges.Add(Badge($"🧬 {resolved.Count}", "ok", "Profile defines (presets + local):
+" + string.Join("
+", resolved)));
 
             var mine = issues?.Where(i => string.Equals(i.ProfileId, profile.EffectiveId, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<BuildProfileIssue>();
             int errors = mine.Count(i => i.Severity == BuildProfileIssueSeverity.Error);
             if (errors > 0)
-                badges.Add(Badge($"⛔ {errors}", "fail", string.Join("\n", mine.Select(i => i.Message))));
+                badges.Add(Badge($"⛔ {errors}", "fail", string.Join("
+", mine.Select(i => i.Message))));
             else if (mine.Count > 0)
-                badges.Add(Badge($"⚠ {mine.Count}", "warn", string.Join("\n", mine.Select(i => i.Message))));
+                badges.Add(Badge($"⚠ {mine.Count}", "warn", string.Join("
+", mine.Select(i => i.Message))));
 
             return badges;
         }
