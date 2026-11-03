@@ -219,7 +219,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (string.IsNullOrEmpty(outputFolder) || !System.IO.Directory.Exists(outputFolder))
                     return;
 
-                var targetBackend = context.Profile.scriptingBackend;
+                var targetGroup = context.Platform.ToBuildTargetGroup();
+                var targetBackend = context.PublisherProfile != null
+                    ? context.PublisherProfile.scriptingBackend
+                    : PlayerSettings.GetScriptingBackend(targetGroup);
                 if (targetBackend == ScriptingImplementation.IL2CPP)
                 {
                     var monoFolder = System.IO.Path.Combine(outputFolder, "MonoBleedingEdge");
