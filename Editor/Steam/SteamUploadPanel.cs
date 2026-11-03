@@ -61,6 +61,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return;
             }
 
+            _root.Add(BuildGuideCard());
             _root.Add(BuildDiagnosticsAndChecklistCard(cfg));
             _root.Add(BuildProfilesCard());
             _root.Add(BuildImportCard(cfg));
@@ -329,14 +330,108 @@ namespace Wagenheimer.BuildPipeline.Editor
             return card;
         }
 
+        // ── Guide & Instructions ──────────────────────────────────────────────────
+
+        private VisualElement BuildGuideCard()
+        {
+            var card = BuildPipelineUIStyle.CreateCard("📘 Steam Deployment & CI/CD Guide",
+                "How automated builds and uploads work across Windows, macOS, Linux, and AppDeployHub / Forge.");
+
+            var guideBox = new VisualElement();
+            guideBox.AddToClassList("bp-subcard");
+            guideBox.style.marginBottom = 6;
+
+            void AddSection(string header, string body)
+            {
+                var h = new Label(header)
+                {
+                    style = { fontSize = 12, unityFontStyleAndWeight = FontStyle.Bold, color = new Color(0.9f, 0.95f, 1f), marginBottom = 3 }
+                };
+                var b = new Label(body)
+                {
+                    style = { fontSize = 11, color = new Color(0.78f, 0.82f, 0.88f), whiteSpace = WhiteSpace.Normal, marginBottom = 8 }
+                };
+                b.selection.isSelectable = true;
+                guideBox.Add(h);
+                guideBox.Add(b);
+            }
+
+            AddSection("🌐 Cross-Platform Deploy (Windows uploads Windows, Mac and Linux!)",
+                "• Windows can upload ALL 3 platforms (Windows, macOS .app, Linux) simultaneously directly to Valve's servers.\n" +
+                "• You do NOT need a physical Mac to upload the Mac build: SteamCmd on Windows packages and uploads the .app folder to the macOS Depot directly.\n" +
+                "• If your build server is a Mac runner (e.g. Mac Mini with Forge), SteamCmd runs natively on macOS via 'steamcmd.sh'.");
+
+            AddSection("⬇️ Automatic SteamCmd Installation",
+                "• If SteamCmd is missing, click '⬇️ Auto-Install SteamCmd' below. The pipeline downloads the official Valve package (zip on Windows, tar.gz on macOS), extracts it to a clean local programs directory, and configures the path automatically.\n" +
+                "• In headless CI / Forge runs, if SteamCmd is missing on the runner, the pipeline automatically downloads it from Valve CDN before uploading.");
+
+            AddSection("🔐 Authentication & Steam Guard",
+                "• One-time interactive setup: Run SteamCmd once on the machine and enter your Steam Guard code. SteamCmd caches credentials locally, allowing future builds to upload without asking for 2FA.\n" +
+                "• Headless CI / AppDeployHub: Valve recommends creating a dedicated builder account (e.g. greensauce_builder) with 'Upload Builds' permission in Steamworks, and injecting the password via the STEAM_PASSWORD environment variable.");
+
+            AddSection("🤖 Headless CLI Commands for AppDeployHub / Forge",
+                "AppDeployHub can trigger Steam builds and uploads using these Unity batchmode commands:\n" +
+                "  • Build & Upload everything:\n" +
+                "    Unity.exe -batchmode -quit -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.BuildAndUploadSteam\n" +
+                "  • Build all Steam targets only:\n" +
+                "    Unity.exe -batchmode -quit -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.BuildSteam\n" +
+                "  • Upload pre-built depots to Steam:\n" +
+                "    Unity.exe -batchmode -quit -executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.UploadToSteam [-steamBranch <branch>]");
+
+            card.Add(guideBox);
+            return card;
+        }
+
         // ── Config ───────────────────────────────────────────────────────────────
 
         private VisualElement BuildConfigCard(SteamUploadConfig cfg)
         {
-            var card = BuildPipelineUIStyle.CreateCard("⚙️ Steam Configuration");
+            var card = BuildPipelineUIStyle.CreateCard("⚙️ Steam Configuration",
+                "Steam App ID, credentials, and platform SteamCmd executables.");
 
             card.Add(TextRow("App ID", cfg.appId, v => cfg.appId = v));
-            card.Add(TextRow("SteamCmd Path", cfg.steamCmdPath, v => cfg.steamCmdPath = v, browseFile: true));
+
+            // SteamCmd section with auto-installer and status
+            var steamCmdBox = new VisualElement();
+            steamCmdBox.AddToClassList("bp-subcard");
+            steamCmdBox.style.marginTop = 6;
+            steamCmdBox.style.marginBottom = 8;
+
+            var activePath = cfg.GetEffectiveSteamCmdPath();
+            bool isInstalled = cfg.IsSteamCmdInstalled();
+
+            var statusRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, justifyContent = Justify.SpaceBetween, marginBottom = 6 } };
+            var statusLeft = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+            statusLeft.Add(new Label("SteamCmd Executable Status:") { style = { fontSize = 11, unityFontStyleAndWeight = FontStyle.Bold, marginRight = 8 } });
+            statusLeft.Add(BuildPipelineUIStyle.CreateIconBadge(
+                isInstalled ? "✔ Installed" : "⚠ Not Found",
+                isInstalled ? "ok" : "warn"));
+            statusRow.Add(statusLeft);
+
+            var installBtn = new Button(async () =>
+            {
+                installBtn.SetEnabled(false);
+                var (success, msg, path) = await SteamCmdInstaller.InstallAsync(cfg, (p, text) => { });
+                EditorUtility.DisplayDialog(success ? "SteamCmd Installed" : "Installation Failed", msg, "OK");
+                SaveDirty();
+                Rebuild();
+            });
+            BuildPipelineUIStyle.ApplyIconText(installBtn, isInstalled ? "🔄 Reinstall SteamCmd" : "⬇️ Auto-Install SteamCmd");
+            installBtn.AddToClassList("bp-btn");
+            if (!isInstalled) installBtn.AddToClassList("bp-btn--primary");
+            statusRow.Add(installBtn);
+            steamCmdBox.Add(statusRow);
+
+            steamCmdBox.Add(TextRow("SteamCmd Path (Windows)", cfg.steamCmdPath, v => cfg.steamCmdPath = v, browseFile: true));
+            steamCmdBox.Add(TextRow("SteamCmd Path (macOS)", cfg.steamCmdPathMac, v => cfg.steamCmdPathMac = v, browseFile: true));
+
+            var activeLabel = new Label($"Active on this OS ({Application.platform}): {activePath}")
+            {
+                style = { fontSize = 10, color = new Color(0.6f, 0.7f, 0.8f), marginTop = 2 }
+            };
+            steamCmdBox.Add(activeLabel);
+            card.Add(steamCmdBox);
+
             card.Add(TextRow("Steam Username", cfg.steamUsername, v => cfg.steamUsername = v));
             card.Add(TextRow("Password Env Var", cfg.steamPasswordEnvVar, v => cfg.steamPasswordEnvVar = v));
 

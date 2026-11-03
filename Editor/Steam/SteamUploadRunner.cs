@@ -121,9 +121,10 @@ $@"""appbuild""
                 onComplete?.Invoke(false, "Steam Upload isn't configured yet: set an App ID and at least one Depot ID.");
                 return;
             }
-            if (!File.Exists(cfg.steamCmdPath))
+            var steamCmdPath = cfg.GetEffectiveSteamCmdPath();
+            if (!File.Exists(steamCmdPath))
             {
-                onComplete?.Invoke(false, $"steamcmd.exe not found at '{cfg.steamCmdPath}'.");
+                onComplete?.Invoke(false, $"steamcmd not found at '{steamCmdPath}'. Use 'Auto-Install SteamCmd' or configure the path.");
                 return;
             }
             if (IsUploading)
@@ -133,14 +134,15 @@ $@"""appbuild""
             }
 
             var appVdfPath = GenerateVdfFiles(cfg);
+            var username = cfg.GetEffectiveUsername();
             var password = cfg.GetEffectivePassword();
             var loginArgs = string.IsNullOrEmpty(password)
-                ? $"+login {cfg.steamUsername}"
-                : $"+login {cfg.steamUsername} {password}";
+                ? $"+login {username}"
+                : $"+login {username} {password}";
 
             var psi = new ProcessStartInfo
             {
-                FileName = cfg.steamCmdPath,
+                FileName = steamCmdPath,
                 Arguments = $"{loginArgs} +run_app_build_http \"{appVdfPath}\" +quit",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -381,6 +383,105 @@ $@"""appbuild""
             return cfg.IsConfigured
                 ? null // null = success
                 : "Li os arquivos, mas não consegui montar App ID + ao menos 1 Depot ID (veja o relatório).";
+        }
+
+        /// <summary>
+        /// Synchronously runs SteamCmd for headless CLI / Forge execution, streaming output directly to the Unity log.
+        /// Automatically downloads SteamCmd from Valve CDN if not yet installed on this machine.
+        /// </summary>
+        public static (bool success, string summary) UploadHeadless(
+            ProjectBuildConfig config,
+            string branchOverride = null,
+            string usernameOverride = null,
+            string passwordOverride = null)
+        {
+            var cfg = config.steamUpload;
+            if (!cfg.IsConfigured)
+            {
+                string msg = "Steam Upload isn't configured: set App ID and at least one Depot ID in Steam settings.";
+                Debug.LogError($"[BuildPipeline] {msg}");
+                return (false, msg);
+            }
+
+            if (!SteamCmdInstaller.EnsureInstalledSync(cfg))
+            {
+                string msg = "SteamCmd is not installed and auto-download from Valve failed.";
+                Debug.LogError($"[BuildPipeline] {msg}");
+                return (false, msg);
+            }
+
+            var steamCmdPath = cfg.GetEffectiveSteamCmdPath();
+            var username = !string.IsNullOrEmpty(usernameOverride) ? usernameOverride : cfg.GetEffectiveUsername();
+            var password = !string.IsNullOrEmpty(passwordOverride) ? passwordOverride : cfg.GetEffectivePassword();
+            var branch = !string.IsNullOrEmpty(branchOverride) ? branchOverride : cfg.GetEffectiveBranch();
+
+            if (!string.IsNullOrEmpty(branch))
+                cfg.setLiveBranch = branch;
+
+            var appVdfPath = GenerateVdfFiles(cfg);
+            var loginArgs = string.IsNullOrEmpty(password)
+                ? $"+login {username}"
+                : $"+login {username} {password}";
+
+            Debug.Log($"[BuildPipeline] Launching SteamCmd Headless Upload (App: {cfg.appId}, Branch: {(string.IsNullOrEmpty(branch) ? "(none)" : branch)})...");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = steamCmdPath,
+                Arguments = $"{loginArgs} +run_app_build_http \"{appVdfPath}\" +quit",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            var lastLine = "";
+            using (var process = new Process { StartInfo = psi })
+            {
+                process.OutputDataReceived += (_, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        lastLine = e.Data;
+                        Debug.Log($"[SteamCmd] {e.Data}");
+                    }
+                };
+                process.ErrorDataReceived += (_, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        lastLine = e.Data;
+                        Debug.LogWarning($"[SteamCmd ERR] {e.Data}");
+                    }
+                };
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+
+                bool success = process.ExitCode == 0;
+                string summary = success
+                    ? $"Steam upload succeeded for App {cfg.appId} (branch: {branch})."
+                    : $"Steam upload failed with exit code {process.ExitCode}: {lastLine}";
+
+                SteamUploadHistory.Append(new SteamUploadHistoryEntry
+                {
+                    timestampUtc = DateTime.UtcNow.ToString("o"),
+                    appId = cfg.appId,
+                    branch = branch,
+                    windowsIncluded = cfg.HasWindowsDepot && !string.IsNullOrEmpty(cfg.lastBuiltPathWindows),
+                    macIncluded = cfg.HasMacDepot && !string.IsNullOrEmpty(cfg.lastBuiltPathMac),
+                    linuxIncluded = cfg.HasLinuxDepot && !string.IsNullOrEmpty(cfg.lastBuiltPathLinux),
+                    success = success,
+                    summary = summary
+                });
+
+                if (success) Debug.Log($"[BuildPipeline] {summary}");
+                else Debug.LogError($"[BuildPipeline] {summary}");
+
+                return (success, summary);
+            }
         }
     }
 }

@@ -647,5 +647,119 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             AssetDatabase.SaveAssets();
         }
+
+        /// <summary>
+        /// Compiles all configured Steam profiles (steam-windows, steam-mac, steam-linux) in headless batch mode.
+        /// <c>-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.BuildSteam</c>
+        /// </summary>
+        public static void BuildSteam()
+        {
+            Debug.Log("[BuildCLI] Starting Steam Batch Build...");
+            var config = FindOrCreateConfig();
+            var steamProfiles = config.publishers.Where(p => p != null && p.isSteam && !p.hidden).ToList();
+            if (steamProfiles.Count == 0)
+            {
+                Debug.LogError("[BuildCLI] No active Steam profiles found in ProjectBuildConfig.");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                return;
+            }
+
+            int failed = 0;
+            foreach (var profile in steamProfiles)
+            {
+                Debug.Log($"[BuildCLI] Compiling Steam profile: {profile.displayName} ({profile.platform})...");
+                var context = BuildContextFactory.Create(config, profile, new BuildContextFactory.Options());
+                var result = BuildPipelineRunner.Execute(context);
+                if (!result.Success)
+                {
+                    failed++;
+                    Debug.LogError($"[BuildCLI] Build failed for {profile.displayName}: {result.ErrorMessage}");
+                }
+                else
+                {
+                    var contentRoot = Path.GetDirectoryName(result.OutputPath);
+                    switch (profile.platform)
+                    {
+                        case PlatformType.Windows64: config.steamUpload.lastBuiltPathWindows = contentRoot; break;
+                        case PlatformType.macOS: config.steamUpload.lastBuiltPathMac = contentRoot; break;
+                        case PlatformType.Linux64: config.steamUpload.lastBuiltPathLinux = contentRoot; break;
+                    }
+                }
+            }
+
+            EditorUtility.SetDirty(config);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log($"[BuildCLI] Steam Build Batch finished. Succeeded: {steamProfiles.Count - failed}, Failed: {failed}.");
+            if (Application.isBatchMode) EditorApplication.Exit(failed > 0 ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Runs SteamCmd to upload the configured depots headlessly.
+        /// <c>-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.UploadToSteam [-steamBranch beta] [-steamUsername user] [-steamPassword pwd]</c>
+        /// </summary>
+        public static void UploadToSteam()
+        {
+            Debug.Log("[BuildCLI] Starting Steam Headless Upload...");
+            var config = FindOrCreateConfig();
+
+            string branch = CommandLineArgs.Get("steamBranch", "");
+            string username = CommandLineArgs.Get("steamUsername", "");
+            string password = CommandLineArgs.Get("steamPassword", "");
+
+            var (success, summary) = SteamUploadRunner.UploadHeadless(config, branch, username, password);
+            if (Application.isBatchMode) EditorApplication.Exit(success ? 0 : 1);
+        }
+
+        /// <summary>
+        /// Compiles all configured Steam standalone targets and immediately uploads them to Steam via SteamCmd.
+        /// <c>-executeMethod Wagenheimer.BuildPipeline.Editor.BuildCLI.BuildAndUploadSteam [-steamBranch beta] [-steamUsername user] [-steamPassword pwd]</c>
+        /// </summary>
+        public static void BuildAndUploadSteam()
+        {
+            Debug.Log("[BuildCLI] Starting Full Build and Upload Steam Pipeline...");
+            var config = FindOrCreateConfig();
+
+            // 1. Build all Steam profiles
+            var steamProfiles = config.publishers.Where(p => p != null && p.isSteam && !p.hidden).ToList();
+            if (steamProfiles.Count == 0)
+            {
+                Debug.LogError("[BuildCLI] No active Steam profiles found in ProjectBuildConfig.");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                return;
+            }
+
+            foreach (var profile in steamProfiles)
+            {
+                Debug.Log($"[BuildCLI] Compiling {profile.displayName} ({profile.platform})...");
+                var context = BuildContextFactory.Create(config, profile, new BuildContextFactory.Options());
+                var result = BuildPipelineRunner.Execute(context);
+                if (!result.Success)
+                {
+                    Debug.LogError($"[BuildCLI] Build failed for {profile.displayName}. Aborting Steam upload.");
+                    if (Application.isBatchMode) EditorApplication.Exit(1);
+                    return;
+                }
+
+                var contentRoot = Path.GetDirectoryName(result.OutputPath);
+                switch (profile.platform)
+                {
+                    case PlatformType.Windows64: config.steamUpload.lastBuiltPathWindows = contentRoot; break;
+                    case PlatformType.macOS: config.steamUpload.lastBuiltPathMac = contentRoot; break;
+                    case PlatformType.Linux64: config.steamUpload.lastBuiltPathLinux = contentRoot; break;
+                }
+            }
+
+            EditorUtility.SetDirty(config);
+            AssetDatabase.SaveAssets();
+
+            // 2. Upload to Steam
+            string branch = CommandLineArgs.Get("steamBranch", "");
+            string username = CommandLineArgs.Get("steamUsername", "");
+            string password = CommandLineArgs.Get("steamPassword", "");
+
+            var (uploadOk, uploadSummary) = SteamUploadRunner.UploadHeadless(config, branch, username, password);
+            if (Application.isBatchMode) EditorApplication.Exit(uploadOk ? 0 : 1);
+        }
     }
 }

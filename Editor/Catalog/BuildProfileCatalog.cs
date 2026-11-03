@@ -118,6 +118,23 @@ namespace Wagenheimer.BuildPipeline.Editor
         public List<BuildCatalogIssue> issues = new List<BuildCatalogIssue>();
     }
 
+    /// <summary>Steam deployment metadata exported for AppDeployHub / CI.</summary>
+    [Serializable]
+    public sealed class BuildCatalogSteamUpload
+    {
+        public bool enabled;
+        public string appId = "";
+        public string branch = "";
+        public string username = "";
+        public string depotIdWindows = "";
+        public string depotIdMac = "";
+        public string depotIdLinux = "";
+        public bool hasWindowsDepot;
+        public bool hasMacDepot;
+        public bool hasLinuxDepot;
+        public bool steamCmdConfigured;
+    }
+
     /// <summary>
     /// Machine-readable snapshot of ProjectBuildConfig, written next to the asset on every save and by
     /// the CLI. It is derived data: the .asset remains the source of truth. AppDeployHub reads this
@@ -136,6 +153,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         public string configHash = "";
         public BuildCatalogTracking tracking;
         public BuildCatalogValidation validation = new BuildCatalogValidation();
+        public BuildCatalogSteamUpload steamUpload;
         public List<BuildCatalogProfile> profiles = new List<BuildCatalogProfile>();
 
         /// <summary>PlayerSettings scripting defines per target group the profiles use.</summary>
@@ -212,6 +230,24 @@ namespace Wagenheimer.BuildPipeline.Editor
                     entry.defineRuleViolations = DefineRules.Check(registry, profile, stack).Select(v => v.Message).ToList();
                     catalog.profiles.Add(entry);
                 }
+            }
+
+            if (config?.steamUpload != null)
+            {
+                catalog.steamUpload = new BuildCatalogSteamUpload
+                {
+                    enabled = config.steamUpload.steamEnabled,
+                    appId = config.steamUpload.appId ?? "",
+                    branch = config.steamUpload.setLiveBranch ?? "",
+                    username = config.steamUpload.steamUsername ?? "",
+                    depotIdWindows = config.steamUpload.depotIdWindows ?? "",
+                    depotIdMac = config.steamUpload.depotIdMac ?? "",
+                    depotIdLinux = config.steamUpload.depotIdLinux ?? "",
+                    hasWindowsDepot = config.steamUpload.HasWindowsDepot,
+                    hasMacDepot = config.steamUpload.HasMacDepot,
+                    hasLinuxDepot = config.steamUpload.HasLinuxDepot,
+                    steamCmdConfigured = config.steamUpload.IsSteamCmdInstalled()
+                };
             }
 
             // The linter result travels with the catalog so the dashboard can show it before queueing.
