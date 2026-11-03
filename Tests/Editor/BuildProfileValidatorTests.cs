@@ -176,5 +176,38 @@ namespace Wagenheimer.BuildPipeline.Tests
             Assert.IsFalse(issues.Any(issue => issue.Severity == BuildProfileIssueSeverity.Error),
                 string.Join("\n", issues.Select(issue => issue.ToString())));
         }
+
+        [Test]
+        public void SteamSiblingsMayShareTheSameOutputSubfolder()
+        {
+            var config = Config(
+                SteamProfile("steam-windows", "Steam (Windows)", PlatformType.Windows64),
+                SteamProfile("steam-linux", "Steam (Linux)", PlatformType.Linux64),
+                SteamProfile("steam-mac", "Steam (Mac)", PlatformType.macOS));
+
+            var issues = BuildProfileValidator.Validate(config, null);
+
+            Assert.IsFalse(HasWarning(issues, "output-duplicate"),
+                string.Join("\n", issues.Select(issue => issue.ToString())));
+        }
+
+        [Test]
+        public void TwoSteamProfilesForTheSamePlatformStillWarnAboutTheOutput()
+        {
+            var config = Config(
+                SteamProfile("steam-a", "Steam A", PlatformType.Windows64),
+                SteamProfile("steam-b", "Steam B", PlatformType.Windows64));
+
+            var issues = BuildProfileValidator.Validate(config, null);
+
+            Assert.IsTrue(HasWarning(issues, "output-duplicate"));
+        }
+
+        private static PublisherProfile SteamProfile(string id, string name, PlatformType platform) =>
+            new PublisherProfile(Publisher.Steam, name, platform)
+            {
+                id = id,
+                outputSubfolder = "Builds/Publishers/Steam/"
+            };
     }
 }

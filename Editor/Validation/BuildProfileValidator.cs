@@ -190,7 +190,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (string.IsNullOrWhiteSpace(profile.outputSubfolder))
                 return;
 
-            string key = profile.outputSubfolder.Trim().TrimEnd('/').ToLowerInvariant();
+            string key = ProfileOutputPaths.EffectiveSubfolder(profile, profile.platform)
+                .Trim().TrimEnd('/').ToLowerInvariant();
             if (!byOutput.TryGetValue(key, out var list))
             {
                 list = new List<PublisherProfile>();

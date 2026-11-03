@@ -134,7 +134,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.Windows64:
                 case PlatformType.Linux64:
                     var winFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}";
-                    var sub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/";
+                    var sub = PublisherProfile != null
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform)
+                        : "Builds/";
                     var targetFolder = Path.Combine(root, sub, winFolder);
                     var ext = Platform == PlatformType.Linux64 ? ".x86_64" : ".exe";
                     ResolvedOutputDirectory = targetFolder;
@@ -143,7 +145,9 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 case PlatformType.macOS:
                     var macFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}_MAC";
-                    var macSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/";
+                    var macSub = PublisherProfile != null
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform)
+                        : "Builds/";
                     var macTargetFolder = Path.Combine(root, macSub, macFolder);
                     ResolvedOutputDirectory = macTargetFolder;
                     ResolvedOutputFilePath = Path.Combine(macTargetFolder, $"{ProjectName}.app");

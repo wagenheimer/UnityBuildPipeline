@@ -436,7 +436,11 @@ Pass `-allowProfileErrors` for an emergency build.
 | Full profile applying the ad define | error |
 | Free iOS profile without the ad define | warning |
 | Tracking define used outside iOS | warning |
-| Duplicate `outputSubfolder` | warning |
+| Duplicate `outputSubfolder` | warning (Steam desktop siblings are exempt: they get automatic `Windows`/`Linux`/`Mac` subfolders) |
+
+Steam desktop profiles can share a single `outputSubfolder` (for example `Builds/Publishers/Steam/`).
+The pipeline appends `Windows`, `Linux` or `Mac` for the build platform, so the three siblings never
+write into the same directory. A profile may also use the optional `{Platform}` token explicitly.
 
 ### Duplicate Free ↔ Full
 

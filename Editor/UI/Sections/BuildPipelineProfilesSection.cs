@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -464,12 +463,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     /// <summary>Best-effort absolute output folder of a profile (before a build resolves version/date/language).</summary>
     internal static class ProfileOutputPreview
     {
-        public static string Folder(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform)
-        {
-            var root = config.GetEffectiveBuildOutputRoot(platform);
-            var sub = (profile.outputSubfolder ?? "Builds/").Replace("{Publisher}", profile.publisher.ToString());
-            try { return Path.GetFullPath(Path.Combine(root, sub)); }
-            catch { return Path.Combine(root, sub); }
-        }
+        public static string Folder(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform) =>
+            ProfileOutputPaths.ResolveFolder(config, profile, platform);
     }
 }

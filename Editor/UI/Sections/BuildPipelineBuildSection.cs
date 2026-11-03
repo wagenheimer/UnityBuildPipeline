@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -242,6 +243,11 @@ namespace Wagenheimer.BuildPipeline.Editor
             edit.tooltip = "Abrir o perfil";
             row.Add(edit);
 
+            var openFolder = SmallButton("📂 Open Folder", () => OpenProfileFolder(profile));
+            openFolder.tooltip = "Abrir a pasta de saída:\n" + ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
+            openFolder.style.marginLeft = 6;
+            row.Add(openFolder);
+
             var build = new Button(() => RunSingle(profile));
             BuildPipelineUIStyle.ApplyIconText(build, "⚡ Build");
             build.AddToClassList("bp-btn");
@@ -263,6 +269,31 @@ namespace Wagenheimer.BuildPipeline.Editor
             _selection.CapturePublishers(_config, _profilePicks);
             _ctx.SaveSelection();
             _ctx.RebuildSection();
+        }
+
+        /// <summary>Opens the profile's output folder (creating it on demand when it does not exist yet).</summary>
+        private void OpenProfileFolder(PublisherProfile profile)
+        {
+            string folder = ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
+            try
+            {
+                if (!Directory.Exists(folder))
+                {
+                    if (!EditorUtility.DisplayDialog("Open Folder",
+                            $"A pasta de saída ainda não existe:\n\n{folder}\n\nCriar a pasta agora?",
+                            "Criar e abrir", "Cancelar"))
+                        return;
+
+                    Directory.CreateDirectory(folder);
+                }
+
+                EditorUtility.RevealInFinder(folder);
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.DisplayDialog("Open Folder",
+                    $"Não foi possível abrir:\n\n{folder}\n\n{ex.Message}", "OK");
+            }
         }
 
         // ── Plan ─────────────────────────────────────────────────────────────
