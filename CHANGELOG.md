@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-11-03
+
+### Added
+- Clean `gameFolderName` in Project Identity with auto-generate buttons (`⚡ Auto (Clean)` and `⚡ PascalCase`) to sanitize names into clean directory paths.
+- Token `{GameFolder}` and `{CleanGameName}` support across all profile output paths.
+- Dedicated `📂 Open Folder` buttons for each Steam depot (Windows, macOS, Linux) and next to SteamCmd executable path.
+- `🔄 Sync Paths with Steam Profiles` button in Steam Depots card to automatically synchronize depot content roots with resolved Steam profiles.
+- Automatic silent depot path detection when opening the Steam tab.
+
+### Changed
+- Standardized 100% of the UI cards, labels, buttons, tooltips, and diagnostics to English.
+- Steam desktop builds now output files directly into the platform depot directory (`Publishers/Steam/{GameFolder}/{Platform}`) without nesting extra dated timestamp folders.
+- Default output paths standardized to `Publishers/{Publisher}/{GameFolder}/`, eliminating duplicate `Builds/Builds/` paths when root points to a `Builds` directory.
+- Bumped ProjectBuildConfig schema version to 3 with automatic migration for legacy profiles.
+
 ## [2.6.0] - 2026-11-03
 
 ### Added

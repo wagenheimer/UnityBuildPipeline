@@ -29,11 +29,13 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         [Header("Project Identity")]
         public string projectName = "";
+        [Tooltip("Clean, folder-friendly game name used in build paths (e.g. Secrets of Magic 3 or SecretsOfMagic3). Auto-derived from Project Name if empty.")]
+        public string gameFolderName = "";
         public string defaultBundleIdentifier = "";
         public string gameNameJapanese = "";
 
-        [Header("Output & Paths")]
-        public string buildOutputRoot = "E:/Games/";
+        [Header("Build Output Roots")]
+        public string buildOutputRoot = "E:/Games/Builds/";
         public string macBuildOutputRoot = "/Volumes/Sandisk/Projects/Builds/";
         public string splashMasterFolder = "E:/Games/Unity/games/";
 
@@ -91,6 +93,30 @@ namespace Wagenheimer.BuildPipeline.Editor
         {
             if (ProjectBuildConfigMigrator.Migrate(this))
                 EditorApplication.delayCall += () => { if (this != null) EditorUtility.SetDirty(this); };
+        }
+
+        public string GetEffectiveGameFolderName()
+        {
+            if (!string.IsNullOrWhiteSpace(gameFolderName))
+                return gameFolderName.Trim();
+            return SanitizeFolderName(projectName);
+        }
+
+        public static string SanitizeFolderName(string name, bool removeSpaces = false)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "Game";
+
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var clean = new string(name.Where(c => !invalidChars.Contains(c) && c != ':').ToArray()).Trim();
+
+            if (removeSpaces)
+            {
+                var parts = clean.Split(new[] { ' ', '-', '_', ':', '.', ',', ';', '!' }, StringSplitOptions.RemoveEmptyEntries);
+                return string.Concat(parts.Select(p => char.ToUpperInvariant(p[0]) + (p.Length > 1 ? p.Substring(1) : "")));
+            }
+
+            return clean;
         }
 
         public string GetEffectiveKeystorePassword()

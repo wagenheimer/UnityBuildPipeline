@@ -75,11 +75,11 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildMasterToggleCard(SteamUploadConfig cfg)
         {
-            var card = BuildPipelineUIStyle.CreateCard("🎮 Integração Steam",
-                "Ativa ou desativa o ecossistema Steam para este projeto. Quando desativado, o painel silencia alertas e erros de SDKs ausentes.");
+            var card = BuildPipelineUIStyle.CreateCard("🎮 Steam Integration",
+                "Enables or disables the Steam ecosystem for this project. When disabled, missing SDK and depot warnings are muted.");
 
             var toggleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
-            var toggle = new Toggle("Steam Ativado (S/N)")
+            var toggle = new Toggle("Steam Integration Enabled")
             {
                 value = cfg.steamEnabled,
                 style = { unityFontStyleAndWeight = FontStyle.Bold }
@@ -105,9 +105,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                     linksRow.Add(btn);
                 }
 
-                AddLinkBtn("🌐 Painel do Jogo", $"https://partner.steamgames.com/apps/landing/{cfg.appId}");
+                AddLinkBtn("🌐 Game Dashboard", $"https://partner.steamgames.com/apps/landing/{cfg.appId}");
                 AddLinkBtn("🚀 Builds (SteamPipe)", $"https://partner.steamgames.com/apps/builds/{cfg.appId}");
-                AddLinkBtn("🏆 Conquistas & Stats", $"https://partner.steamgames.com/apps/achievements/{cfg.appId}");
+                AddLinkBtn("🏆 Achievements & Stats", $"https://partner.steamgames.com/apps/achievements/{cfg.appId}");
                 card.Add(linksRow);
             }
 
@@ -118,15 +118,15 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildDiagnosticsAndChecklistCard(SteamUploadConfig cfg)
         {
-            var card = BuildPipelineUIStyle.CreateCard("🩺 Diagnóstico & Checklist do Steam",
-                "Verificação dos requisitos essenciais para compilar, executar e testar o jogo com a Steam no editor e standalone.");
+            var card = BuildPipelineUIStyle.CreateCard("🩺 Steam Diagnostics & Checklist",
+                "Essential requirements checklist to build, run, and test Steam features in the Editor and Standalone builds.");
 
             // 1. Steamworks.NET
             bool steamworksInstalled = DefineEnvironment.IsSteamworksPresent();
             var swRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
             var swLabel = new Label(steamworksInstalled
-                ? "✔ Steamworks.NET instalado no projeto."
-                : "⚠ Steamworks.NET não encontrado. (Necessário para a API Steam, conquistas, overlay e nuvem)")
+                ? "✔ Steamworks.NET is installed in the project."
+                : "⚠ Steamworks.NET not found. (Required for Steam achievements, overlay, stats, and cloud saves)")
             {
                 style = { flexGrow = 1, color = steamworksInstalled ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.35f), fontSize = 11, whiteSpace = WhiteSpace.Normal }
             };
@@ -138,7 +138,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     AddSteamworksPackage();
                     Rebuild();
                 });
-                BuildPipelineUIStyle.ApplyIconText(installBtn, "📦 Adicionar Steamworks.NET (UPM)");
+                BuildPipelineUIStyle.ApplyIconText(installBtn, "📦 Add Steamworks.NET (UPM)");
                 installBtn.AddToClassList("bp-btn");
                 installBtn.AddToClassList("bp-btn--primary");
                 swRow.Add(installBtn);
@@ -153,7 +153,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var appIdRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
             string appIdMsg = string.IsNullOrWhiteSpace(cfg.appId)
-                ? "⚠ App ID da Steam ainda não foi configurado na seção abaixo."
+                ? "⚠ Steam App ID has not been configured in the section below."
                 : !appIdFileExists
                     ? $"⚠ steam_appid.txt ausente na raiz do projeto ({Path.GetFileName(Path.GetDirectoryName(Application.dataPath))}/steam_appid.txt)."
                     : idSynced
@@ -182,7 +182,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         EditorUtility.DisplayDialog("Erro", ex.Message, "OK");
                     }
                 });
-                BuildPipelineUIStyle.ApplyIconText(syncBtn, appIdFileExists ? "⚡ Sincronizar steam_appid.txt" : "⚡ Criar steam_appid.txt");
+                BuildPipelineUIStyle.ApplyIconText(syncBtn, appIdFileExists ? "⚡ Synchronize steam_appid.txt" : "⚡ Create steam_appid.txt");
                 syncBtn.AddToClassList("bp-btn");
                 syncBtn.AddToClassList("bp-btn--primary");
                 appIdRow.Add(syncBtn);
@@ -196,7 +196,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var mgrRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
             string mgrMsg = !hasManagerScript
-                ? "⚠ SteamManager.cs não encontrado em Assets/. (Script essencial para SteamAPI.Init no runtime)"
+                ? "⚠ SteamManager.cs not found in Assets/. (Essential script for SteamAPI.Init at runtime)"
                 : hasSafeEditorCheck
                     ? $"✔ SteamManager.cs presente em '{managerPath}' (com proteção de Editor/Sentry)."
                     : $"✔ SteamManager.cs presente em '{managerPath}' (versão sem proteção de Editor).";
@@ -213,7 +213,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     CreateSteamManagerScript();
                     Rebuild();
                 });
-                BuildPipelineUIStyle.ApplyIconText(createMgrBtn, "📄 Criar SteamManager.cs");
+                BuildPipelineUIStyle.ApplyIconText(createMgrBtn, "📄 Create SteamManager.cs");
                 createMgrBtn.AddToClassList("bp-btn");
                 createMgrBtn.AddToClassList("bp-btn--primary");
                 mgrRow.Add(createMgrBtn);
@@ -225,7 +225,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     CreateSteamManagerScript(managerPath);
                     Rebuild();
                 });
-                BuildPipelineUIStyle.ApplyIconText(upgradeMgrBtn, "⚡ Atualizar Proteção Editor");
+                BuildPipelineUIStyle.ApplyIconText(upgradeMgrBtn, "⚡ Upgrade Editor Protection");
                 upgradeMgrBtn.AddToClassList("bp-btn");
                 upgradeMgrBtn.tooltip = "Atualiza o SteamManager para silenciar erros de inicialização no Editor quando a Steam estiver fechada.";
                 mgrRow.Add(upgradeMgrBtn);
@@ -237,7 +237,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var sceneRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
             if (firstScene == null)
             {
-                sceneRow.Add(new Label("⚠ Nenhuma cena habilitada em File > Build Settings.")
+                sceneRow.Add(new Label("⚠ No scenes enabled in File > Build Settings.")
                 {
                     style = { flexGrow = 1, color = new Color(0.95f, 0.75f, 0.35f), fontSize = 11 }
                 });
@@ -257,7 +257,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 string sceneMsg = sceneHasManager
                     ? $"✔ SteamManager presente na cena inicial ({Path.GetFileName(firstScene.path)})."
                     : autoInit
-                        ? $"✔ SteamManager possui auto-inicialização em runtime ([RuntimeInitializeOnLoadMethod])."
+                        ? $"✔ SteamManager has runtime auto-initialization ([RuntimeInitializeOnLoadMethod])."
                         : $"⚠ SteamManager não detectado na primeira cena ({Path.GetFileName(firstScene.path)}).";
 
                 bool ok = sceneHasManager || autoInit;
@@ -274,7 +274,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         InjectSteamManagerIntoFirstScene(firstScene.path);
                         Rebuild();
                     });
-                    BuildPipelineUIStyle.ApplyIconText(injectBtn, "⚡ Injetar na Cena Inicial");
+                    BuildPipelineUIStyle.ApplyIconText(injectBtn, "⚡ Inject into Start Scene");
                     injectBtn.AddToClassList("bp-btn");
                     injectBtn.AddToClassList("bp-btn--primary");
                     sceneRow.Add(injectBtn);
@@ -305,7 +305,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Rebuild();
 
                 EditorUtility.DisplayDialog(
-                    error == null ? "Import concluído" : "Import falhou",
+                    error == null ? "Import Successful" : "Import Failed",
                     (error == null
                         ? $"App ID {cfg.appId}, {new[] { cfg.HasWindowsDepot, cfg.HasMacDepot, cfg.HasLinuxDepot }.Count(b => b)} depot(s) importado(s). " +
                           "Os ContentRoots apontam para as pastas ANTIGAS por enquanto — use 'Build Now' para apontar para um build novo do Unity.\n\n"
@@ -355,8 +355,28 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildDepotsCard(SteamUploadConfig cfg)
         {
-            var card = BuildPipelineUIStyle.CreateCard("📦 Depots (Windows / Mac / Linux)",
-                "Leave a Depot ID empty to skip that platform entirely.");
+            var card = BuildPipelineUIStyle.CreateCard("📦 Depots (Windows / macOS / Linux)",
+                "Configure Depot IDs and verify the target content roots for SteamCmd upload. Each platform has its own folder inside Publishers/Steam/{GameFolder}/.");
+
+            // Auto-sync unconfigured depot paths silently
+            AutoSyncDepotPathsSilently(cfg);
+
+            var syncRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 8 } };
+            var syncBtn = new Button(() => SyncDepotsWithProfiles(cfg));
+            BuildPipelineUIStyle.ApplyIconText(syncBtn, "🔄 Sync Paths with Steam Profiles");
+            syncBtn.AddToClassList("bp-btn");
+            syncBtn.tooltip = "Auto-detect configured Steam profiles and update depot build folders to match their resolved output locations.";
+            syncRow.Add(syncBtn);
+
+            if (!string.IsNullOrEmpty(cfg.appId))
+            {
+                var webDepotsBtn = new Button(() => Application.OpenURL($"https://partner.steamgames.com/apps/depots/{cfg.appId}"));
+                BuildPipelineUIStyle.ApplyIconText(webDepotsBtn, "🌐 Steamworks Depots Web");
+                webDepotsBtn.AddToClassList("bp-btn");
+                webDepotsBtn.style.marginLeft = 6;
+                syncRow.Add(webDepotsBtn);
+            }
+            card.Add(syncRow);
 
             card.Add(DepotRow("Windows", PlatformType.Windows64, cfg.depotIdWindows, v => cfg.depotIdWindows = v, cfg.lastBuiltPathWindows));
             card.Add(DepotRow("macOS", PlatformType.macOS, cfg.depotIdMac, v => cfg.depotIdMac = v, cfg.lastBuiltPathMac));
@@ -364,21 +384,111 @@ namespace Wagenheimer.BuildPipeline.Editor
             return card;
         }
 
+        private void AutoSyncDepotPathsSilently(SteamUploadConfig cfg)
+        {
+            if (_config == null || cfg == null) return;
+            bool changed = false;
+
+            var winProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.Windows64);
+            if (winProfile != null && (string.IsNullOrEmpty(cfg.lastBuiltPathWindows) || !Directory.Exists(cfg.lastBuiltPathWindows)))
+            {
+                var resolved = ProfileOutputPaths.ResolveFolder(_config, winProfile, PlatformType.Windows64);
+                if (Directory.Exists(resolved) && cfg.lastBuiltPathWindows != resolved)
+                {
+                    cfg.lastBuiltPathWindows = resolved;
+                    changed = true;
+                }
+            }
+
+            var macProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.macOS);
+            if (macProfile != null && (string.IsNullOrEmpty(cfg.lastBuiltPathMac) || !Directory.Exists(cfg.lastBuiltPathMac)))
+            {
+                var resolved = ProfileOutputPaths.ResolveFolder(_config, macProfile, PlatformType.macOS);
+                if (Directory.Exists(resolved) && cfg.lastBuiltPathMac != resolved)
+                {
+                    cfg.lastBuiltPathMac = resolved;
+                    changed = true;
+                }
+            }
+
+            var linProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.Linux64);
+            if (linProfile != null && (string.IsNullOrEmpty(cfg.lastBuiltPathLinux) || !Directory.Exists(cfg.lastBuiltPathLinux)))
+            {
+                var resolved = ProfileOutputPaths.ResolveFolder(_config, linProfile, PlatformType.Linux64);
+                if (Directory.Exists(resolved) && cfg.lastBuiltPathLinux != resolved)
+                {
+                    cfg.lastBuiltPathLinux = resolved;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                SaveDirty();
+        }
+
+        private void SyncDepotsWithProfiles(SteamUploadConfig cfg)
+        {
+            if (_config == null) return;
+            int count = 0;
+
+            var winProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.Windows64);
+            if (winProfile != null)
+            {
+                var res = ProfileOutputPaths.ResolveFolder(_config, winProfile, PlatformType.Windows64);
+                if (cfg.lastBuiltPathWindows != res) { cfg.lastBuiltPathWindows = res; count++; }
+            }
+
+            var macProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.macOS);
+            if (macProfile != null)
+            {
+                var res = ProfileOutputPaths.ResolveFolder(_config, macProfile, PlatformType.macOS);
+                if (cfg.lastBuiltPathMac != res) { cfg.lastBuiltPathMac = res; count++; }
+            }
+
+            var linProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == PlatformType.Linux64);
+            if (linProfile != null)
+            {
+                var res = ProfileOutputPaths.ResolveFolder(_config, linProfile, PlatformType.Linux64);
+                if (cfg.lastBuiltPathLinux != res) { cfg.lastBuiltPathLinux = res; count++; }
+            }
+
+            if (count > 0)
+            {
+                SaveDirty();
+                Rebuild();
+                EditorUtility.DisplayDialog("Steam Depots Synchronized", $"{count} depot content root path(s) updated to match Steam profile configurations.", "OK");
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Steam Depots Synchronized", "Depot content roots are already up to date with configured Steam profiles.", "OK");
+            }
+        }
+
         private VisualElement DepotRow(string label, PlatformType platform, string depotId, Action<string> setDepotId, string lastBuiltPath)
         {
             var row = new VisualElement { style = { marginBottom = 8, paddingBottom = 6, borderBottomWidth = 1, borderBottomColor = new Color(1, 1, 1, 0.08f) } };
             row.Add(TextRow($"{label} Depot ID", depotId, v => { setDepotId(v); SaveDirty(); }));
 
-            var statusRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 2 } };
+            var statusRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 2, flexWrap = Wrap.Wrap } };
             var exists = !string.IsNullOrEmpty(lastBuiltPath) && Directory.Exists(lastBuiltPath);
             var statusLabel = new Label(string.IsNullOrEmpty(lastBuiltPath)
                 ? "Not built yet."
-                : (exists ? $"✔ Last build: {lastBuiltPath}" : $"⚠ Last build folder is missing: {lastBuiltPath}"));
+                : (exists ? $"✔ Content root: {lastBuiltPath}" : $"⚠ Content folder does not exist: {lastBuiltPath}"));
             statusLabel.style.fontSize = 10;
             statusLabel.style.color = exists ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.9f, 0.7f, 0.4f);
             statusLabel.style.flexGrow = 1;
             statusLabel.style.whiteSpace = WhiteSpace.Normal;
             statusRow.Add(statusLabel);
+
+            if (!string.IsNullOrEmpty(lastBuiltPath))
+            {
+                var openBtn = new Button(() => BuildOutputFolderActions.OpenPath(lastBuiltPath, $"Open {label} Depot Folder"));
+                BuildPipelineUIStyle.ApplyIconText(openBtn, "📂 Open Folder");
+                openBtn.AddToClassList("bp-btn");
+                openBtn.style.marginRight = 4;
+                openBtn.tooltip = exists ? "Open this depot content root in file explorer" : "Folder does not exist yet (click to create or open)";
+                statusRow.Add(openBtn);
+            }
 
             var buildBtn = new Button(() => BuildOnePlatform(platform));
             BuildPipelineUIStyle.ApplyIconText(buildBtn, "🔨 Build Now");
@@ -391,10 +501,13 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private void BuildOnePlatform(PlatformType platform)
         {
-            var steamProfile = _steamProfile;
+            // Pick the specific Steam profile configured for this target platform, or fall back to active profile
+            var steamProfile = _config.publishers?.FirstOrDefault(p => p != null && p.isSteam && p.platform == platform) 
+                               ?? _steamProfile;
+
             if (steamProfile == null)
             {
-                EditorUtility.DisplayDialog("Sem perfil Steam", "Marque um perfil como Steam em Perfis (campo 'Steam') primeiro.", "OK");
+                EditorUtility.DisplayDialog("No Steam Profile", "Configure at least one profile with 'Steam' checked in Profiles first.", "OK");
                 return;
             }
 
@@ -421,7 +534,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildProfilesCard()
         {
-            var card = BuildPipelineUIStyle.CreateCard("🎮 Perfis Steam",
+            var card = BuildPipelineUIStyle.CreateCard("🎮 Steam Profiles",
                 "Perfis marcados como Steam (Perfis → Identidade → Steam). Um perfil Steam compila Windows, Mac e Linux; " +
                 "os três usam o MESMO conjunto de defines (grupo Standalone do Unity).");
 
@@ -431,7 +544,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (steamProfiles.Count == 0)
             {
                 card.Add(BuildPipelineUIStyle.CreateCallout(
-                    "Nenhum perfil marcado como Steam. Abra Perfis, escolha o perfil e ligue 'Steam'.", "warn"));
+                    "No profile marked as Steam. Go to Profiles, select a profile and toggle 'Steam' on.", "warn"));
                 return card;
             }
 
@@ -439,7 +552,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 _steamProfile = steamProfiles[0];
 
             var names = steamProfiles.Select(p => $"{p.displayName} ({p.EffectiveId})").ToList();
-            var picker = new PopupField<string>("Perfil para build/upload", names, steamProfiles.IndexOf(_steamProfile));
+            var picker = new PopupField<string>("Active Profile for Build/Upload", names, steamProfiles.IndexOf(_steamProfile));
             picker.RegisterValueChangedCallback(evt =>
             {
                 _steamProfile = steamProfiles[names.IndexOf(evt.newValue)];
@@ -450,13 +563,13 @@ namespace Wagenheimer.BuildPipeline.Editor
             var stack = DefineEnvironment.StackFor(_config, _steamProfile);
             bool hasSocialDefine = stack.Has(PublisherProfile.NativeSocialSteamDefine);
             string defineText = hasSocialDefine
-                ? $"✔ '{PublisherProfile.NativeSocialSteamDefine}' entra neste build ({string.Join(", ", stack.For(PublisherProfile.NativeSocialSteamDefine).Select(e => e.source))})."
+                ? $"✔ '{PublisherProfile.NativeSocialSteamDefine}' is included in this build ({string.Join(", ", stack.For(PublisherProfile.NativeSocialSteamDefine).Select(e => e.source))})."
                 : DefineEnvironment.IsSteamworksPresent()
-                    ? $"⚠ '{PublisherProfile.NativeSocialSteamDefine}' não entra neste build: o perfil o remove."
-                    : $"ℹ Steamworks.NET não está instalado: '{PublisherProfile.NativeSocialSteamDefine}' não é injetado (achievements Steam ficam desligados).";
+                    ? $"⚠ '{PublisherProfile.NativeSocialSteamDefine}' is not included in this build (removed by profile defines)."
+                    : $"ℹ Steamworks.NET is not installed: '{PublisherProfile.NativeSocialSteamDefine}' cannot be injected (Steam achievements will be disabled).";
             card.Add(BuildPipelineUIStyle.CreateCallout(defineText, hasSocialDefine ? "ok" : "warn"));
 
-            card.Add(new Label("Defines finais (Standalone): " + (stack.Final.Count == 0 ? "(nenhum)" : string.Join("; ", stack.Final)))
+            card.Add(new Label("Final Standalone Defines: " + (stack.Final.Count == 0 ? "(nenhum)" : string.Join("; ", stack.Final)))
             {
                 style = { fontSize = 10, whiteSpace = WhiteSpace.Normal, color = new Color(0.7f, 0.75f, 0.8f), marginTop = 4 }
             });
@@ -475,7 +588,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             AddButton("🪟 Build Windows", () => BuildOnePlatform(PlatformType.Windows64));
             AddButton("🍎 Build Mac", () => BuildOnePlatform(PlatformType.macOS));
             AddButton("🐧 Build Linux", () => BuildOnePlatform(PlatformType.Linux64));
-            AddButton("🧬 Ver defines do perfil", () => BuildPipelineWindow.ShowSection(BuildPipelineSections.Profiles, _steamProfile.EffectiveId));
+            AddButton("🧬 View Profile Defines", () => BuildPipelineWindow.ShowSection(BuildPipelineSections.Profiles, _steamProfile.EffectiveId));
             card.Add(row);
             return card;
         }
@@ -484,7 +597,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildActionsCard(SteamUploadConfig cfg)
         {
-            var card = BuildPipelineUIStyle.CreateCard("🚀 Upload");
+            var card = BuildPipelineUIStyle.CreateCard("🚀 Upload to Steam", "Build standalone targets and upload them to SteamPipe via SteamCmd.");
 
             var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
 
@@ -642,9 +755,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 string filePath;
                 if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
                 {
-                    if (!EditorUtility.DisplayDialog("Atualizar SteamManager.cs",
+                    if (!EditorUtility.DisplayDialog("Update SteamManager.cs",
                             $"Deseja atualizar '{existingPath}' para a versão com proteção de Editor/Sentry (não emite erro se o cliente Steam estiver fechado)?",
-                            "Atualizar", "Cancelar"))
+                            "Upgrade", "Cancel"))
                         return;
 
                     filePath = existingPath;
@@ -659,8 +772,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 File.WriteAllText(filePath, SteamManagerTemplate);
                 AssetDatabase.Refresh();
-                EditorUtility.DisplayDialog("SteamManager Configurado",
-                    $"Script SteamManager.cs gravado com sucesso em '{filePath}'.\n\nPossui auto-inicialização em runtime antes da primeira cena e proteção para não gerar erros no Editor/Sentry caso o cliente Steam esteja fechado.", "OK");
+                EditorUtility.DisplayDialog("SteamManager Configured",
+                    $"SteamManager.cs written successfully to '{filePath}'.\n\nIncludes runtime auto-initialization before first scene and safe-mode protection for Editor/Sentry when Steam is closed.", "OK");
             }
             catch (Exception ex)
             {
@@ -696,7 +809,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             catch (Exception ex)
             {
-                EditorUtility.DisplayDialog("Erro ao injetar", ex.Message, "OK");
+                EditorUtility.DisplayDialog("Injection Error", ex.Message, "OK");
             }
         }
 

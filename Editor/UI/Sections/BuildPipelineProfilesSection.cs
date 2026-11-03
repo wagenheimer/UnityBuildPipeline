@@ -183,7 +183,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             detail.Add(DetailHeader(profile, index));
 
-            var identity = BuildPipelineUIStyle.CreateCard("🪪 Identidade", "O id é o que o Forge e o CI usam (-buildProfile). Mude com cuidado.");
+            var identity = BuildPipelineUIStyle.CreateCard("🪪 Identity", "The profile id is used by Forge and CLI (-buildProfile). Change with care.");
             identity.Add(Field("id", "Id (CI / Forge)"));
             identity.Add(Field("displayName", "Nome"));
             identity.Add(Field("publisher", "Publisher"));
@@ -208,7 +208,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             detail.Add(LanguageCard(profile, element));
 
-            var platform = BuildPipelineUIStyle.CreateCard("🧩 Plataforma");
+            var platform = BuildPipelineUIStyle.CreateCard("🧩 Platform");
             platform.Add(Field("scriptingBackend", "Scripting backend"));
             if (profile.platform == PlatformType.macOS)
             {
@@ -227,18 +227,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             RefreshDefines(profile);
             defines.TrackSerializedObjectValue(_so, _ => defines.schedule.Execute(() => RefreshDefines(profile)).ExecuteLater(300));
 
-            var output = BuildPipelineUIStyle.CreateCard("📁 Saída do build",
+            var output = BuildPipelineUIStyle.CreateCard("📁 Build Output",
                 "A pasta final é montada em camadas: raiz do projeto → subpasta do perfil → plataforma (Steam) → versão/data/idioma. " +
                 "Preencha apenas a subpasta; o resto é automático.");
             BuildOutputCard(output, profile, element);
             detail.Add(output);
 
-            var zip = BuildPipelineUIStyle.CreateCard("🗜 Zip (opcional)",
+            var zip = BuildPipelineUIStyle.CreateCard("🗜 Zip Archive (Optional)",
                 "Independente da pasta do build: se marcar, o .zip é criado na pasta de destino abaixo.");
             BuildZipCard(zip, profile, element);
             detail.Add(zip);
 
-            var notes = BuildPipelineUIStyle.CreateCard("📝 Notas");
+            var notes = BuildPipelineUIStyle.CreateCard("📝 Notes");
             notes.Add(Field("notes", ""));
             detail.Add(notes);
         }
@@ -268,10 +268,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (!hasMac) actions.Add(BuildPipelineBuildSection.SmallButton("🍎 + Steam Mac", () => CreateSteamSibling(index, PlatformType.macOS)));
                 if (!hasLinux) actions.Add(BuildPipelineBuildSection.SmallButton("🐧 + Steam Linux", () => CreateSteamSibling(index, PlatformType.Linux64)));
             }
-            actions.Add(BuildPipelineBuildSection.SmallButton("⧉ Duplicar", () => Duplicate(index)));
+            actions.Add(BuildPipelineBuildSection.SmallButton("⧉ Duplicate", () => Duplicate(index)));
             if (PublisherProfileDuplicator.TryGetCounterpart(profile.publisher, out _))
                 actions.Add(BuildPipelineBuildSection.SmallButton(profile.isFullGame ? "→ Free" : "→ Full", () => Counterpart(index)));
-            actions.Add(BuildPipelineBuildSection.SmallButton(profile.hidden ? "👁 Mostrar" : "🙈 Ocultar", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton(profile.hidden ? "👁 Show" : "🙈 Hide", () =>
             {
                 profile.hidden = !profile.hidden;
                 _ctx.SaveConfig();
@@ -286,7 +286,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement LanguageCard(PublisherProfile profile, SerializedProperty element)
         {
-            var card = BuildPipelineUIStyle.CreateCard("🌐 Idioma",
+            var card = BuildPipelineUIStyle.CreateCard("🌐 Language",
                 "Auto = padrão do projeto (normalmente AutoDetect) ou o idioma escolhido na hora do build. " +
                 "Travado = o build SEMPRE sai nesse idioma e o jogo esconde o seletor (GameConfig.IsLanguageLocked).");
 
@@ -319,7 +319,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// </summary>
         private void BuildOutputCard(VisualElement card, PublisherProfile profile, SerializedProperty element)
         {
-            var subfolderField = new PropertyField(element.FindPropertyRelative("outputSubfolder"), "Subpasta deste perfil (relativa à raiz)");
+            var subfolderField = new PropertyField(element.FindPropertyRelative("outputSubfolder"), "Profile subfolder (relative to root)");
             card.Add(subfolderField);
             card.Add(Hint("Ex.: Builds/Publishers/{Publisher}/  ·  {Publisher} vira o nome do publisher  ·  não inclua versão/data."));
 
@@ -332,7 +332,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             pathList.AddToClassList("bp-path-list");
 
             var rootPath = PathValue();
-            var rootRow = PathRow("Raiz do projeto", rootPath);
+            var rootRow = PathRow("Project Output Root", rootPath);
             var editRoot = BuildPipelineBuildSection.SmallButton("✏ Alterar", () => _ctx.Navigate(BuildPipelineSections.Project));
             editRoot.tooltip = "As raízes de Windows e macOS ficam em Projeto → Raízes de saída.";
             rootRow.Add(editRoot);
@@ -441,7 +441,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
-            var test = BuildPipelineBuildSection.SmallButton("🧪 Testar pasta", () =>
+            var test = BuildPipelineBuildSection.SmallButton("🧪 Test Folder", () =>
             {
                 _so.ApplyModifiedProperties();
                 testStatusActive = true;
@@ -454,23 +454,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             test.tooltip = "Cria a pasta se necessário, grava um arquivo temporário e confere permissão, disco e caminho.";
             actions.Add(test);
 
-            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir pasta", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Open Folder", () =>
             {
                 _so.ApplyModifiedProperties();
                 BuildOutputFolderActions.Open(_config, profile, profile.platform);
             }));
 
-            actions.Add(BuildPipelineBuildSection.SmallButton("📋 Copiar caminho", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("📋 Copy Path", () =>
             {
                 _so.ApplyModifiedProperties();
                 BuildOutputFolderActions.CopyPath(ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform));
             }));
 
-            actions.Add(BuildPipelineBuildSection.SmallButton("↺ Restaurar padrão", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("↺ Reset to Default", () =>
             {
-                string standard = $"Builds/Publishers/{profile.publisher}/";
-                if (!EditorUtility.DisplayDialog("Restaurar subpasta",
-                        $"Voltar a subpasta deste perfil para:\n\n{standard}", "Restaurar", "Cancelar"))
+                string standard = profile.isSteam ? $"Publishers/Steam/{{GameFolder}}/" : $"Publishers/{profile.publisher}/{{GameFolder}}/";
+                if (!EditorUtility.DisplayDialog("Reset Subfolder",
+                        $"Voltar a subpasta deste perfil para:\n\n{standard}", "Reset", "Cancel"))
                     return;
 
                 element.FindPropertyRelative("outputSubfolder").stringValue = standard;
@@ -693,7 +693,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return;
 
             if (_config.publishers.Any(p => string.Equals(p.EffectiveId, clone.EffectiveId, StringComparison.OrdinalIgnoreCase)) &&
-                !EditorUtility.DisplayDialog("Duplicar perfil", $"Já existe um perfil com o id '{clone.EffectiveId}'. Duplicar mesmo assim?", "Duplicar", "Cancelar"))
+                !EditorUtility.DisplayDialog("Duplicar perfil", $"Já existe um perfil com o id '{clone.EffectiveId}'. Duplicar mesmo assim?", "Duplicar", "Cancel"))
                 return;
 
             clone.isSteam = source.isSteam;
@@ -710,7 +710,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             var profile = _config.publishers[index];
             if (!EditorUtility.DisplayDialog("Excluir perfil",
                     $"Excluir '{profile.displayName}' ({profile.EffectiveId})?\n\nO Forge e o CI deixam de encontrar este id. Para só tirar da lista, use Ocultar.",
-                    "Excluir", "Cancelar"))
+                    "Excluir", "Cancel"))
                 return;
 
             _config.publishers.RemoveAt(index);

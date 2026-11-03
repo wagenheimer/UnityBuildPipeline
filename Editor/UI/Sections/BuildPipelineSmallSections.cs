@@ -18,29 +18,29 @@ namespace Wagenheimer.BuildPipeline.Editor
             var config = ctx.Config;
             var so = new SerializedObject(config);
 
-            var defaults = BuildPipelineUIStyle.CreateCard("🌐 Idioma padrão",
-                "Usado por perfis em modo Auto quando o build não escolhe outro. AutoDetect = o jogo segue o idioma do aparelho/sistema.");
-            defaults.Add(new PropertyField(so.FindProperty("defaultLanguage"), "Padrão do projeto"));
+            var defaults = BuildPipelineUIStyle.CreateCard("🌐 Default Language",
+                "Used by profiles in Auto mode when no explicit language is chosen. AutoDetect follows the host OS language.");
+            defaults.Add(new PropertyField(so.FindProperty("defaultLanguage"), "Project Default"));
             Root.Add(defaults);
 
-            var matrix = BuildPipelineUIStyle.CreateCard("📦 Idiomas da matriz",
-                "Os idiomas que aparecem para o build em lote (e o -matrixLanguages padrão do CLI). 'enabled' = vem marcado.");
-            matrix.Add(new PropertyField(so.FindProperty("languages"), "Idiomas"));
-            matrix.Add(BuildPipelineBuildSection.SmallButton("↺ Restaurar lista padrão", () =>
+            var matrix = BuildPipelineUIStyle.CreateCard("📦 Matrix Languages",
+                "Languages available for matrix batch builds (and default CLI -matrixLanguages). 'Enabled' = checked by default.");
+            matrix.Add(new PropertyField(so.FindProperty("languages"), "Languages"));
+            matrix.Add(BuildPipelineBuildSection.SmallButton("↺ Reset to Default List", () =>
             {
-                if (!EditorUtility.DisplayDialog("Restaurar idiomas", "Trocar a lista pelos idiomas padrão?", "Restaurar", "Cancelar"))
+                if (!EditorUtility.DisplayDialog("Reset Languages", "Replace current language list with defaults?", "Reset", "Cancel"))
                     return;
                 config.languages = LanguageProfile.GetDefaultLanguages();
                 ctx.SaveConfig(false);
             }));
             Root.Add(matrix);
 
-            var locked = BuildPipelineUIStyle.CreateCard("🔒 Perfis com idioma travado",
+            var locked = BuildPipelineUIStyle.CreateCard("🔒 Profiles with Locked Language",
                 "Travar = build sempre nesse idioma, pasta com sufixo (_DE) e o jogo esconde o seletor (GameConfig.IsLanguageLocked). " +
                 "Para um pedido pontual ('manda um build em alemão') use o idioma da seção Build, sem mudar o perfil.");
             var lockedProfiles = config.publishers.Where(p => p != null && p.languageMode == ProfileLanguageMode.Locked).ToList();
             if (lockedProfiles.Count == 0)
-                locked.Add(new Label("Nenhum. Todos seguem o padrão do projeto.") { style = { color = new Color(0.62f, 0.65f, 0.71f) } });
+                locked.Add(new Label("None. All profiles follow project default.") { style = { color = new Color(0.62f, 0.65f, 0.71f) } });
             foreach (var profile in lockedProfiles)
             {
                 var row = new VisualElement();
@@ -49,7 +49,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 link.AddToClassList("bp-link");
                 link.style.width = 300;
                 row.Add(link);
-                row.Add(BuildPipelineUIStyle.CreateText(profile.IsLanguageLocked ? $"🔒 {profile.lockedLanguage}" : "⚠ Travado em AutoDetect (sem efeito)"));
+                row.Add(BuildPipelineUIStyle.CreateText(profile.IsLanguageLocked ? $"🔒 {profile.lockedLanguage}" : "⚠ Locked to AutoDetect (no effect)"));
                 locked.Add(row);
             }
 
@@ -70,11 +70,41 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             Root.Add(BuildPipelineWindow.MigrationCard(config, section => ctx.Navigate(section), ctx.RebuildAll));
 
-            var identity = BuildPipelineUIStyle.CreateCard("🪪 Projeto", "Vínculo com o GameConfig (verdade de runtime) e nomes.");
+            var identity = BuildPipelineUIStyle.CreateCard("🪪 Project Identity", "Link to GameConfig (runtime source of truth), naming and folder paths.");
             identity.Add(new PropertyField(so.FindProperty("gameConfig"), "GameConfig.asset"));
-            identity.Add(new PropertyField(so.FindProperty("projectName"), "Nome do projeto"));
-            identity.Add(new PropertyField(so.FindProperty("defaultBundleIdentifier"), "Bundle id padrão"));
-            identity.Add(new PropertyField(so.FindProperty("gameNameJapanese"), "Nome em japonês"));
+            identity.Add(new PropertyField(so.FindProperty("projectName"), "Project Name"));
+
+            var folderRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
+            var folderField = new PropertyField(so.FindProperty("gameFolderName"), "Game Folder Name") { style = { flexGrow = 1 } };
+            folderRow.Add(folderField);
+
+            var cleanBtn = BuildPipelineBuildSection.SmallButton("⚡ Auto (Clean)", () =>
+            {
+                so.FindProperty("gameFolderName").stringValue = ProjectBuildConfig.SanitizeFolderName(config.projectName, removeSpaces: false);
+                so.ApplyModifiedProperties();
+                ctx.SaveConfig(false);
+            });
+            cleanBtn.tooltip = "Auto-generate clean folder name (keeps spaces, removes illegal characters)";
+            folderRow.Add(cleanBtn);
+
+            var pascalBtn = BuildPipelineBuildSection.SmallButton("⚡ PascalCase", () =>
+            {
+                so.FindProperty("gameFolderName").stringValue = ProjectBuildConfig.SanitizeFolderName(config.projectName, removeSpaces: true);
+                so.ApplyModifiedProperties();
+                ctx.SaveConfig(false);
+            });
+            pascalBtn.tooltip = "Auto-generate folder name without spaces (e.g. SecretsOfMagic3)";
+            folderRow.Add(pascalBtn);
+            identity.Add(folderRow);
+
+            var folderHint = new Label($"Effective Game Folder: {config.GetEffectiveGameFolderName()}")
+            {
+                style = { fontSize = 10, color = new Color(0.6f, 0.8f, 0.65f), marginBottom = 6, marginLeft = 4 }
+            };
+            identity.Add(folderHint);
+
+            identity.Add(new PropertyField(so.FindProperty("defaultBundleIdentifier"), "Default Bundle Identifier"));
+            identity.Add(new PropertyField(so.FindProperty("gameNameJapanese"), "Japanese Name"));
             Root.Add(identity);
 
             var gameCard = GameSpecificCard(config);
@@ -82,32 +112,72 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Root.Add(gameCard);
 
             var paths = OutputRootsCard(ctx, so);
+            Root.Add(SteamPathPreviewCard(config));
             Root.Add(paths);
 
-            var scenes = BuildPipelineUIStyle.CreateCard("🎬 Splashes e cenas",
-                "Cenas e pasta usadas pelo pipeline e pelo editor de níveis.");
-            scenes.Add(new PropertyField(so.FindProperty("splashMasterFolder"), "Pasta mestre de splashes"));
-            scenes.Add(new PropertyField(so.FindProperty("publisherSplashScenePath"), "Cena de splash do publisher"));
-            scenes.Add(new PropertyField(so.FindProperty("defaultSplashScenePath"), "Cena de splash padrão"));
-            scenes.Add(new PropertyField(so.FindProperty("levelEditorScenePath"), "Cena do editor de níveis"));
+            var scenes = BuildPipelineUIStyle.CreateCard("🎬 Splashes & Scenes",
+                "Scenes and assets folder used by the pipeline and level editor.");
+            scenes.Add(new PropertyField(so.FindProperty("splashMasterFolder"), "Splash Master Folder"));
+            scenes.Add(new PropertyField(so.FindProperty("publisherSplashScenePath"), "Publisher Splash Scene"));
+            scenes.Add(new PropertyField(so.FindProperty("defaultSplashScenePath"), "Default Splash Scene"));
+            scenes.Add(new PropertyField(so.FindProperty("levelEditorScenePath"), "Level Editor Scene"));
             Root.Add(scenes);
 
-            var zip = BuildPipelineUIStyle.CreateCard("🗜 Compactação");
-            zip.Add(new PropertyField(so.FindProperty("enableZipArchiving"), "Zipar builds"));
-            zip.Add(new PropertyField(so.FindProperty("useExternalSevenZip"), "Usar 7-Zip externo"));
-            zip.Add(new PropertyField(so.FindProperty("sevenZipExecutable"), "Executável do 7-Zip"));
+            var zip = BuildPipelineUIStyle.CreateCard("🗜 Archiving & Compression");
+            zip.Add(new PropertyField(so.FindProperty("enableZipArchiving"), "Zip Builds After Creation"));
+            zip.Add(new PropertyField(so.FindProperty("useExternalSevenZip"), "Use External 7-Zip"));
+            zip.Add(new PropertyField(so.FindProperty("sevenZipExecutable"), "7-Zip Executable"));
             Root.Add(zip);
 
             Root.Bind(so);
         }
 
+        private static VisualElement SteamPathPreviewCard(ProjectBuildConfig config)
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🗺️ Resolved Steam Output Hierarchy",
+                "Live preview of where Steam builds will land for each platform based on current settings.");
+
+            string gameFolder = config.GetEffectiveGameFolderName();
+            string winRoot = config.buildOutputRoot ?? "";
+            string macRoot = !string.IsNullOrEmpty(config.macBuildOutputRoot) ? config.macBuildOutputRoot : winRoot;
+
+            void AddPlatformRow(string platformName, string root, string sub)
+            {
+                string fullPath = Path.Combine(root, "Publishers", "Steam", gameFolder, sub);
+                var row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 4 } };
+                
+                var label = new Label($"• {platformName}:") { style = { width = 90, unityFontStyleAndWeight = FontStyle.Bold } };
+                row.Add(label);
+
+                var pathLabel = new Label(fullPath)
+                {
+                    style = { flexGrow = 1, fontSize = 11, color = new Color(0.7f, 0.85f, 0.95f), whiteSpace = WhiteSpace.Normal }
+                };
+                row.Add(pathLabel);
+
+                var openBtn = new Button(() => BuildOutputFolderActions.OpenPath(fullPath, $"Open {platformName} Folder"));
+                BuildPipelineUIStyle.ApplyIconText(openBtn, "📂 Open");
+                openBtn.AddToClassList("bp-btn");
+                openBtn.style.marginLeft = 6;
+                row.Add(openBtn);
+
+                card.Add(row);
+            }
+
+            AddPlatformRow("Windows", winRoot, "Windows");
+            AddPlatformRow("macOS", macRoot, "Mac");
+            AddPlatformRow("Linux", winRoot, "Linux");
+
+            return card;
+        }
+
         private static VisualElement OutputRootsCard(BuildPipelineSectionContext ctx, SerializedObject so)
         {
             var config = ctx.Config;
-            var card = BuildPipelineUIStyle.CreateCard("📁 Raízes de saída",
-                "A raiz é a pasta “mãe” de todas as builds. A subpasta de cada perfil fica em Perfis → Saída do build.");
-            card.Add(new PropertyField(so.FindProperty("buildOutputRoot"), "Raiz — builds feitas no Windows"));
-            card.Add(new PropertyField(so.FindProperty("macBuildOutputRoot"), "Raiz — builds feitas no macOS"));
+            var card = BuildPipelineUIStyle.CreateCard("📁 Output Roots",
+                "The root folder for all builds on this machine. Profile subfolders are relative to this root.");
+            card.Add(new PropertyField(so.FindProperty("buildOutputRoot"), "Windows Build Output Root"));
+            card.Add(new PropertyField(so.FindProperty("macBuildOutputRoot"), "macOS Build Output Root"));
 
             var hint = new Label("A raiz usada depende do computador que executa o build, não da plataforma do perfil. " +
                                  "No macOS vale a raiz macOS; no Windows, a raiz Windows.")
@@ -130,17 +200,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 4 } };
-            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Testar raiz Windows", () => TestRoot(() => config.buildOutputRoot, "Windows")));
-            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir raiz Windows", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Test Windows Root", () => TestRoot(() => config.buildOutputRoot, "Windows")));
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Open Windows Root", () =>
             {
                 so.ApplyModifiedProperties();
-                BuildOutputFolderActions.OpenPath(config.buildOutputRoot, "Abrir raiz de saída (Windows)");
+                BuildOutputFolderActions.OpenPath(config.buildOutputRoot, "Open Windows Output Root");
             }));
-            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Testar raiz macOS", () => TestRoot(() => config.macBuildOutputRoot, "macOS")));
-            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir raiz macOS", () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Test macOS Root", () => TestRoot(() => config.macBuildOutputRoot, "macOS")));
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Open macOS Root", () =>
             {
                 so.ApplyModifiedProperties();
-                BuildOutputFolderActions.OpenPath(config.macBuildOutputRoot, "Abrir raiz de saída (macOS)");
+                BuildOutputFolderActions.OpenPath(config.macBuildOutputRoot, "Open macOS Output Root");
             }));
             card.Add(actions);
             card.Add(status);
@@ -187,14 +257,14 @@ namespace Wagenheimer.BuildPipeline.Editor
             var config = ctx.Config;
             var so = new SerializedObject(config);
 
-            var mode = BuildPipelineUIStyle.CreateCard("🔐 Origem do keystore Android",
+            var mode = BuildPipelineUIStyle.CreateCard("🔐 Android Keystore Source",
                 "Vale para builds feitos NO EDITOR. O CI do Forge sempre injeta o keystore do cofre via -keystorePath (não depende disto).");
             mode.Add(new PropertyField(so.FindProperty("keystoreSource"), "Origem"));
             Root.Add(mode);
 
             if (config.keystoreSource == KeystoreSource.LocalDisk)
             {
-                var local = BuildPipelineUIStyle.CreateCard("💾 Arquivo local");
+                var local = BuildPipelineUIStyle.CreateCard("💾 Local Disk Keystore");
                 local.Add(new PropertyField(so.FindProperty("androidKeystorePath"), "Keystore (Windows)"));
                 local.Add(new PropertyField(so.FindProperty("androidKeystorePathMac"), "Keystore (macOS)"));
                 local.Add(new PropertyField(so.FindProperty("androidKeyAlias"), "Alias"));
@@ -226,7 +296,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static VisualElement MigrateToVaultCard(BuildPipelineSectionContext ctx, SerializedObject so, string keystorePath)
         {
             var config = ctx.Config;
-            var card = BuildPipelineUIStyle.CreateCard("☁ Migrar para o cofre do AppDeployHub",
+            var card = BuildPipelineUIStyle.CreateCard("☁ Migrate to AppDeployHub Vault",
                 "Envia este keystore (arquivo, alias e senhas) para o cofre — a mesma fonte que o Forge usa — e passa o projeto a ler de lá. " +
                 "Se o cofre já tiver este keystore, a credencial existente é reutilizada (nada é duplicado). O arquivo local não é apagado.");
 
@@ -242,7 +312,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (!EditorUtility.DisplayDialog("Migrar keystore para o cofre",
                         $"Enviar para {config.appDeployHubUrl}:\n\n• Arquivo: {keystorePath}\n• Alias: {alias}\n• Senhas: as do keystore local\n\n" +
                         $"Nome no cofre: {label}\n\nDepois disso este projeto passa a assinar com a credencial do cofre.",
-                        "Enviar", "Cancelar"))
+                        "Enviar", "Cancel"))
                     return;
 
                 status.text = "Enviando para o cofre…";
@@ -291,7 +361,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static VisualElement VaultCard(BuildPipelineSectionContext ctx, SerializedObject so)
         {
             var config = ctx.Config;
-            var card = BuildPipelineUIStyle.CreateCard("🏦 Cofre do AppDeployHub",
+            var card = BuildPipelineUIStyle.CreateCard("🏦 AppDeployHub Vault",
                 "O keystore e as senhas vêm do cofre na hora do build e são apagados do PlayerSettings depois. " +
                 "A API key é do tipo 'vault' (AppDeployHub → Cofre → Conectar o Forge) e fica só nesta máquina.");
 
@@ -362,7 +432,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 BuildProfileCatalog.Write(config, assetPath);
                 ctx.RebuildAll();
             });
-            var forge = BuildPipelineUIStyle.CreateCard("📄 O que o Forge lê",
+            var forge = BuildPipelineUIStyle.CreateCard("📄 What Forge Reads (JSON Catalog)",
                 "O Forge (AppDeployHub) lê ProjectBuildConfig.catalog.json — perfis, idioma, Steam, a pilha de defines e o registro — e não sobrescreve nada: " +
                 "defines e idioma só mudam aqui, no Unity, e chegam ao Forge pelo commit.", regenerate);
             forge.Add(BuildPipelineUIStyle.CreateCallout(

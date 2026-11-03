@@ -18,7 +18,7 @@ namespace Wagenheimer.BuildPipeline.Tests
             var check = BuildOutputFolderInspector.InspectRoot("", prepareFolder: false);
 
             Assert.That(check.HasError, Is.True);
-            Assert.That(check.Summary, Does.Contain("vazia"));
+            Assert.That(check.Summary, Does.Contain("empty").IgnoreCase);
         }
 
         [Test]
@@ -97,7 +97,7 @@ namespace Wagenheimer.BuildPipeline.Tests
                 Assert.That(check.UsesPlatformFolder, Is.True);
                 Assert.That(check.PlatformFolder, Is.EqualTo("Linux"));
                 StringAssert.EndsWith(Path.Combine("Builds", "Publishers", "Steam", "Linux"), check.BaseFolder);
-                Assert.That(check.Details.Any(d => d.Contains("Plataforma automática")), Is.True);
+                Assert.That(check.Details.Any(d => d.Contains("Automatic platform")), Is.True);
             }
             finally
             {

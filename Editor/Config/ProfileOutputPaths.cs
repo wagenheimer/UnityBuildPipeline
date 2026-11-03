@@ -5,9 +5,10 @@ namespace Wagenheimer.BuildPipeline.Editor
 {
     /// <summary>
     /// Single place that turns a profile's <see cref="PublisherProfile.outputSubfolder"/> into a real folder.
-    /// Steam desktop profiles intentionally share one declared subfolder (e.g. <c>Builds/Publishers/Steam/</c>);
-    /// this helper appends the platform folder (Windows/Linux/Mac) automatically, so the Windows, Linux and
-    /// macOS siblings never write into the same directory and no duplicate-output warning is needed.
+    /// Supports tokens: {Publisher}, {GameFolder}, {CleanGameName}, {ProjectName}, {Platform}.
+    /// Steam desktop profiles automatically resolve to:
+    /// [Root]/Publishers/Steam/{GameFolder}/{Platform} (Windows, Linux, Mac),
+    /// placing files directly into the platform folder without extra dated subfolders.
     /// </summary>
     public static class ProfileOutputPaths
     {
@@ -30,17 +31,42 @@ namespace Wagenheimer.BuildPipeline.Editor
         };
 
         /// <summary>
-        /// Effective relative subfolder under the build output root: replaces <c>{Publisher}</c>, honours an
-        /// optional <c>{Platform}</c> token, and appends Windows/Linux/Mac for Steam desktop profiles.
+        /// Effective relative subfolder under the build output root: replaces tokens,
+        /// strips redundant leading 'Builds/' when the root already points to a Builds folder,
+        /// and appends Windows/Linux/Mac for Steam desktop profiles.
         /// </summary>
-        public static string EffectiveSubfolder(PublisherProfile profile, PlatformType platform)
+        public static string EffectiveSubfolder(PublisherProfile profile, PlatformType platform, ProjectBuildConfig config = null)
         {
-            string declared = profile != null ? profile.outputSubfolder : "Builds/";
+            string declared = profile != null ? profile.outputSubfolder : "Publishers/";
             string publisher = (profile != null ? profile.publisher : Publisher.Default).ToString();
+            string gameFolder = config != null ? config.GetEffectiveGameFolderName() : "";
+            string projectName = config != null ? config.projectName : "";
+
             string subfolder = (declared ?? "").Replace("{Publisher}", publisher);
+            if (!string.IsNullOrEmpty(gameFolder))
+            {
+                subfolder = subfolder.Replace("{GameFolder}", gameFolder)
+                                     .Replace("{CleanGameName}", gameFolder);
+            }
+            if (!string.IsNullOrEmpty(projectName))
+            {
+                subfolder = subfolder.Replace("{ProjectName}", projectName);
+            }
+
+            subfolder = NormalizeSubfolder(subfolder, config);
 
             if (!UsesPlatformSubfolder(profile, platform))
                 return subfolder;
+
+            // For Steam desktop profiles, ensure the game folder is inserted if not present
+            if (!string.IsNullOrEmpty(gameFolder) &&
+                !subfolder.Contains(gameFolder, StringComparison.OrdinalIgnoreCase) &&
+                (subfolder.EndsWith("Steam", StringComparison.OrdinalIgnoreCase) ||
+                 subfolder.EndsWith("Steam/", StringComparison.OrdinalIgnoreCase) ||
+                 subfolder.EndsWith("Steam\\", StringComparison.OrdinalIgnoreCase)))
+            {
+                subfolder = AppendFolder(subfolder, gameFolder);
+            }
 
             string platformFolder = PlatformFolder(platform);
             if (string.IsNullOrEmpty(platformFolder))
@@ -54,11 +80,30 @@ namespace Wagenheimer.BuildPipeline.Editor
                 : AppendFolder(subfolder, platformFolder);
         }
 
-        /// <summary>Absolute base folder this profile writes to (before the version/date/language subfolder).</summary>
+        public static string NormalizeSubfolder(string subfolder, ProjectBuildConfig config = null)
+        {
+            if (string.IsNullOrEmpty(subfolder)) return "";
+            var normalized = subfolder.Replace('\\', '/').Trim();
+
+            // If the root already ends with 'Builds' or 'Builds/', strip leading 'Builds/' to prevent 'Builds/Builds'
+            if (config != null && !string.IsNullOrEmpty(config.buildOutputRoot))
+            {
+                var cleanRoot = config.buildOutputRoot.Trim().TrimEnd('/', '\\');
+                if (cleanRoot.EndsWith("Builds", StringComparison.OrdinalIgnoreCase) &&
+                    (normalized.StartsWith("Builds/", StringComparison.OrdinalIgnoreCase) ||
+                     normalized.Equals("Builds", StringComparison.OrdinalIgnoreCase)))
+                {
+                    normalized = normalized.Length > 7 ? normalized.Substring(7) : "";
+                }
+            }
+            return normalized;
+        }
+
+        /// <summary>Absolute base folder this profile writes to.</summary>
         public static string ResolveFolder(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform)
         {
             string root = config != null ? config.GetEffectiveBuildOutputRoot(platform) : "";
-            string subfolder = EffectiveSubfolder(profile, platform);
+            string subfolder = EffectiveSubfolder(profile, platform, config);
             try
             {
                 return Path.GetFullPath(Path.Combine(root, subfolder));

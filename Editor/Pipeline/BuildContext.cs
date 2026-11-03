@@ -129,15 +129,18 @@ namespace Wagenheimer.BuildPipeline.Editor
             var needSplash = PublisherProfile != null && PublisherProfile.requiresSplash;
             var pubPrefix = needSplash ? $"{Publisher}_" : "";
 
+            bool isSteam = PublisherProfile != null && PublisherProfile.IsSteamProfile;
+
             switch (Platform)
             {
                 case PlatformType.Windows64:
                 case PlatformType.Linux64:
                     var winFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}";
                     var sub = PublisherProfile != null
-                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform)
-                        : "Builds/";
-                    var targetFolder = Path.Combine(root, sub, winFolder);
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform, Config)
+                        : "Publishers/";
+                    // Steam desktop builds output directly into the platform depot folder (Windows/Linux)
+                    var targetFolder = isSteam ? Path.Combine(root, sub) : Path.Combine(root, sub, winFolder);
                     var ext = Platform == PlatformType.Linux64 ? ".x86_64" : ".exe";
                     ResolvedOutputDirectory = targetFolder;
                     ResolvedOutputFilePath = Path.Combine(targetFolder, $"{ProjectName}{ext}");
@@ -146,9 +149,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.macOS:
                     var macFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}_MAC";
                     var macSub = PublisherProfile != null
-                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform)
-                        : "Builds/";
-                    var macTargetFolder = Path.Combine(root, macSub, macFolder);
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform, Config)
+                        : "Publishers/";
+                    // Steam macOS builds output directly into the platform depot folder (Mac)
+                    var macTargetFolder = isSteam ? Path.Combine(root, macSub) : Path.Combine(root, macSub, macFolder);
                     ResolvedOutputDirectory = macTargetFolder;
                     ResolvedOutputFilePath = Path.Combine(macTargetFolder, $"{ProjectName}.app");
                     break;
@@ -156,7 +160,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.Android:
                     var debugSuffix = DevelopmentBuild ? "_DEBUG" : "";
                     var androidExt = AppBundle ? ".aab" : ".apk";
-                    var androidSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/Google/";
+                    var androidSub = PublisherProfile != null
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform, Config)
+                        : "Publishers/Google/";
                     var androidDir = Path.Combine(root, androidSub);
                     var androidFileName = $"{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{debugSuffix}_bv{PlayerSettings.Android.bundleVersionCode}{androidExt}";
                     ResolvedOutputDirectory = androidDir;
@@ -164,7 +170,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                     break;
 
                 case PlatformType.iOS:
-                    var iosSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/iOS/";
+                    var iosSub = PublisherProfile != null
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform, Config)
+                        : "Publishers/iOS/";
                     var iosDir = Path.Combine(root, iosSub, $"{ProjectName} ({(PublisherProfile != null && PublisherProfile.isFullGame ? "Full" : "Free")}){variantSuffix}");
                     ResolvedOutputDirectory = iosDir;
                     ResolvedOutputFilePath = iosDir;
@@ -172,7 +180,9 @@ namespace Wagenheimer.BuildPipeline.Editor
 
                 case PlatformType.WebGL:
                     var webglFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}_WebGL";
-                    var webglSub = PublisherProfile != null ? PublisherProfile.outputSubfolder.Replace("{Publisher}", Publisher.ToString()) : "Builds/WebGL/";
+                    var webglSub = PublisherProfile != null
+                        ? ProfileOutputPaths.EffectiveSubfolder(PublisherProfile, Platform, Config)
+                        : "Publishers/WebGL/";
                     var webglDir = Path.Combine(root, webglSub, webglFolder);
                     ResolvedOutputDirectory = webglDir;
                     ResolvedOutputFilePath = webglDir; // WebGL builds into a directory

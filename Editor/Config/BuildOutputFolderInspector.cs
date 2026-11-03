@@ -63,28 +63,28 @@ namespace Wagenheimer.BuildPipeline.Editor
             check.PlatformFolder = platformFolder;
 
             if (string.IsNullOrWhiteSpace(root))
-                check.Errors.Add("A raiz de saída do projeto está vazia.");
+                check.Errors.Add("Project build output root is empty.");
             else if (!Path.IsPathRooted(root))
-                check.Warnings.Add("A raiz não é um caminho absoluto; o destino pode variar conforme a pasta de onde o build roda.");
+                check.Warnings.Add("Root is not an absolute path; destination may vary depending on execution directory.");
 
             if (!string.IsNullOrWhiteSpace(root))
             {
                 var used = InvalidNameChars.Where(c => root.IndexOf(c) >= 0).ToArray();
                 if (used.Length > 0)
-                    check.Errors.Add("A raiz contém caracteres inválidos: " + string.Join(" ", used.Select(c => $"'{c}'")));
+                    check.Errors.Add("Root contains invalid characters: " + string.Join(" ", used.Select(c => $"'{c}'")));
             }
 
             if (!string.IsNullOrWhiteSpace(subfolder) && Path.IsPathRooted(subfolder))
-                check.Warnings.Add("A subpasta é um caminho absoluto e ignora a raiz do projeto. Use um caminho relativo.");
+                check.Warnings.Add("Subfolder is an absolute path and ignores project root. Use a relative path.");
 
             var details = new List<string>
             {
-                "Raiz: " + (string.IsNullOrWhiteSpace(root) ? "(vazia)" : root),
-                "Subpasta: " + (string.IsNullOrWhiteSpace(subfolder) ? "(raiz)" : subfolder)
+                "Root: " + (string.IsNullOrWhiteSpace(root) ? "(vazia)" : root),
+                "Subfolder: " + (string.IsNullOrWhiteSpace(subfolder) ? "(raiz)" : subfolder)
             };
             if (usesPlatform)
-                details.Add("Plataforma automática: " + platformFolder + " (Steam)");
-            details.Add("Pasta base: " + (string.IsNullOrWhiteSpace(folder) ? "(vazia)" : folder));
+                details.Add("Automatic platform: " + platformFolder + " (Steam)");
+            details.Add("Base folder: " + (string.IsNullOrWhiteSpace(folder) ? "(vazia)" : folder));
             details.AddRange(check.Details);
 
             check.Details.Clear();
@@ -100,20 +100,20 @@ namespace Wagenheimer.BuildPipeline.Editor
             check.Root = root ?? "";
 
             if (string.IsNullOrWhiteSpace(root))
-                check.Errors.Add("A raiz de saída do projeto está vazia.");
+                check.Errors.Add("Project build output root is empty.");
             else if (!Path.IsPathRooted(root))
-                check.Warnings.Add("A raiz não é um caminho absoluto; o destino pode variar conforme a pasta de onde o build roda.");
+                check.Warnings.Add("Root is not an absolute path; destination may vary depending on execution directory.");
 
             if (!string.IsNullOrWhiteSpace(root))
             {
                 var used = InvalidNameChars.Where(c => root.IndexOf(c) >= 0).ToArray();
                 if (used.Length > 0)
-                    check.Errors.Add("A raiz contém caracteres inválidos: " + string.Join(" ", used.Select(c => $"'{c}'")));
+                    check.Errors.Add("Root contains invalid characters: " + string.Join(" ", used.Select(c => $"'{c}'")));
             }
 
             var details = new List<string>
             {
-                "Raiz: " + (string.IsNullOrWhiteSpace(root) ? "(vazia)" : root)
+                "Root: " + (string.IsNullOrWhiteSpace(root) ? "(vazia)" : root)
             };
             details.AddRange(check.Details);
 
@@ -136,7 +136,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (string.IsNullOrWhiteSpace(check.BaseFolder))
             {
-                check.Errors.Add("O caminho da pasta está vazio.");
+                check.Errors.Add("Folder path is empty.");
                 return check;
             }
 
@@ -145,12 +145,12 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 var used = invalid.Where(c => relativeSubfolder.IndexOf(c) >= 0).ToArray();
                 if (used.Length > 0)
-                    check.Errors.Add("A subpasta contém caracteres inválidos: " + string.Join(" ", used.Select(c => $"'{c}'")));
+                    check.Errors.Add("Subfolder contains invalid characters: " + string.Join(" ", used.Select(c => $"'{c}'")));
             }
 
             check.InsideProject = IsInsideProject(check.BaseFolder);
             if (check.InsideProject)
-                check.Warnings.Add("A pasta está dentro do projeto Unity; isso pode causar reimportação e builds lentos. Prefira uma pasta fora do projeto.");
+                check.Warnings.Add("Folder is inside the Unity project; this may trigger re-imports. Use an external folder.");
 
             if (check.BaseFolder.Length >= 240)
                 check.Warnings.Add($"O caminho tem {check.BaseFolder.Length} caracteres; no Windows o limite clássico é 260.");
@@ -160,7 +160,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 check.Exists = Directory.Exists(check.BaseFolder);
                 if (File.Exists(check.BaseFolder))
                 {
-                    check.Errors.Add("Existe um arquivo com o nome da pasta no destino.");
+                    check.Errors.Add("A file with the same name exists at destination.");
                     return check;
                 }
 
@@ -174,7 +174,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                     }
                     catch (Exception ex)
                     {
-                        check.Errors.Add("Não foi possível criar a pasta: " + ex.Message);
+                        check.Errors.Add("Could not create folder: " + ex.Message);
                     }
                 }
 
@@ -183,26 +183,26 @@ namespace Wagenheimer.BuildPipeline.Editor
                     string writeError = null;
                     check.Writable = CanWrite(check.BaseFolder, out writeError);
                     if (!check.Writable)
-                        check.Errors.Add("A pasta existe, mas não é gravável: " + writeError);
+                        check.Errors.Add("Folder exists but is not writable: " + writeError);
 
                     try { check.ExistingFolders = Directory.GetDirectories(check.BaseFolder).Length; } catch { }
                     check.FreeBytes = TryFreeBytes(check.BaseFolder);
-                    check.Details.Add(check.Created ? "Criada agora pelo teste." : "Já existe.");
+                    check.Details.Add(check.Created ? "Created by verification test." : "Folder already exists.");
                     check.Details.Add($"{check.ExistingFolders} subpasta(s) dentro dela.");
-                    if (check.Writable) check.Details.Add("Gravação: OK.");
-                    if (check.FreeBytes >= 0) check.Details.Add("Livre no disco: " + FormatBytes(check.FreeBytes) + ".");
+                    if (check.Writable) check.Details.Add("Write access: OK.");
+                    if (check.FreeBytes >= 0) check.Details.Add("Free disk space: " + FormatBytes(check.FreeBytes) + ".");
                 }
                 else
                 {
                     string parent = NearestExistingParent(check.BaseFolder);
                     if (string.IsNullOrEmpty(parent))
                     {
-                        check.Errors.Add("Nenhuma pasta acima do destino existe. Confira a raiz e o disco.");
+                        check.Errors.Add("No parent directory exists. Check disk and root path.");
                     }
                     else if (!prepareFolder)
                     {
-                        check.Warnings.Add("A pasta ainda não existe; será criada no primeiro build.");
-                        check.Details.Add("Pasta pai existente: " + parent);
+                        check.Warnings.Add("Folder does not exist yet; will be created on first build.");
+                        check.Details.Add("Parent folder exists: " + parent);
                     }
                     else
                     {
@@ -214,7 +214,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         else
                         {
                             check.Warnings.Add("A pasta ainda não existe; ela será criada no início do build.");
-                            check.Details.Add("Pasta pai existente e gravável: " + parent);
+                            check.Details.Add("Parent folder exists and is writable: " + parent);
                         }
                     }
                 }
@@ -236,25 +236,25 @@ namespace Wagenheimer.BuildPipeline.Editor
                     : BuildOutputCheckSeverity.Ok;
 
             foreach (var warning in check.Warnings)
-                check.Details.Add("Aviso: " + warning);
+                check.Details.Add("Warning: " + warning);
             foreach (var error in check.Errors)
-                check.Details.Add("Erro: " + error);
+                check.Details.Add("Error: " + error);
 
             if (check.Errors.Count > 0)
             {
                 check.Summary = "⛔ " + check.Errors[0] +
-                                (check.Errors.Count > 1 ? $" (+{check.Errors.Count - 1} outro(s))" : "");
+                                (check.Errors.Count > 1 ? $" (+{check.Errors.Count - 1} more)" : "");
             }
             else if (check.Severity == BuildOutputCheckSeverity.Warning)
             {
                 check.Summary = "⚠ " + check.Warnings[0] +
-                                (check.Warnings.Count > 1 ? $" (+{check.Warnings.Count - 1} outro(s))" : "");
+                                (check.Warnings.Count > 1 ? $" (+{check.Warnings.Count - 1} more)" : "");
             }
             else
             {
                 check.Summary = check.Created
-                    ? "✔ Pasta criada e gravável."
-                    : "✔ Pasta válida e gravável.";
+                    ? "✔ Folder created and writable."
+                    : "✔ Folder is valid and writable.";
             }
         }
 

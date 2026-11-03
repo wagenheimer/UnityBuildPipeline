@@ -37,7 +37,7 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         public static string SuggestedOutput(Publisher publisher, bool full) =>
-            $"Builds/Publishers/{publisher}/{(full ? "Full" : "Free")}/";
+            $"Publishers/{publisher}/{{GameFolder}}/{(full ? "Full" : "Free")}/";
 
         public static string SuggestedBundle(ProjectBuildConfig config, bool full)
         {

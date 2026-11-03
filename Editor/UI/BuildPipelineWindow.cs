@@ -42,15 +42,15 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private static readonly NavItem[] Nav =
         {
-            new NavItem { Id = BuildPipelineSections.Build, Group = "BUILD", Label = "⚡ Build", Tooltip = "Um perfil com um clique, ou vários de uma vez (idiomas × variantes)." },
-            new NavItem { Id = BuildPipelineSections.History, Group = "BUILD", Label = "🕘 Histórico", Tooltip = "Builds recentes, tamanho, pasta, instalar no Android." },
-            new NavItem { Id = BuildPipelineSections.Profiles, Group = "CONFIGURAR", Label = "📋 Perfis", Tooltip = "Cada loja/publisher: identidade, idioma, defines, saída." },
-            new NavItem { Id = BuildPipelineSections.Defines, Group = "CONFIGURAR", Label = "🧬 Defines", Tooltip = "Central de defines: origem, quem exige, onde o código usa." },
-            new NavItem { Id = BuildPipelineSections.Languages, Group = "CONFIGURAR", Label = "🌐 Idiomas", Tooltip = "Idioma padrão, idiomas da matriz e perfis travados." },
-            new NavItem { Id = BuildPipelineSections.Project, Group = "CONFIGURAR", Label = "⚙ Projeto", Tooltip = "GameConfig, raízes de saída, cenas e zip." },
-            new NavItem { Id = BuildPipelineSections.Signing, Group = "CONFIGURAR", Label = "🔐 Assinatura", Tooltip = "Keystore Android: arquivo local ou cofre do AppDeployHub." },
-            new NavItem { Id = BuildPipelineSections.Steam, Group = "DISTRIBUIR", Label = "🎮 Steam", Tooltip = "Perfis Steam, depots, upload e histórico." },
-            new NavItem { Id = BuildPipelineSections.Automation, Group = "AUTOMATIZAR", Label = "💻 CLI & Forge", Tooltip = "Comandos headless e o que o Forge lê (catálogo)." },
+            new NavItem { Id = BuildPipelineSections.Build, Group = "BUILD", Label = "⚡ Build", Tooltip = "One-click profile builds or batch matrix builds (languages × variants)." },
+            new NavItem { Id = BuildPipelineSections.History, Group = "BUILD", Label = "🕘 History", Tooltip = "Recent builds, file sizes, output folders, install to Android." },
+            new NavItem { Id = BuildPipelineSections.Profiles, Group = "CONFIGURE", Label = "📋 Profiles", Tooltip = "Store and publisher profiles: identity, language, defines, build output." },
+            new NavItem { Id = BuildPipelineSections.Defines, Group = "CONFIGURE", Label = "🧬 Defines", Tooltip = "Defines center: origin, requirements, code usages." },
+            new NavItem { Id = BuildPipelineSections.Languages, Group = "CONFIGURE", Label = "🌐 Languages", Tooltip = "Default language, matrix batch languages, and locked profiles." },
+            new NavItem { Id = BuildPipelineSections.Project, Group = "CONFIGURE", Label = "⚙ Project", Tooltip = "GameConfig, build output roots, scenes, and archiving." },
+            new NavItem { Id = BuildPipelineSections.Signing, Group = "CONFIGURE", Label = "🔐 Signing", Tooltip = "Android keystore: local file or AppDeployHub vault." },
+            new NavItem { Id = BuildPipelineSections.Steam, Group = "DISTRIBUTE", Label = "🎮 Steam", Tooltip = "Steam profiles, depots, upload, and history." },
+            new NavItem { Id = BuildPipelineSections.Automation, Group = "AUTOMATE", Label = "💻 CLI & Forge", Tooltip = "Headless CLI commands and JSON catalog for CI/Forge." },
         };
 
         [MenuItem("Tools/Wagenheimer/Build Pipeline/Open Build Pipeline", priority = 0)]
@@ -355,17 +355,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             if (health.Errors == 0 && health.Warnings == 0)
-                AddChip("✔ Perfis válidos", "Validador sem problemas.", () => Navigate(BuildPipelineSections.Profiles, null));
+                AddChip("✔ Profiles Valid", "All profile validation checks passed.", () => Navigate(BuildPipelineSections.Profiles, null));
             else
-                AddChip($"⛔ {health.Errors} erro(s) · ⚠ {health.Warnings} aviso(s)", health.Summary,
+                AddChip($"⛔ {health.Errors} error(s) · ⚠ {health.Warnings} warning(s)", health.Summary,
                     () => { _selection.profilesTab = "matrix"; Navigate(BuildPipelineSections.Profiles, null); });
 
             if (health.GlobalChanges > 0)
-                AddChip($"🌐 Defines globais mudaram ({health.GlobalChanges})", health.GlobalSummary,
+                AddChip($"🌐 Global Defines Changed ({health.GlobalChanges})", health.GlobalSummary,
                     () => { _selection.definesTab = "globals"; Navigate(BuildPipelineSections.Defines, null); });
 
-            AddChip(health.CatalogUpToDate ? "📄 Catálogo do Forge em dia" : "📄 Catálogo desatualizado",
-                health.CatalogUpToDate ? "ProjectBuildConfig.catalog.json bate com o asset." : "Salve o asset (ou clique) para regravar o catálogo que o Forge lê.",
+            AddChip(health.CatalogUpToDate ? "📄 Forge Catalog Up to Date" : "📄 Catalog Out of Date",
+                health.CatalogUpToDate ? "ProjectBuildConfig.catalog.json matches the asset." : "Save the asset (or click) to regenerate the JSON catalog Forge reads.",
                 () =>
                 {
                     string path = AssetDatabase.GetAssetPath(_config);
@@ -376,13 +376,13 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var pending = MigrationChecklist.Build(_config, LegacyMigrationRecord.Load());
             if (pending.Count > 0)
-                AddChip($"🧭 Migração: {pending.Count} pendência(s)", string.Join("\n", pending.Select(i => "• " + i.Text)),
+                AddChip($"🧭 Migration: {pending.Count} item(s) pending", string.Join("\n", pending.Select(i => "• " + i.Text)),
                     () => Navigate(BuildPipelineSections.Project, null));
 
             var spacer = new VisualElement { style = { flexGrow = 1 } };
             bar.Add(spacer);
 
-            var refresh = new Button(RebuildUI) { tooltip = "Recalcular" };
+            var refresh = new Button(RebuildUI) { tooltip = "Recalculate" };
             BuildPipelineUIStyle.ApplyIconText(refresh, "🔄");
             refresh.AddToClassList("bp-health-chip");
             bar.Add(refresh);

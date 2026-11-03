@@ -68,7 +68,45 @@ namespace Wagenheimer.BuildPipeline.Tests
         }
 
         [Test]
-        public void BuildContextResolvesTheSteamPlatformFolder()
+        public void GameFolderTokenIsExpandedWhenConfigProvided()
+        {
+            var steam = Steam("Publishers/Steam/{GameFolder}/");
+            var config = ScriptableObject.CreateInstance<ProjectBuildConfig>();
+            config.projectName = "Secrets of Magic 3 - Halloween";
+            config.gameFolderName = "SecretsOfMagic3";
+
+            try
+            {
+                string result = ProfileOutputPaths.EffectiveSubfolder(steam, PlatformType.Windows64, config);
+                Assert.That(result, Is.EqualTo("Publishers/Steam/SecretsOfMagic3/Windows"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
+        public void RedundantBuildsPrefixIsStrippedWhenRootContainsBuilds()
+        {
+            var steam = Steam("Builds/Publishers/Steam/{GameFolder}/");
+            var config = ScriptableObject.CreateInstance<ProjectBuildConfig>();
+            config.buildOutputRoot = "E:/Games/Builds/";
+            config.gameFolderName = "GameTest";
+
+            try
+            {
+                string result = ProfileOutputPaths.EffectiveSubfolder(steam, PlatformType.Windows64, config);
+                Assert.That(result, Is.EqualTo("Publishers/Steam/GameTest/Windows"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
+        public void BuildContextResolvesTheSteamPlatformFolderDirectly()
         {
             var steam = Steam();
             var config = Profiles.Config(null, steam);

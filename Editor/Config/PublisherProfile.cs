@@ -49,7 +49,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         [Tooltip("Ids of ProjectBuildConfig.definePresets expanded before scriptingDefines (e.g. 'free-ads', 'att').")]
         public List<string> definePresets = new List<string>();
-        public string outputSubfolder = "Builds/Publishers/{Publisher}/";
+        public string outputSubfolder = "Publishers/{Publisher}/{GameFolder}/";
         public bool zipAfterBuild = false;
         public string zipDestinationTemplate = @"E:\Documentos\Dropbox\Builds\{ProjectName}\{Publisher}\";
 
@@ -97,7 +97,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             requiresSplash = splash;
             isFullGame = full;
             isDemo = demo;
-            outputSubfolder = $"Builds/Publishers/{pub}/";
+            outputSubfolder = $"Publishers/{pub}/{{GameFolder}}/";
             isSteam = pub == Publisher.Steam;
         }
 

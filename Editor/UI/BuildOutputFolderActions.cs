@@ -5,19 +5,19 @@ using UnityEngine;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
-    /// <summary>Shared Open/Copy actions for output folders, used by the Build list and the profile card.</summary>
-    internal static class BuildOutputFolderActions
+    /// <summary>Shared Open/Copy actions for output folders, used by the Build list, Steam tab, and profile card.</summary>
+    public static class BuildOutputFolderActions
     {
         public static void Open(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform)
         {
-            OpenPath(ProfileOutputPaths.ResolveFolder(config, profile, platform), "Abrir pasta de saída");
+            OpenPath(ProfileOutputPaths.ResolveFolder(config, profile, platform), "Open Build Output Folder");
         }
 
-        public static void OpenPath(string folder, string title = "Abrir pasta")
+        public static void OpenPath(string folder, string title = "Open Folder")
         {
             if (string.IsNullOrWhiteSpace(folder))
             {
-                EditorUtility.DisplayDialog(title, "O caminho da pasta está vazio.", "OK");
+                EditorUtility.DisplayDialog(title, "The folder path is empty.", "OK");
                 return;
             }
 
@@ -26,8 +26,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 if (!Directory.Exists(folder))
                 {
                     if (!EditorUtility.DisplayDialog(title,
-                            $"A pasta ainda não existe:\n\n{folder}\n\nCriar agora?",
-                            "Criar e abrir", "Cancelar"))
+                            $"Folder does not exist yet:\n\n{folder}\n\nCreate and open it now?",
+                            "Create and Open", "Cancel"))
                         return;
 
                     Directory.CreateDirectory(folder);
@@ -37,7 +37,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             catch (Exception ex)
             {
-                EditorUtility.DisplayDialog(title, $"Não foi possível abrir:\n\n{folder}\n\n{ex.Message}", "OK");
+                EditorUtility.DisplayDialog(title, $"Could not open folder:\n\n{folder}\n\n{ex.Message}", "OK");
             }
         }
 
@@ -47,7 +47,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 return;
 
             EditorGUIUtility.systemCopyBuffer = path;
-            Debug.Log($"[BuildPipeline] Caminho copiado: {path}");
+            Debug.Log($"[BuildPipeline] Path copied to clipboard: {path}");
         }
     }
 }

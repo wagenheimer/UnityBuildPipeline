@@ -62,6 +62,11 @@ namespace Wagenheimer.BuildPipeline.Editor
             void AddDepot(string depotId, string contentRoot)
             {
                 if (string.IsNullOrEmpty(depotId) || string.IsNullOrEmpty(contentRoot)) return;
+                if (!Directory.Exists(contentRoot))
+                {
+                    Debug.LogWarning($"[BuildPipeline] Skipping depot {depotId}: content root folder does not exist -> {contentRoot}");
+                    return;
+                }
 
                 var depotVdfPath = Path.Combine(GeneratedScriptsDir, $"depot_{depotId}.vdf");
                 File.WriteAllText(depotVdfPath,
