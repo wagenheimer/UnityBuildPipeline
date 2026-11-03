@@ -173,6 +173,15 @@
 }
 
 /* Cards */
+.bp-subcard {
+    background-color: rgba(0, 0, 0, 0.16);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+
 .bp-card {
     background-color: rgba(0, 0, 0, 0.18);
     border-width: 1px;

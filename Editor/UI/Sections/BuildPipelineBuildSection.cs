@@ -59,21 +59,9 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "Transient settings for upcoming builds. Profile assets are never permanently modified.");
 
             // ── 1. Single Build Overrides Box ────────────────────────────────
-            var singleBox = new VisualElement
-            {
-                style =
-                {
-                    backgroundColor = new Color(0, 0, 0, 0.16f),
-                    borderWidth = 1,
-                    borderColor = new Color(1, 1, 1, 0.08f),
-                    borderRadius = 6,
-                    paddingTop = 8,
-                    paddingBottom = 8,
-                    paddingLeft = 12,
-                    paddingRight = 12,
-                    marginBottom = 10
-                }
-            };
+            var singleBox = new VisualElement();
+            singleBox.AddToClassList("bp-subcard");
+            singleBox.style.marginBottom = 10;
 
             var singleHeader = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 8 } };
             var singleTitle = new Label("⚡ Quick Single Build Options (applies when clicking ⚡ Build on any profile)")
@@ -143,21 +131,9 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildBatchOptions()
         {
-            var box = new VisualElement
-            {
-                style =
-                {
-                    backgroundColor = new Color(0, 0, 0, 0.16f),
-                    borderWidth = 1,
-                    borderColor = new Color(1, 1, 1, 0.08f),
-                    borderRadius = 6,
-                    paddingTop = 8,
-                    paddingBottom = 8,
-                    paddingLeft = 12,
-                    paddingRight = 12,
-                    marginBottom = 4
-                }
-            };
+            var box = new VisualElement();
+            box.AddToClassList("bp-subcard");
+            box.style.marginBottom = 4;
 
             // Top Header: Title and Cheats
             var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, justifyContent = Justify.SpaceBetween, marginBottom = 8 } };
@@ -262,24 +238,14 @@ namespace Wagenheimer.BuildPipeline.Editor
 
         private VisualElement BuildVariantOptions()
         {
-            var row = new VisualElement
-            {
-                style =
-                {
-                    backgroundColor = new Color(0, 0, 0, 0.16f),
-                    borderWidth = 1,
-                    borderColor = new Color(1, 1, 1, 0.08f),
-                    borderRadius = 6,
-                    paddingTop = 6,
-                    paddingBottom = 6,
-                    paddingLeft = 12,
-                    paddingRight = 12,
-                    marginTop = 8,
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    flexWrap = Wrap.Wrap
-                }
-            };
+            var row = new VisualElement();
+            row.AddToClassList("bp-subcard");
+            row.style.marginTop = 8;
+            row.style.paddingTop = 6;
+            row.style.paddingBottom = 6;
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.flexWrap = Wrap.Wrap;
 
             var title = new Label("🎭 Build Variants:")
             {
