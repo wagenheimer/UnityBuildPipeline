@@ -442,6 +442,12 @@ Steam desktop profiles can share a single `outputSubfolder` (for example `Builds
 The pipeline appends `Windows`, `Linux` or `Mac` for the build platform, so the three siblings never
 write into the same directory. A profile may also use the optional `{Platform}` token explicitly.
 
+The profile's **Output** card shows the path in layers (project root → profile subfolder → Steam platform →
+base folder) and an example of the next build folder. **Test folder** creates the folder if needed, writes a
+temporary probe file and reports permissions, free disk space, invalid characters and whether the path is
+inside the Unity project. **Open folder** and **Copy path** are one click away, and the zip destination has
+its own card so it cannot be confused with the build folder.
+
 ### Duplicate Free ↔ Full
 
 The profile card has **→ Full / → Free**: it duplicates the profile and fixes the publisher,

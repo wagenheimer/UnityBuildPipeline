@@ -227,12 +227,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             RefreshDefines(profile);
             defines.TrackSerializedObjectValue(_so, _ => defines.schedule.Execute(() => RefreshDefines(profile)).ExecuteLater(300));
 
-            var output = BuildPipelineUIStyle.CreateCard("📁 Saída");
-            output.Add(Field("outputSubfolder", "Subpasta ({Publisher})"));
-            output.Add(Field("zipAfterBuild", "Zipar depois do build"));
-            output.Add(Field("zipDestinationTemplate", "Destino do zip"));
-            output.Add(new Label("Pasta: " + ProfileOutputPreview.Folder(_config, profile, profile.platform)) { style = { fontSize = 10, color = new Color(0.62f, 0.65f, 0.71f) } });
+            var output = BuildPipelineUIStyle.CreateCard("📁 Saída do build",
+                "A pasta final é montada em camadas: raiz do projeto → subpasta do perfil → plataforma (Steam) → versão/data/idioma. " +
+                "Preencha apenas a subpasta; o resto é automático.");
+            BuildOutputCard(output, profile, element);
             detail.Add(output);
+
+            var zip = BuildPipelineUIStyle.CreateCard("🗜 Zip (opcional)",
+                "Independente da pasta do build: se marcar, o .zip é criado na pasta de destino abaixo.");
+            BuildZipCard(zip, profile, element);
+            detail.Add(zip);
 
             var notes = BuildPipelineUIStyle.CreateCard("📝 Notas");
             notes.Add(Field("notes", ""));
@@ -307,6 +311,262 @@ namespace Wagenheimer.BuildPipeline.Editor
             Refresh();
             card.TrackSerializedObjectValue(_so, _ => Refresh());
             return card;
+        }
+
+        /// <summary>
+        /// Output card: one editable subfolder, a live breakdown (root → subfolder → Steam platform → base folder),
+        /// an example of the next build and a Test button that validates/creates the folder and checks write access.
+        /// </summary>
+        private void BuildOutputCard(VisualElement card, PublisherProfile profile, SerializedProperty element)
+        {
+            var subfolderField = new PropertyField(element.FindPropertyRelative("outputSubfolder"), "Subpasta deste perfil (relativa à raiz)");
+            card.Add(subfolderField);
+            card.Add(Hint("Ex.: Builds/Publishers/{Publisher}/  ·  {Publisher} vira o nome do publisher  ·  não inclua versão/data."));
+
+            var steamCallout = BuildPipelineUIStyle.CreateCallout(
+                $"🎮 Perfil Steam: a pasta {ProfileOutputPaths.PlatformFolder(profile.platform)} é adicionada automaticamente. " +
+                "Não escreva Windows/Linux/Mac na subpasta.", "info");
+            card.Add(steamCallout);
+
+            var pathList = new VisualElement();
+            pathList.AddToClassList("bp-path-list");
+
+            var rootPath = PathValue();
+            var rootRow = PathRow("Raiz do projeto", rootPath);
+            var editRoot = BuildPipelineBuildSection.SmallButton("✏ Alterar", () => _ctx.Navigate(BuildPipelineSections.Project));
+            editRoot.tooltip = "As raízes de Windows e macOS ficam em Projeto → Raízes de saída.";
+            rootRow.Add(editRoot);
+            pathList.Add(rootRow);
+
+            var subPath = PathValue();
+            pathList.Add(PathRow("+ Subpasta", subPath));
+
+            var platformPath = PathValue();
+            var platformRow = PathRow("+ Plataforma", platformPath);
+            pathList.Add(platformRow);
+
+            var basePath = PathValue();
+            basePath.AddToClassList("bp-path-value--final");
+            pathList.Add(PathRow("= Pasta base", basePath, final: true));
+
+            var nextPath = PathValue();
+            var nextRow = PathRow("Próximo build", nextPath);
+            pathList.Add(nextRow);
+
+            var artifactPath = PathValue();
+            var artifactRow = PathRow("Arquivo", artifactPath);
+            pathList.Add(artifactRow);
+
+            card.Add(pathList);
+            card.Add(Hint("“Próximo build” é um exemplo calculado neste computador com a versão/data/idioma atuais; o nome exato só é definido quando o build começa."));
+
+            var statusHost = new VisualElement();
+            bool testStatusActive = false;
+
+            void ShowCheck(BuildOutputCheck check)
+            {
+                statusHost.Clear();
+                statusHost.Add(BuildPipelineUIStyle.CreateCallout(
+                    check.Summary + "\n" + string.Join("\n", check.Details),
+                    BuildOutputFolderInspector.SeverityClass(check.Severity)));
+            }
+
+            void ShowInitialStatus()
+            {
+                var check = BuildOutputFolderInspector.Inspect(_config, profile, profile.platform, prepareFolder: false);
+                statusHost.Clear();
+                if (check.HasError)
+                {
+                    ShowCheck(check);
+                    return;
+                }
+
+                if (check.Exists && check.Severity == BuildOutputCheckSeverity.Warning)
+                {
+                    ShowCheck(check);
+                    return;
+                }
+
+                string text = check.Exists
+                    ? $"✔ Pasta base existe ({check.ExistingFolders} subpasta(s)). Clique em Testar para confirmar a gravação."
+                    : "• Pasta base ainda não existe; será criada no primeiro build. Clique em Testar para criar e validar agora.";
+                statusHost.Add(new Label(text)
+                {
+                    style =
+                    {
+                        fontSize = 10,
+                        color = new Color(0.65f, 0.68f, 0.72f),
+                        whiteSpace = WhiteSpace.Normal,
+                        marginTop = 4
+                    }
+                });
+            }
+
+            bool refreshing = false;
+            void Refresh()
+            {
+                if (refreshing)
+                    return;
+
+                refreshing = true;
+                try
+                {
+                    string root = _config.GetEffectiveBuildOutputRoot(profile.platform);
+                    string subfolder = (profile.outputSubfolder ?? "").Replace("{Publisher}", profile.publisher.ToString());
+                    string platformFolder = ProfileOutputPaths.UsesPlatformSubfolder(profile, profile.platform)
+                        ? ProfileOutputPaths.PlatformFolder(profile.platform)
+                        : "";
+                    string baseFolder = ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform);
+
+                    rootPath.text = string.IsNullOrWhiteSpace(root) ? "(vazia)" : root;
+                    subPath.text = string.IsNullOrWhiteSpace(subfolder) ? "(vazia — a pasta base será a raiz)" : subfolder;
+                    platformRow.style.display = string.IsNullOrEmpty(platformFolder) ? DisplayStyle.None : DisplayStyle.Flex;
+                    platformPath.text = platformFolder + "  (automática)";
+                    basePath.text = baseFolder;
+                    steamCallout.style.display = string.IsNullOrEmpty(platformFolder) ? DisplayStyle.None : DisplayStyle.Flex;
+
+                    var preview = ProfileOutputPaths.ResolveNextBuild(_config, profile, profile.platform);
+                    nextRow.style.display = string.IsNullOrEmpty(preview.Folder) ? DisplayStyle.None : DisplayStyle.Flex;
+                    nextPath.text = preview.Folder;
+                    artifactRow.style.display = preview.HasArtifact ? DisplayStyle.Flex : DisplayStyle.None;
+                    artifactPath.text = preview.Artifact;
+                }
+                finally
+                {
+                    refreshing = false;
+                }
+
+                if (!testStatusActive)
+                    ShowInitialStatus();
+            }
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
+            var test = BuildPipelineBuildSection.SmallButton("🧪 Testar pasta", () =>
+            {
+                _so.ApplyModifiedProperties();
+                testStatusActive = true;
+                Refresh();
+                var check = BuildOutputFolderInspector.Inspect(_config, profile, profile.platform, prepareFolder: true);
+                ShowCheck(check);
+                Debug.Log($"[BuildPipeline] Teste de pasta ({profile.EffectiveId}): {check.Summary}\n{string.Join("\n", check.Details)}");
+            });
+            test.AddToClassList("bp-btn--primary");
+            test.tooltip = "Cria a pasta se necessário, grava um arquivo temporário e confere permissão, disco e caminho.";
+            actions.Add(test);
+
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir pasta", () =>
+            {
+                _so.ApplyModifiedProperties();
+                BuildOutputFolderActions.Open(_config, profile, profile.platform);
+            }));
+
+            actions.Add(BuildPipelineBuildSection.SmallButton("📋 Copiar caminho", () =>
+            {
+                _so.ApplyModifiedProperties();
+                BuildOutputFolderActions.CopyPath(ProfileOutputPaths.ResolveFolder(_config, profile, profile.platform));
+            }));
+
+            actions.Add(BuildPipelineBuildSection.SmallButton("↺ Restaurar padrão", () =>
+            {
+                string standard = $"Builds/Publishers/{profile.publisher}/";
+                if (!EditorUtility.DisplayDialog("Restaurar subpasta",
+                        $"Voltar a subpasta deste perfil para:\n\n{standard}", "Restaurar", "Cancelar"))
+                    return;
+
+                element.FindPropertyRelative("outputSubfolder").stringValue = standard;
+                _so.ApplyModifiedProperties();
+                _ctx.SaveConfig(false);
+            }));
+
+            card.Add(actions);
+            card.Add(statusHost);
+
+            card.TrackPropertyValue(element.FindPropertyRelative("outputSubfolder"), _ =>
+            {
+                testStatusActive = false;
+                card.schedule.Execute(Refresh).ExecuteLater(120);
+            });
+            card.TrackPropertyValue(element.FindPropertyRelative("platform"), _ => _ctx.RebuildSection());
+            card.TrackPropertyValue(element.FindPropertyRelative("isSteam"), _ => _ctx.RebuildSection());
+
+            Refresh();
+        }
+
+        /// <summary>Zip destination is separate from the build folder; show it only when the toggle is on.</summary>
+        private void BuildZipCard(VisualElement card, PublisherProfile profile, SerializedProperty element)
+        {
+            card.Add(new PropertyField(element.FindPropertyRelative("zipAfterBuild"), "Zipar depois do build"));
+
+            var destination = new PropertyField(element.FindPropertyRelative("zipDestinationTemplate"), "Pasta de destino do zip");
+            card.Add(destination);
+            var hint = Hint("Tokens: {ProjectName} e {Publisher}. Ex.: E:\\Dropbox\\Builds\\{ProjectName}\\{Publisher}\\");
+            card.Add(hint);
+
+            var resolved = PathValue();
+            resolved.AddToClassList("bp-path-value--final");
+            var resolvedRow = PathRow("Destino resolvido", resolved, final: true);
+            card.Add(resolvedRow);
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 6 } };
+            actions.Add(BuildPipelineBuildSection.SmallButton("📋 Copiar", () => BuildOutputFolderActions.CopyPath(resolved.text)));
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir destino", () =>
+            {
+                _so.ApplyModifiedProperties();
+                BuildOutputFolderActions.OpenPath(resolved.text, "Abrir destino do zip");
+            }));
+            card.Add(actions);
+
+            void Refresh()
+            {
+                bool on = profile.zipAfterBuild;
+                destination.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                hint.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                resolvedRow.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                actions.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+
+                string template = !string.IsNullOrWhiteSpace(profile.zipDestinationTemplate)
+                    ? profile.zipDestinationTemplate
+                    : @"E:\Documentos\Dropbox\Builds\{ProjectName}\{Publisher}\";
+                string projectName = !string.IsNullOrWhiteSpace(_config.projectName) ? _config.projectName : Application.productName;
+                resolved.text = template
+                    .Replace("{ProjectName}", projectName)
+                    .Replace("{Publisher}", profile.publisher.ToString());
+            }
+
+            card.TrackPropertyValue(element.FindPropertyRelative("zipAfterBuild"), _ => Refresh());
+            card.TrackPropertyValue(element.FindPropertyRelative("zipDestinationTemplate"), _ =>
+                card.schedule.Execute(Refresh).ExecuteLater(120));
+            Refresh();
+        }
+
+        private static Label PathValue(string text = "")
+        {
+            var value = new Label(text);
+            value.AddToClassList("bp-path-value");
+            value.selection.isSelectable = true;
+            return value;
+        }
+
+        private static VisualElement PathRow(string label, VisualElement value, bool final = false)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("bp-path-row");
+            if (final)
+                row.AddToClassList("bp-path-row--final");
+
+            var caption = new Label(label);
+            caption.AddToClassList("bp-path-label");
+            row.Add(caption);
+            value.style.flexGrow = 1;
+            row.Add(value);
+            return row;
+        }
+
+        private static Label Hint(string text)
+        {
+            var hint = new Label(text);
+            hint.AddToClassList("bp-hint");
+            return hint;
         }
 
         private void RefreshDefines(PublisherProfile profile)
@@ -458,12 +718,5 @@ namespace Wagenheimer.BuildPipeline.Editor
             _ctx.SaveSelection();
             _ctx.SaveConfig();
         }
-    }
-
-    /// <summary>Best-effort absolute output folder of a profile (before a build resolves version/date/language).</summary>
-    internal static class ProfileOutputPreview
-    {
-        public static string Folder(ProjectBuildConfig config, PublisherProfile profile, PlatformType platform) =>
-            ProfileOutputPaths.ResolveFolder(config, profile, platform);
     }
 }

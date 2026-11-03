@@ -81,14 +81,16 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (gameCard != null)
                 Root.Add(gameCard);
 
-            var paths = BuildPipelineUIStyle.CreateCard("📁 Pastas e cenas");
-            paths.Add(new PropertyField(so.FindProperty("buildOutputRoot"), "Saída (Windows)"));
-            paths.Add(new PropertyField(so.FindProperty("macBuildOutputRoot"), "Saída (macOS)"));
-            paths.Add(new PropertyField(so.FindProperty("splashMasterFolder"), "Pasta mestre de splashes"));
-            paths.Add(new PropertyField(so.FindProperty("publisherSplashScenePath"), "Cena de splash do publisher"));
-            paths.Add(new PropertyField(so.FindProperty("defaultSplashScenePath"), "Cena de splash padrão"));
-            paths.Add(new PropertyField(so.FindProperty("levelEditorScenePath"), "Cena do editor de níveis"));
+            var paths = OutputRootsCard(ctx, so);
             Root.Add(paths);
+
+            var scenes = BuildPipelineUIStyle.CreateCard("🎬 Splashes e cenas",
+                "Cenas e pasta usadas pelo pipeline e pelo editor de níveis.");
+            scenes.Add(new PropertyField(so.FindProperty("splashMasterFolder"), "Pasta mestre de splashes"));
+            scenes.Add(new PropertyField(so.FindProperty("publisherSplashScenePath"), "Cena de splash do publisher"));
+            scenes.Add(new PropertyField(so.FindProperty("defaultSplashScenePath"), "Cena de splash padrão"));
+            scenes.Add(new PropertyField(so.FindProperty("levelEditorScenePath"), "Cena do editor de níveis"));
+            Root.Add(scenes);
 
             var zip = BuildPipelineUIStyle.CreateCard("🗜 Compactação");
             zip.Add(new PropertyField(so.FindProperty("enableZipArchiving"), "Zipar builds"));
@@ -97,6 +99,52 @@ namespace Wagenheimer.BuildPipeline.Editor
             Root.Add(zip);
 
             Root.Bind(so);
+        }
+
+        private static VisualElement OutputRootsCard(BuildPipelineSectionContext ctx, SerializedObject so)
+        {
+            var config = ctx.Config;
+            var card = BuildPipelineUIStyle.CreateCard("📁 Raízes de saída",
+                "A raiz é a pasta “mãe” de todas as builds. A subpasta de cada perfil fica em Perfis → Saída do build.");
+            card.Add(new PropertyField(so.FindProperty("buildOutputRoot"), "Raiz — builds feitas no Windows"));
+            card.Add(new PropertyField(so.FindProperty("macBuildOutputRoot"), "Raiz — builds feitas no macOS"));
+
+            var hint = new Label("A raiz usada depende do computador que executa o build, não da plataforma do perfil. " +
+                                 "No macOS vale a raiz macOS; no Windows, a raiz Windows.")
+            {
+                style = { fontSize = 10, color = new Color(0.55f, 0.59f, 0.65f), whiteSpace = WhiteSpace.Normal, marginBottom = 6 }
+            };
+            card.Add(hint);
+
+            var status = new VisualElement();
+            void TestRoot(Func<string> root, string label)
+            {
+                so.ApplyModifiedProperties();
+                string path = root();
+                var check = BuildOutputFolderInspector.InspectRoot(path, prepareFolder: true);
+                status.Clear();
+                status.Add(BuildPipelineUIStyle.CreateCallout(
+                    check.Summary + "\n" + string.Join("\n", check.Details),
+                    BuildOutputFolderInspector.SeverityClass(check.Severity)));
+                Debug.Log($"[BuildPipeline] Teste de raiz ({label}): {check.Summary}\n{string.Join("\n", check.Details)}");
+            }
+
+            var actions = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 4 } };
+            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Testar raiz Windows", () => TestRoot(() => config.buildOutputRoot, "Windows")));
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir raiz Windows", () =>
+            {
+                so.ApplyModifiedProperties();
+                BuildOutputFolderActions.OpenPath(config.buildOutputRoot, "Abrir raiz de saída (Windows)");
+            }));
+            actions.Add(BuildPipelineBuildSection.SmallButton("🧪 Testar raiz macOS", () => TestRoot(() => config.macBuildOutputRoot, "macOS")));
+            actions.Add(BuildPipelineBuildSection.SmallButton("📂 Abrir raiz macOS", () =>
+            {
+                so.ApplyModifiedProperties();
+                BuildOutputFolderActions.OpenPath(config.macBuildOutputRoot, "Abrir raiz de saída (macOS)");
+            }));
+            card.Add(actions);
+            card.Add(status);
+            return card;
         }
 
         private static VisualElement GameSpecificCard(ProjectBuildConfig config)

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] - 2026-11-03
 
+### Added
+- botao **Testar pasta** no perfil: cria a pasta se necessario, grava um arquivo temporario e confere permissao, disco livre, caminho e caracteres invalidos
+- previa da saida em camadas (raiz → subpasta → plataforma Steam → pasta base) e exemplo da pasta do proximo build
+- botoes **Testar raiz** e **Abrir raiz** para as raizes de Windows e macOS em Projeto → Raizes de saida
+
+### Changed
+- cartao **Saida** separado do cartao de **Zip**, com rotulos e explicacoes mais claras
+- aviso de pasta repetida continua suprimido para perfis Steam de plataformas diferentes
+
 ## [2.4.0] - 2026-11-03
 
 ### Added

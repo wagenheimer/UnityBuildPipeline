@@ -47,7 +47,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             new NavItem { Id = BuildPipelineSections.Profiles, Group = "CONFIGURAR", Label = "📋 Perfis", Tooltip = "Cada loja/publisher: identidade, idioma, defines, saída." },
             new NavItem { Id = BuildPipelineSections.Defines, Group = "CONFIGURAR", Label = "🧬 Defines", Tooltip = "Central de defines: origem, quem exige, onde o código usa." },
             new NavItem { Id = BuildPipelineSections.Languages, Group = "CONFIGURAR", Label = "🌐 Idiomas", Tooltip = "Idioma padrão, idiomas da matriz e perfis travados." },
-            new NavItem { Id = BuildPipelineSections.Project, Group = "CONFIGURAR", Label = "⚙ Projeto", Tooltip = "GameConfig, caminhos, cenas, zip." },
+            new NavItem { Id = BuildPipelineSections.Project, Group = "CONFIGURAR", Label = "⚙ Projeto", Tooltip = "GameConfig, raízes de saída, cenas e zip." },
             new NavItem { Id = BuildPipelineSections.Signing, Group = "CONFIGURAR", Label = "🔐 Assinatura", Tooltip = "Keystore Android: arquivo local ou cofre do AppDeployHub." },
             new NavItem { Id = BuildPipelineSections.Steam, Group = "DISTRIBUIR", Label = "🎮 Steam", Tooltip = "Perfis Steam, depots, upload e histórico." },
             new NavItem { Id = BuildPipelineSections.Automation, Group = "AUTOMATIZAR", Label = "💻 CLI & Forge", Tooltip = "Comandos headless e o que o Forge lê (catálogo)." },

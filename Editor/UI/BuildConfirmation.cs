@@ -28,7 +28,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (context.AutoRun) flags.Add("Auto Run");
 
             string output = profile != null
-                ? ProfileOutputPreview.Folder(config, profile, context.Platform)
+                ? ProfileOutputPaths.ResolveFolder(config, profile, context.Platform)
                 : "(perfil genérico — nenhum PublisherProfile correspondente)";
 
             string version = "?";

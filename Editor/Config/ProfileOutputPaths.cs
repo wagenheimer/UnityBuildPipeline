@@ -69,6 +69,39 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
+        /// <summary>Example of where the next build will land, using the current version/date/language.</summary>
+        public static BuildOutputPreview ResolveNextBuild(
+            ProjectBuildConfig config, PublisherProfile profile, PlatformType platform)
+        {
+            var preview = new BuildOutputPreview();
+            if (config == null || profile == null)
+                return preview;
+
+            try
+            {
+                var context = BuildContextFactory.Create(config, profile, new BuildContextFactory.Options { Platform = platform });
+                context.ResolveOutputPaths();
+                preview.Folder = context.ResolvedOutputDirectory ?? "";
+                preview.Artifact = context.ResolvedOutputFilePath ?? "";
+            }
+            catch
+            {
+                // The preview is best-effort: a malformed path must not break the profile editor.
+            }
+
+            return preview;
+        }
+
+        public sealed class BuildOutputPreview
+        {
+            public string Folder = "";
+            public string Artifact = "";
+
+            public bool HasArtifact =>
+                !string.IsNullOrEmpty(Artifact) &&
+                !string.Equals(Folder, Artifact, StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool EndsWithFolder(string path, string folder)
         {
             string value = (path ?? "").TrimEnd('/', '\\');
