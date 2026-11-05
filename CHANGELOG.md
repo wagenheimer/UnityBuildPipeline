@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-11-04
+
+### Added
+- publisher splash: `CopyPublisherSplashStep` reads `CW_SPLASH_FOLDER` (splash library synced by the AppDeployHub Forge agent) before the local `splashMasterFolder`, matches `splash_<publisher>` case-insensitively and accepts `.png`. Mac builds no longer ship without the publisher splash.
+- catalog: each profile exports `scriptingBackend` (`Mono2x`/`IL2CPP`) so the Forge can show it and warn about Windows IL2CPP on a Mac agent.
+- new UI Toolkit build confirmation dialog (`BuildConfirmationWindow`) with platform accent, summary cards, color-coded chips for flags/backend/defines (by layer), a scrollable final-define list, profile notes, copy-path action and a sticky footer. Replaces `EditorUtility.DisplayDialog`, which truncated long define lists; still synchronous through `ShowModalUtility` and falls back to the native dialog if it cannot be shown. Batch confirmation uses the same window.
+
+## [2.13.0] - 2026-11-04
+
+### Added
+- add `PlatformType.Windows32` (Standalone Windows x86 / 32-bit) profiles: maps to `BuildTarget.StandaloneWindows`, builds a `.exe` into the profile folder, and is handled by the splash, cleanup, tags, history, matrix default and Steam platform-folder logic. The enum value is appended so existing serialized profiles keep their platform.
+
 ## [2.12.0] - 2026-11-03
 
 ### Added

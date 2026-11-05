@@ -161,6 +161,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             switch (entry.platform)
             {
                 case "Windows64":
+                case "Windows32":
                 case "Linux64":
                     return File.Exists(entry.outputPath);
                 case "macOS":
@@ -178,7 +179,7 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             var action = entry.platform switch
             {
-                "Windows64" or "Linux64" => $"Run executable:\n{entry.outputPath}",
+                "Windows64" or "Windows32" or "Linux64" => $"Run executable:\n{entry.outputPath}",
                 "macOS" => $"Run app:\n{entry.outputPath}",
                 "Android" when entry.IsApk =>
                     $"Install APK on connected device (adb install -r) and launch:\n{entry.outputPath}",
@@ -211,6 +212,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 switch (entry.platform)
                 {
                     case "Windows64":
+                    case "Windows32":
                     case "Linux64":
                         Process.Start(entry.outputPath);
                         break;

@@ -14,20 +14,26 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (context.PublisherProfile == null || !context.PublisherProfile.requiresSplash)
                 return true;
 
-            if (context.Platform != PlatformType.Windows64 && context.Platform != PlatformType.macOS)
+            if (!context.Platform.IsWindows() && context.Platform != PlatformType.macOS)
                 return true;
 
-            var splashFolder = context.Config != null ? context.Config.splashMasterFolder : "E:/Games/Unity/games/";
-            var sourceSplash = Path.Combine(splashFolder, $"splash_{context.Publisher}.jpg");
+            // CW_SPLASH_FOLDER: splash library synced by the AppDeployHub Forge agent (Forge → Splashes). Falls back to the
+            // local master folder from the config when building on the developer machine.
+            var forgeFolder = System.Environment.GetEnvironmentVariable("CW_SPLASH_FOLDER");
+            var splashFolder = !string.IsNullOrWhiteSpace(forgeFolder) && Directory.Exists(forgeFolder)
+                ? forgeFolder
+                : (context.Config != null ? context.Config.splashMasterFolder : "E:/Games/Unity/games/");
+            var sourceSplash = FindSplash(splashFolder, context.Publisher.ToString());
 
-            if (!File.Exists(sourceSplash))
+            if (sourceSplash == null)
             {
-                context.LogWarning($"Publisher splash image not found at: {sourceSplash}");
+                context.LogWarning($"Publisher splash image not found: splash_{context.Publisher}.jpg/.png in {splashFolder}" +
+                                   (string.IsNullOrWhiteSpace(forgeFolder) ? "" : " (upload it in AppDeployHub Forge → Splashes)"));
                 return true;
             }
 
             var streamingAssetsPath = "";
-            if (context.Platform == PlatformType.Windows64)
+            if (context.Platform.IsWindows())
             {
                 var exeDir = Path.GetDirectoryName(context.ResolvedOutputFilePath);
                 var exeName = Path.GetFileNameWithoutExtension(context.ResolvedOutputFilePath);
@@ -49,6 +55,24 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             return true;
+        }
+
+        /// <summary>splash_{publisher}.jpg (or .png), ignoring case — the macOS/Linux agents may run on case-sensitive volumes.</summary>
+        private static string FindSplash(string folder, string publisher)
+        {
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                return null;
+
+            foreach (var extension in new[] { ".jpg", ".jpeg", ".png" })
+            {
+                var wanted = $"splash_{publisher}{extension}";
+                foreach (var file in Directory.GetFiles(folder))
+                {
+                    if (string.Equals(Path.GetFileName(file), wanted, System.StringComparison.OrdinalIgnoreCase))
+                        return file;
+                }
+            }
+            return null;
         }
     }
 }

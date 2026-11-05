@@ -69,8 +69,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             switch (context.Platform)
             {
                 case PlatformType.Windows64:
+                case PlatformType.Windows32:
                     var backend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.IL2CPP;
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, backend);
+                    context.Log($"Windows architecture: {(context.Platform == PlatformType.Windows32 ? "x86 (32-bit)" : "x64")} | backend: {backend}");
                     break;
 
                 case PlatformType.macOS:

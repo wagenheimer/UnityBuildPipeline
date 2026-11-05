@@ -134,6 +134,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             switch (Platform)
             {
                 case PlatformType.Windows64:
+                case PlatformType.Windows32:
                 case PlatformType.Linux64:
                     var winFolder = $"{pubPrefix}{ProjectName}_{dateText} ({versionText}){langSuffix}{variantSuffix}{demoSuffix}{devSuffix}";
                     var sub = PublisherProfile != null

@@ -289,7 +289,7 @@ runtime proof of a dashboard override; the step also logs a warning when it is n
 | `-allowMissingProfile` | `true` / `false` | Escape hatch for the check above: log a warning and continue with `-publisher`/`-platform` instead of failing. |
 | `-publisher` | `BigFish`, `Steam`, `GoogleAndroidFull`, etc. | Target store/publisher profile (used when `-buildProfile` is absent). |
 | `-language` | `en`, `de`, `fr`, `English`, `German`, `auto`... | **One-off** language for this build (wins over a locked profile, recorded as `languageSource: Override`). Omit it to let the profile decide. |
-| `-platform` | `Windows64`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
+| `-platform` | `Windows64`, `Windows32`, `Android`, `macOS`, `iOS`, `Linux64`, `WebGL` | Target platform. |
 | `-defines` | `"A;B;C"` | Extra symbols on top of the profile stack (manual CI only — the Forge no longer sends it). `!X` removes X for this build. A CLI symbol that undoes a profile removal is reported in `cliOverrides`. |
 | `-variant` | `ce`, `se`, any declared id | Game-specific build variant for a single build (applied via `ApplyBuildVariant`). |
 | `-matrixVariants` | `ce,se` | Variants for matrix generation (defaults to the GameConfig's `enabledByDefault` entries). |

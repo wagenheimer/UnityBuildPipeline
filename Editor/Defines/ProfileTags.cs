@@ -25,7 +25,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.Android: tags.Add("android"); tags.Add("mobile"); break;
                 case PlatformType.iOS: tags.Add("ios"); tags.Add("mobile"); break;
                 case PlatformType.macOS: tags.Add("mac"); tags.Add("desktop"); break;
-                case PlatformType.Windows64: tags.Add("windows"); tags.Add("desktop"); break;
+                case PlatformType.Windows64:
+                case PlatformType.Windows32: tags.Add("windows"); tags.Add("desktop"); break;
                 case PlatformType.Linux64: tags.Add("linux"); tags.Add("desktop"); break;
                 case PlatformType.WebGL: tags.Add("webgl"); break;
             }

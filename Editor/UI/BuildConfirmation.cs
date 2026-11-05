@@ -2,14 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace Wagenheimer.BuildPipeline.Editor
 {
     /// <summary>
     /// Confirmation dialog shown before any editor-triggered build. It lists what will actually run
-    /// (profile id, platform, language and where it came from, variant, flags, version, output, the final
-    /// defines from the same stack the build step applies, and broken define rules) so a shortcut can never
-    /// start a build by accident or with the wrong profile.
+    /// (profile id, platform, backend, language and where it came from, variant, flags, version, output,
+    /// the final defines from the same stack the build step applies, and broken define rules) so a
+    /// shortcut can never start a build by accident or with the wrong profile.
+    /// <para>
+    /// The UI is a UI Toolkit <see cref="BuildConfirmationWindow"/> (chips, colors and a scrollable
+    /// define list) shown as a modal utility window. The old OS message box truncated long define
+    /// lists, and this keeps the synchronous <c>bool</c> contract because
+    /// <see cref="EditorWindow.ShowModalUtility"/> blocks until the window is closed.
+    /// </para>
     /// </summary>
     internal static class BuildConfirmation
     {
@@ -18,79 +25,83 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (context == null)
                 return false;
 
-            var profile = context.PublisherProfile;
+            if (Application.isBatchMode)
+                return true;
 
-            var flags = new List<string>();
-            if (context.CheatMode) flags.Add("Cheat");
-            if (context.DevelopmentBuild) flags.Add("Development");
-            if (context.Demo) flags.Add("Demo");
-            if (context.Platform == PlatformType.Android) flags.Add(context.AppBundle ? ".aab" : ".apk");
-            if (context.AutoRun) flags.Add("Auto Run");
-
-            string output = profile != null
-                ? ProfileOutputPaths.ResolveFolder(config, profile, context.Platform)
-                : "(perfil genérico — nenhum PublisherProfile correspondente)";
-
-            string version = "?";
-            if (config?.gameConfig != null)
+            try
             {
-                try { version = config.gameConfig.GameVersion.GameVersionAsText; }
-                catch (Exception) { version = "?"; }
+                var window = BuildConfirmationWindow.Create(context, config, title);
+                window.ShowModalUtility();
+                return window.Confirmed;
             }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[BuildPipeline] Não foi possível abrir a confirmação em UI Toolkit: " + ex.Message);
+                return EditorUtility.DisplayDialog(title, FallbackMessage(context, config), "Build Now", "Cancelar");
+            }
+        }
 
+        /// <summary>Confirmation for a batch (one line per planned build, "… +N" allowed).</summary>
+        public static bool ConfirmBatch(string title, string summary)
+        {
+            if (Application.isBatchMode)
+                return true;
+
+            var lines = (summary ?? "")
+                .Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToList();
+
+            try
+            {
+                var window = BuildConfirmationWindow.Create(null, null, title, title, lines);
+                window.ShowModalUtility();
+                return window.Confirmed;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[BuildPipeline] Não foi possível abrir a confirmação em UI Toolkit: " + ex.Message);
+                return EditorUtility.DisplayDialog(
+                    title, summary + "\n\nIsso pode levar vários minutos. Continuar?", "Build Now", "Cancelar");
+            }
+        }
+
+        /// <summary>Compact message used only when the UI Toolkit window cannot be shown.</summary>
+        private static string FallbackMessage(BuildContext context, ProjectBuildConfig config)
+        {
+            var profile = context.PublisherProfile;
             string profileLine = profile != null
                 ? $"{profile.EffectiveId} — {profile.displayName} ({(profile.isFullGame ? "Full" : "Free")})"
                 : "NENHUM — a build usará os defaults do pipeline";
 
-            string definesText;
-            string rulesText = "";
-            try
+            var lines = new List<string>
             {
-                var platformProfile = profile;
-                var stack = DefineStackResolver.Resolve(config, platformProfile,
-                    DefineEnvironment.GlobalDefines(context.Platform), DefineEnvironment.AutoDefines(platformProfile),
-                    context.ScriptingDefines, DefineEnvironment.TargetGroupName(context.Platform));
+                $"Perfil: {profileLine}",
+                $"Plataforma: {context.Platform}",
+                $"Publisher: {context.Publisher}",
+                $"Idioma: {BuildLanguageResolver.Describe(context.Language, context.LanguageSource)}",
+                $"Flags: {(context.CheatMode || context.DevelopmentBuild || context.Demo || context.AutoRun ? "ver Console" : "nenhuma")}",
+                $"Saída: {ResolveOutput(config, context)}",
+                "",
+                "Isso executa o pipeline completo (pre/post steps) e pode levar vários minutos. Continuar?"
+            };
 
-                definesText = $"+[{string.Join(", ", stack.Added)}]" +
-                              (stack.Removed.Count > 0 ? $"  −[{string.Join(", ", stack.Removed)}]" : "") +
-                              $"\nFinal ({stack.TargetGroup}): {(stack.Final.Count == 0 ? "(nenhum)" : string.Join("; ", stack.Final))}";
-
-                var violations = DefineRules.Check(DefineRegistry.Load(config), profile, stack);
-                if (violations.Count > 0)
-                    rulesText = "\n\n⛔ REGRAS DE DEFINES QUEBRADAS:\n" + string.Join("\n", violations.Select(v => "• " + v.Message));
-            }
-            catch (Exception ex)
-            {
-                definesText = "(não foi possível calcular: " + ex.Message + ")";
-            }
-
-            var message =
-                $"Perfil: {profileLine}\n" +
-                $"Plataforma: {context.Platform}\n" +
-                $"Publisher: {context.Publisher}\n" +
-                $"Idioma: {BuildLanguageResolver.Describe(context.Language, context.LanguageSource)}" +
-                (string.IsNullOrEmpty(context.VariantId) ? "" : $"\nVariante: {context.VariantId}") + "\n" +
-                $"Flags: {(flags.Count == 0 ? "(nenhuma)" : string.Join(", ", flags))}\n" +
-                $"Versão: {version}\n" +
-                $"Saída: {output}\n" +
-                $"Defines: {definesText}" +
-                rulesText +
-                (profile == null
-                    ? "\n\nATENÇÃO: sem perfil correspondente. O build não terá bundle id nem defines do perfil."
-                    : "") +
-                "\n\nIsso executa o pipeline completo (pre/post steps) e pode levar vários minutos. Continuar?";
-
-            return EditorUtility.DisplayDialog(title, message, "Build Now", "Cancelar");
+            return string.Join("\n", lines);
         }
 
-        /// <summary>Confirmation for a batch.</summary>
-        public static bool ConfirmBatch(string title, string summary)
+        private static string ResolveOutput(ProjectBuildConfig config, BuildContext context)
         {
-            return EditorUtility.DisplayDialog(
-                title,
-                summary + "\n\nIsso pode levar vários minutos. Continuar?",
-                "Build Now",
-                "Cancelar");
+            try
+            {
+                return context.PublisherProfile != null
+                    ? ProfileOutputPaths.ResolveFolder(config, context.PublisherProfile, context.Platform)
+                    : "(perfil genérico)";
+            }
+            catch (Exception)
+            {
+                return "(não definida)";
+            }
         }
     }
 }

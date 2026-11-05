@@ -124,7 +124,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 "CLI Arguments:\n" +
                 "  -publisher <Name>      Target publisher (BigFish, Steam, GoogleAndroidFull, etc.)\n" +
                 "  -language <Code/Name>  Language (en, de, fr, English, German, etc.)\n" +
-                "  -platform <Platform>   Windows64, Android, macOS, iOS\n" +
+                "  -platform <Platform>   Windows64, Windows32, Android, macOS, iOS, Linux64, WebGL\n" +
                 "  -cheat <true|false>    Enable or disable Cheat Mode\n" +
                 "  -version <X.Y.Z>       Override version numbers before building");
             card5.Add(CreateCodeBox(

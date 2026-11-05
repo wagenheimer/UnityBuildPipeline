@@ -55,6 +55,9 @@ namespace Wagenheimer.BuildPipeline.Editor
         /// <summary>Explicit Steam flag (drives the Steam section, define and cleanup).</summary>
         public bool isSteam;
 
+        /// <summary>Scripting backend of the profile: "Mono2x" or "IL2CPP" (Forge shows it and warns on Windows IL2CPP on a Mac agent).</summary>
+        public string scriptingBackend = "";
+
         public string notes = "";
 
         /// <summary>Final symbol set the build gets (PlayerSettings globals + stack), at catalog time.</summary>
@@ -307,6 +310,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 languageMode = profile.languageMode.ToString(),
                 lockedLanguage = profile.IsLanguageLocked ? profile.lockedLanguage.ToString() : "",
                 isSteam = profile.isSteam,
+                scriptingBackend = profile.scriptingBackend.ToString(),
                 notes = profile.notes ?? "",
                 presetIds = (profile.definePresets ?? new List<string>())
                     .Where(id => !string.IsNullOrWhiteSpace(id))

@@ -648,6 +648,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             (PlatformType.Android, "🤖 Android"),
             (PlatformType.iOS, "📱 iOS"),
             (PlatformType.Windows64, "🪟 Windows"),
+            (PlatformType.Windows32, "🪟 Windows 32-bit"),
             (PlatformType.macOS, "🍎 macOS"),
             (PlatformType.Linux64, "🐧 Linux"),
             (PlatformType.WebGL, "🌐 WebGL"),

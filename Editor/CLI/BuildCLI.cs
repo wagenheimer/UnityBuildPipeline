@@ -399,7 +399,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
             else
             {
-                pubsToBuild = config.publishers.Where(p => p.platform == PlatformType.Windows64).ToList();
+                pubsToBuild = config.publishers.Where(p => p.platform is PlatformType.Windows64 or PlatformType.Windows32).ToList();
             }
 
             var langsToBuild = new List<GameLanguage>();

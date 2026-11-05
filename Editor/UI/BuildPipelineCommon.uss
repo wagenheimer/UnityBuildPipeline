@@ -751,3 +751,219 @@
     margin-top: 2px;
     margin-bottom: 6px;
 }
+
+/* ───────────── Build confirmation (UI Toolkit modal) ───────────── */
+
+.bp-confirm { flex-grow: 1; }
+
+.bp-confirm-accent { height: 3px; flex-shrink: 0; }
+
+.bp-confirm-hero {
+    flex-shrink: 0;
+    padding: 14px 18px 12px 16px;
+    background-color: rgba(52, 152, 219, 0.08);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.09);
+    border-left-width: 3px;
+}
+
+.bp-confirm-eyebrow {
+    font-size: 9px;
+    -unity-font-style: bold;
+    color: #5dade2;
+    letter-spacing: 2px;
+    margin-bottom: 3px;
+}
+
+.bp-confirm-title-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.bp-confirm-title {
+    font-size: 19px;
+    -unity-font-style: bold;
+    color: #ffffff;
+}
+
+.bp-confirm-subtitle {
+    font-size: 11px;
+    color: #98a1ad;
+    margin-top: 3px;
+    white-space: normal;
+}
+
+.bp-confirm-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.bp-confirm-body { padding: 12px 16px 6px 16px; }
+
+.bp-confirm-kv {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.bp-confirm-kv-label {
+    width: 86px;
+    flex-shrink: 0;
+    font-size: 9px;
+    -unity-font-style: bold;
+    color: #7f8794;
+    letter-spacing: 0.6px;
+    margin-top: 4px;
+}
+
+.bp-confirm-kv-value {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.bp-confirm-value-strong {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #f0f3f7;
+    margin-right: 8px;
+}
+
+.bp-confirm-muted {
+    font-size: 11px;
+    color: #8b93a0;
+    margin-right: 8px;
+    white-space: normal;
+}
+
+.bp-confirm-path {
+    background-color: #17171c;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #7bdc8a;
+    white-space: normal;
+}
+
+.bp-confirm-inline-actions {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.bp-confirm-hint-inline {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 10px;
+    color: #8b93a0;
+    margin-right: 8px;
+    white-space: normal;
+}
+
+.bp-confirm-define-section { margin-top: 6px; }
+
+.bp-confirm-define-caption {
+    font-size: 9px;
+    -unity-font-style: bold;
+    color: #7f8794;
+    letter-spacing: 0.6px;
+    margin-bottom: 3px;
+}
+
+.bp-chip-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.bp-chip {
+    height: 20px;
+    margin: 1px 4px 3px 0;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.bp-badge--accent {
+    background-color: rgba(155, 89, 182, 0.22);
+    color: #c39bd3;
+    border-width: 1px;
+    border-color: rgba(155, 89, 182, 0.45);
+}
+
+.bp-badge--muted {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #9aa3af;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.bp-callout--fail {
+    background-color: rgba(231, 76, 60, 0.12);
+    border-left-color: #e74c3c;
+}
+
+.bp-confirm-batch-list { margin-top: 2px; }
+
+.bp-confirm-batch-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 5px 6px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.bp-confirm-batch-row:hover { background-color: rgba(255, 255, 255, 0.04); }
+
+.bp-confirm-batch-index {
+    width: 24px;
+    flex-shrink: 0;
+    font-size: 9px;
+    -unity-font-style: bold;
+    color: #5dade2;
+}
+
+.bp-confirm-batch-more {
+    font-size: 10px;
+    color: #8b93a0;
+    padding: 4px 6px;
+}
+
+.bp-confirm-footer {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 10px 16px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(0, 0, 0, 0.22);
+}
+
+.bp-confirm-footer-hint {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 10px;
+    color: #8b93a0;
+    white-space: normal;
+    margin-right: 12px;
+}
+
+.bp-confirm-btn {
+    height: 30px;
+    padding: 0 16px;
+    margin: 0 0 0 8px;
+    font-size: 12px;
+}

@@ -16,7 +16,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                 CleanupNonSteamBinaries(context);
             }
 
-            if (context.Platform != PlatformType.Windows64)
+            if (!context.Platform.IsWindows())
                 return true;
 
             var dir = Path.GetDirectoryName(context.ResolvedOutputFilePath);
@@ -87,7 +87,7 @@ namespace Wagenheimer.BuildPipeline.Editor
                         }
                     }
                 }
-                else if (context.Platform == PlatformType.Windows64)
+                else if (context.Platform.IsWindows())
                 {
                     var dir = Path.GetDirectoryName(outputPath);
                     if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))

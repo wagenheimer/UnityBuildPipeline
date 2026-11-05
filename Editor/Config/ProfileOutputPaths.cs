@@ -13,6 +13,7 @@ namespace Wagenheimer.BuildPipeline.Editor
     public static class ProfileOutputPaths
     {
         public const string WindowsFolder = "Windows";
+        public const string Windows32Folder = "Windows32";
         public const string LinuxFolder = "Linux";
         public const string MacFolder = "Mac";
 
@@ -20,11 +21,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static bool UsesPlatformSubfolder(PublisherProfile profile, PlatformType platform) =>
             profile != null &&
             profile.IsSteamProfile &&
-            platform is PlatformType.Windows64 or PlatformType.Linux64 or PlatformType.macOS;
+            platform is PlatformType.Windows64 or PlatformType.Windows32 or PlatformType.Linux64 or PlatformType.macOS;
 
         public static string PlatformFolder(PlatformType platform) => platform switch
         {
             PlatformType.Windows64 => WindowsFolder,
+            // x86 gets its own folder so a 32-bit depot/profile never overwrites the x64 one.
+            PlatformType.Windows32 => Windows32Folder,
             PlatformType.Linux64 => LinuxFolder,
             PlatformType.macOS => MacFolder,
             _ => ""
