@@ -86,9 +86,33 @@ namespace Wagenheimer.BuildPipeline.Editor
                     context.Log($"Windows architecture: {(context.Platform == PlatformType.Windows32 ? "x86 (32-bit)" : "x64")} | backend: {backend}");
                     break;
 
+                case PlatformType.Linux64:
+                    var linuxBackend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.Mono2x;
+                    if (Application.platform == RuntimePlatform.OSXEditor && linuxBackend == ScriptingImplementation.IL2CPP)
+                    {
+                        context.Log("ℹ️ macOS Editor não suporta IL2CPP para Linux Standalone — revertendo scriptingBackend para Mono2x.");
+                        linuxBackend = ScriptingImplementation.Mono2x;
+                    }
+                    if (CommandLineArgs.Has("scriptingBackend"))
+                    {
+                        var cliBackend = CommandLineArgs.Get("scriptingBackend");
+                        if (Enum.TryParse<ScriptingImplementation>(cliBackend, true, out var parsed))
+                            linuxBackend = parsed;
+                    }
+                    PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, linuxBackend);
+                    context.Log($"Linux architecture: x64 | backend: {linuxBackend}");
+                    break;
+
                 case PlatformType.macOS:
                     var macBackend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.Mono2x;
+                    if (CommandLineArgs.Has("scriptingBackend"))
+                    {
+                        var cliBackend = CommandLineArgs.Get("scriptingBackend");
+                        if (Enum.TryParse<ScriptingImplementation>(cliBackend, true, out var parsed))
+                            macBackend = parsed;
+                    }
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, macBackend);
+                    context.Log($"macOS backend: {macBackend}");
                     
                     // DEPRECATED / DANGEROUS: PlayerSettings.useMacAppStoreValidation forces the app to call exit(173)
                     // if Contents/_MASReceipt/receipt is missing, breaking ALL local testing and non-App Store runs.
