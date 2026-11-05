@@ -203,7 +203,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (!string.IsNullOrEmpty(buildProfileId))
             {
-                profile = FindPublisherProfile(config, buildProfileId, out publisher);
+                profile = FindPublisherProfile(config, buildProfileId, out publisher)
+                          ?? FindDecoratedProfile(config, buildProfileId, out publisher);
                 if (profile == null)
                     Debug.LogWarning($"[BuildCLI] -buildProfile '{buildProfileId}' not found in ProjectBuildConfig; attempting resolution via -publisher.");
             }
@@ -520,6 +521,53 @@ namespace Wagenheimer.BuildPipeline.Editor
                 config.keystoreSource = source;
             else
                 Debug.LogWarning($"[BuildCLI] -keystoreSource '{value}' desconhecido (use LocalDisk ou AppDeployHubVault); mantendo {config.keystoreSource}.");
+        }
+
+        /// <summary>
+        /// Id "decorado" com a plataforma, como "GameHouse (Win32)" (rótulo antigo do dashboard): tenta o nome sem o
+        /// sufixo, pelo id ou pelo displayName, exigindo que a plataforma do sufixo bata e que haja UM candidato só.
+        /// Sem isso o build abortava mesmo com o perfil certo no ProjectBuildConfig. Ambíguo = null (continua falhando).
+        /// </summary>
+        public static PublisherProfile FindDecoratedProfile(ProjectBuildConfig config, string identifier, out Publisher resolvedPublisher)
+        {
+            resolvedPublisher = Publisher.Default;
+            if (config?.publishers == null || string.IsNullOrWhiteSpace(identifier))
+                return null;
+
+            var match = System.Text.RegularExpressions.Regex.Match(identifier.Trim(), @"^(?<name>.+?)\s*\((?<suffix>[^()]+)\)$");
+            if (!match.Success)
+                return null;
+
+            var name = match.Groups["name"].Value.Trim();
+            var platform = PlatformFromLabel(match.Groups["suffix"].Value.Trim());
+            var candidates = config.publishers.Where(p =>
+                    string.Equals(p.EffectiveId, name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p.displayName, name, StringComparison.OrdinalIgnoreCase))
+                .Where(p => platform == null || p.platform == platform.Value)
+                .ToList();
+            if (candidates.Count != 1)
+                return null;
+
+            var profile = candidates[0];
+            resolvedPublisher = profile.publisher;
+            Debug.LogWarning($"[BuildCLI] -buildProfile '{identifier}' não existe; usando '{profile.EffectiveId}' ({profile.platform}). " +
+                             $"Corrija o id do perfil no dashboard para '{profile.EffectiveId}'.");
+            return profile;
+        }
+
+        private static PlatformType? PlatformFromLabel(string label)
+        {
+            switch (label.Replace(" ", "").Replace("-", "").ToLowerInvariant())
+            {
+                case "win32": case "windows32": case "x86": case "windowsx86": return PlatformType.Windows32;
+                case "win64": case "windows64": case "windows": case "x64": return PlatformType.Windows64;
+                case "macos": case "mac": case "osx": return PlatformType.macOS;
+                case "linux": case "linux64": return PlatformType.Linux64;
+                case "android": return PlatformType.Android;
+                case "ios": return PlatformType.iOS;
+                case "webgl": return PlatformType.WebGL;
+                default: return null;
+            }
         }
 
         public static PublisherProfile FindPublisherProfile(ProjectBuildConfig config, string identifier, out Publisher resolvedPublisher)
