@@ -41,7 +41,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             {
                 try
                 {
-                    var args = $@"a -tzip ""{zipPath}"" ""{sourceDir}""";
+                    var args = $@"a -tzip ""{zipPath}"" ""{sourceDir}"" {BuildZipFilter.SevenZipExcludeArgs}";
                     var proc = Process.Start(new ProcessStartInfo
                     {
                         FileName = context.Config.sevenZipExecutable,
@@ -63,8 +63,10 @@ namespace Wagenheimer.BuildPipeline.Editor
             try
             {
                 if (File.Exists(zipPath)) File.Delete(zipPath);
-                ZipFile.CreateFromDirectory(sourceDir, zipPath, CompressionLevel.Optimal, false);
-                context.Log($"ZIP Archive created: {zipPath}");
+                var skipped = CreateFilteredZip(sourceDir, zipPath);
+                context.Log(skipped > 0
+                    ? $"ZIP Archive created: {zipPath} ({skipped} non-shipping file(s) left out, e.g. *_BackUpThisFolder_ButDontShipItWithYourGame)"
+                    : $"ZIP Archive created: {zipPath}");
             }
             catch (Exception ex)
             {
@@ -72,6 +74,23 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             return true;
+        }
+
+        /// <summary>Same layout as ZipFile.CreateFromDirectory (no base folder), minus <see cref="BuildZipFilter"/> entries.</summary>
+        /// <returns>How many files were left out.</returns>
+        private static int CreateFilteredZip(string sourceDir, string zipPath)
+        {
+            var skipped = 0;
+            using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
+                {
+                    var relative = BuildZipFilter.RelativePath(sourceDir, file);
+                    if (BuildZipFilter.IsExcluded(relative)) { skipped++; continue; }
+                    archive.CreateEntryFromFile(file, relative.Replace('\\', '/'), CompressionLevel.Optimal);
+                }
+            }
+            return skipped;
         }
     }
 }
