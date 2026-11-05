@@ -71,6 +71,17 @@ namespace Wagenheimer.BuildPipeline.Editor
                 case PlatformType.Windows64:
                 case PlatformType.Windows32:
                     var backend = context.PublisherProfile != null ? context.PublisherProfile.scriptingBackend : ScriptingImplementation.IL2CPP;
+                    if (Application.platform == RuntimePlatform.OSXEditor && backend == ScriptingImplementation.IL2CPP)
+                    {
+                        context.Log("ℹ️ macOS Editor não suporta IL2CPP para Windows Standalone — revertendo scriptingBackend para Mono2x.");
+                        backend = ScriptingImplementation.Mono2x;
+                    }
+                    if (CommandLineArgs.Has("scriptingBackend"))
+                    {
+                        var cliBackend = CommandLineArgs.Get("scriptingBackend");
+                        if (Enum.TryParse<ScriptingImplementation>(cliBackend, true, out var parsed))
+                            backend = parsed;
+                    }
                     PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, backend);
                     context.Log($"Windows architecture: {(context.Platform == PlatformType.Windows32 ? "x86 (32-bit)" : "x64")} | backend: {backend}");
                     break;
