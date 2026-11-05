@@ -205,18 +205,11 @@ namespace Wagenheimer.BuildPipeline.Editor
         private static void ApplyAndroidDebugSymbols(bool create, bool embedInBundle)
         {
 #if UNITY_6000_0_OR_NEWER
-            UnityEditor.Android.UserBuildSettings.DebugSymbols.level = create
-                ? Unity.Android.Types.DebugSymbolLevel.SymbolTable
-                : Unity.Android.Types.DebugSymbolLevel.None;
-
-            if (create)
-            {
-                var format = Unity.Android.Types.DebugSymbolFormat.Zip
-                             | Unity.Android.Types.DebugSymbolFormat.LegacyExtensions;
-                if (embedInBundle)
-                    format |= Unity.Android.Types.DebugSymbolFormat.IncludeInBundle;
-                UnityEditor.Android.UserBuildSettings.DebugSymbols.format = format;
-            }
+            // By reflection: UnityEditor.Android.UserBuildSettings / Unity.Android.Types live in the Android build
+            // support module. A direct reference broke compilation of the whole package on machines without that module
+            // (e.g. a Mac agent that only builds Windows/macOS) — CS0234 'UserBuildSettings' does not exist.
+            if (!AndroidDebugSymbolsReflection.TryApply(create, embedInBundle, out var problem))
+                Debug.LogWarning($"[BuildPipeline] Android debug symbols not configured: {problem}");
 #else
 #pragma warning disable CS0618
             EditorUserBuildSettings.androidCreateSymbols = create
