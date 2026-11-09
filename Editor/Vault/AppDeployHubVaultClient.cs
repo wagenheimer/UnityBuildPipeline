@@ -50,7 +50,17 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (!string.IsNullOrWhiteSpace(env))
                 return env.Trim();
 
-            return EditorPrefs.GetString(KeyPrefs, "").Trim();
+            try
+            {
+                return EditorPrefs.GetString(KeyPrefs, "").Trim();
+            }
+            catch (UnityEngine.UnityException)
+            {
+                // EditorPrefs is main-thread only. A background caller must resolve the key before
+                // hopping threads (see FetchKeystore); returning empty here keeps the failure a
+                // clear "sem API key do cofre" instead of a thread-affinity crash.
+                return "";
+            }
         }
 
         public static bool KeyComesFromEnvironment => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(KeyEnvVar));
@@ -58,9 +68,13 @@ namespace Wagenheimer.BuildPipeline.Editor
         public static void SaveApiKey(string key) => EditorPrefs.SetString(KeyPrefs, key?.Trim() ?? "");
 
         /// <summary>Lists the active AndroidKeystore credentials the key can see.</summary>
-        public static async Task<(bool Success, string Message, List<VaultCredentialInfo> Credentials)> ListKeystoresAsync(string baseUrl)
+        public static Task<(bool Success, string Message, List<VaultCredentialInfo> Credentials)> ListKeystoresAsync(string baseUrl) =>
+            // Resolve the key on the caller (main) thread: EditorPrefs is main-thread only.
+            ListKeystoresAsync(baseUrl, GetApiKey());
+
+        private static async Task<(bool Success, string Message, List<VaultCredentialInfo> Credentials)> ListKeystoresAsync(string baseUrl, string apiKey)
         {
-            var (ok, message, body) = await GetAsync(baseUrl, "/api/v1/vault/credentials");
+            var (ok, message, body) = await GetAsync(baseUrl, "/api/v1/vault/credentials", apiKey);
             if (!ok)
                 return (false, message, new List<VaultCredentialInfo>());
 
@@ -93,12 +107,16 @@ namespace Wagenheimer.BuildPipeline.Editor
         }
 
         /// <summary>Downloads the keystore + passwords of one credential into Library/KeystoreCache.</summary>
-        public static async Task<(bool Success, string Message, VaultKeystore Keystore)> FetchKeystoreAsync(string baseUrl, string credentialId)
+        public static Task<(bool Success, string Message, VaultKeystore Keystore)> FetchKeystoreAsync(string baseUrl, string credentialId) =>
+            // Resolve the key on the caller (main) thread: EditorPrefs is main-thread only.
+            FetchKeystoreAsync(baseUrl, credentialId, GetApiKey());
+
+        private static async Task<(bool Success, string Message, VaultKeystore Keystore)> FetchKeystoreAsync(string baseUrl, string credentialId, string apiKey)
         {
             if (string.IsNullOrWhiteSpace(credentialId))
                 return (false, "Nenhuma credencial de keystore escolhida (Assinatura → Cofre do AppDeployHub).", null);
 
-            var (ok, message, body) = await GetAsync(baseUrl, $"/api/v1/vault/credentials/{credentialId.Trim()}/secrets");
+            var (ok, message, body) = await GetAsync(baseUrl, $"/api/v1/vault/credentials/{credentialId.Trim()}/secrets", apiKey);
             if (!ok)
                 return (false, message, null);
 
@@ -196,12 +214,21 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
         }
 
-        public static (bool Success, string Message, VaultKeystore Keystore) FetchKeystore(string baseUrl, string credentialId) =>
-            Task.Run(() => FetchKeystoreAsync(baseUrl, credentialId)).GetAwaiter().GetResult();
-
-        private static async Task<(bool Ok, string Message, string Body)> GetAsync(string baseUrl, string path)
+        public static (bool Success, string Message, VaultKeystore Keystore) FetchKeystore(string baseUrl, string credentialId)
         {
-            string key = GetApiKey();
+            // EditorPrefs (the key fallback) is main-thread only, and Task.Run moves the whole call
+            // to the thread pool. Resolve the key HERE, before hopping threads — otherwise a CI
+            // batchmode build died with "GetString can only be called from the main thread" in
+            // SetupKeystoreStep whenever APPDEPLOYHUB_VAULT_KEY was not in the environment.
+            string apiKey = GetApiKey();
+            return Task.Run(() => FetchKeystoreAsync(baseUrl, credentialId, apiKey)).GetAwaiter().GetResult();
+        }
+
+        private static Task<(bool Ok, string Message, string Body)> GetAsync(string baseUrl, string path) =>
+            GetAsync(baseUrl, path, GetApiKey());
+
+        private static async Task<(bool Ok, string Message, string Body)> GetAsync(string baseUrl, string path, string key)
+        {
             if (string.IsNullOrEmpty(key))
                 return (false, $"Sem API key do cofre. Defina {KeyEnvVar} ou cole a chave em Assinatura (fica só nesta máquina).", "");
 
