@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] - 2026-11-05
+
+### Added
+- Steam ▸ **Steam Auto-Cloud** card: declares the save folder per OS and renders the exact Steamworks table
+  (one WinAppDataRoaming Root Path + macOS/Linux Root Overrides with "Replace path") with copy-to-clipboard.
+- `SteamAutoCloudPlanner`: checks that split the save in the cloud (empty folders, Unity's macOS
+  `persistentDataPath` flip-flop, bundle-id folder, `~/Library/Caches`, broad pattern, Windows-invalid characters
+  in the namespace, different leaf per OS) — shown in the card and in `ValidateProfiles`/pre-build gate as warnings.
+- "Check this machine": probes the declared folder on the OS running the Editor and lists the matching save files.
+- README ▸ Steam Auto-Cloud: the game-side path pattern, the Steamworks rows and the `testappcloudpaths` test.
+
 ## [2.15.7] - 2026-11-09
 
 ### Fixed
