@@ -67,6 +67,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             _root.Add(BuildImportCard(cfg));
             _root.Add(BuildConfigCard(cfg));
             _root.Add(BuildDepotsCard(cfg));
+            _root.Add(BuildAutoCloudCard(cfg));
             _root.Add(BuildActionsCard(cfg));
             _root.Add(BuildLogCard());
             _root.Add(BuildHistoryCard());
@@ -1032,6 +1033,219 @@ public class SteamManager : MonoBehaviour {
 #endif
 }
 ";
+
+        // ── Auto-Cloud: cross-platform saves ─────────────────────────────────────
+
+        /// <summary>
+        /// Declares the save folder per OS and renders, for this game, the exact Steamworks table (one Root Path +
+        /// one Root Override per other OS with "Replace path") plus the checks that catch a save that would split.
+        /// </summary>
+        private VisualElement BuildAutoCloudCard(SteamUploadConfig cfg)
+        {
+            if (_config.autoCloud == null) _config.autoCloud = new SteamAutoCloudConfig();
+            var ac = _config.autoCloud;
+
+            var card = BuildPipelineUIStyle.CreateCard("☁️ Steam Auto-Cloud (cross-platform saves)",
+                "Emits the Steamworks configuration that keeps the player's save as the same file on Windows, macOS and Linux.");
+
+            var toggle = new Toggle("Declare Auto-Cloud for this game")
+            {
+                value = ac.enabled,
+                style = { unityFontStyleAndWeight = FontStyle.Bold }
+            };
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                ac.enabled = evt.newValue;
+                SaveDirty();
+                Rebuild();
+            });
+            card.Add(toggle);
+
+            if (!ac.enabled)
+            {
+                card.Add(BuildPipelineUIStyle.CreateCallout(
+                    "Ligue para gerar a tabela do Steamworks e checar as pastas. O jogo precisa gravar a MESMA pasta relativa nos três SOs — " +
+                    "no macOS não use Application.persistentDataPath (o Unity alterna entre 'unity.<empresa>.<jogo>' e '<empresa>/<jogo>').",
+                    "info"));
+                return card;
+            }
+
+            var derived = new VisualElement();
+            void RefreshDerived()
+            {
+                derived.Clear();
+                derived.Add(BuildAutoCloudRows(ac, cfg));
+            }
+
+            card.Add(TextRow("Windows folder (relative to %APPDATA%)", ac.windowsSubdirectory,
+                v => { ac.windowsSubdirectory = v; RefreshDerived(); }));
+            card.Add(TextRow("macOS folder (relative to ~/Library/Application Support)", ac.macSubdirectory,
+                v => { ac.macSubdirectory = v; RefreshDerived(); }));
+            card.Add(TextRow("Linux folder (relative to ~)", ac.linuxSubdirectory,
+                v => { ac.linuxSubdirectory = v; RefreshDerived(); }));
+            card.Add(TextRow("File pattern", ac.filePattern,
+                v => { ac.filePattern = v; RefreshDerived(); }));
+
+            var recursive = new Toggle("Recursive (include subfolders)") { value = ac.recursive };
+            recursive.RegisterValueChangedCallback(evt =>
+            {
+                ac.recursive = evt.newValue;
+                SaveDirty();
+                RefreshDerived();
+            });
+            card.Add(recursive);
+
+            RefreshDerived();
+            card.Add(derived);
+
+            var buttons = new VisualElement
+            {
+                style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, alignItems = Align.Center, marginTop = 8 }
+            };
+
+            var copyButton = new Button(() =>
+            {
+                GUIUtility.systemCopyBuffer = SteamAutoCloudPlanner.SteamworksTable(ac);
+                Debug.Log("[BuildPipeline] Configuração do Steam Auto-Cloud copiada para a área de transferência.");
+            });
+            BuildPipelineUIStyle.ApplyIconText(copyButton, "📋 Copy Steamworks configuration");
+            copyButton.AddToClassList("bp-btn");
+            copyButton.AddToClassList("bp-btn--primary");
+            copyButton.style.marginRight = 6;
+            buttons.Add(copyButton);
+
+            var probeButton = new Button();
+            var probeLabel = new Label
+            {
+                style = { fontSize = 10, whiteSpace = WhiteSpace.Normal, flexGrow = 1, color = new Color(0.65f, 0.75f, 0.85f) }
+            };
+            probeButton.clicked += () => probeLabel.text = ProbeAutoCloudFolder(ac);
+            BuildPipelineUIStyle.ApplyIconText(probeButton, "🔎 Check this machine");
+            probeButton.AddToClassList("bp-btn");
+            buttons.Add(probeButton);
+
+            card.Add(buttons);
+            card.Add(probeLabel);
+
+            card.Add(BuildPipelineUIStyle.CreateCallout(
+                "O jogo deve gravar a mesma pasta relativa nos três SOs (montada no código, não via Application.persistentDataPath no macOS). " +
+                "Teste em Steamworks ▸ console (steam://open/console ▸ testappcloudpaths <AppID> ▸ set_spew_level 4 4). " +
+                "Não sincronize configuração de máquina (resolução, qualidade de vídeo).",
+                "info"));
+
+            return card;
+        }
+
+        /// <summary>Checks + the Steamworks table rendered as cards (Root Path first, then the Root Overrides).</summary>
+        private VisualElement BuildAutoCloudRows(SteamAutoCloudConfig ac, SteamUploadConfig cfg)
+        {
+            var container = new VisualElement();
+
+            foreach (var issue in SteamAutoCloudPlanner.Check(ac, cfg != null && cfg.steamEnabled))
+                container.Add(BuildPipelineUIStyle.CreateCallout(issue.Message, issue.IsWarning ? "warning" : "info"));
+
+            var rows = SteamAutoCloudPlanner.Rows(ac);
+            var root = rows[0];
+            container.Add(AutoCloudRowElement(
+                root.Label,
+                $"Root: {root.Root}",
+                $"Subdirectory: {root.Subdirectory}",
+                $"Pattern: {root.FilePattern}   |   Recursive: {(root.Recursive ? "yes" : "no")}",
+                "OS restriction: Cross-Platform (Multiplataforma)   |   Cross-platform sync: Sim"));
+
+            foreach (var row in rows.Where(r => r.IsOverride))
+            {
+                container.Add(AutoCloudRowElement(
+                    row.Label,
+                    $"Original root: {row.OriginalRoot}   →   New root: {row.Root}",
+                    $"Add/Replace path: {row.Subdirectory}",
+                    "Replace path: yes (sim)"));
+            }
+
+            container.Add(new Label(
+                $"Windows: {SteamAutoCloudPlanner.PhysicalPath(ac, SteamAutoCloudPlatform.Windows)}\n" +
+                $"macOS:   {SteamAutoCloudPlanner.PhysicalPath(ac, SteamAutoCloudPlatform.Mac)}\n" +
+                $"Linux:   {SteamAutoCloudPlanner.PhysicalPath(ac, SteamAutoCloudPlatform.Linux)}")
+            {
+                style =
+                {
+                    fontSize = 10,
+                    color = new Color(0.62f, 0.72f, 0.82f),
+                    whiteSpace = WhiteSpace.Normal,
+                    marginTop = 6
+                }
+            });
+
+            return container;
+        }
+
+        private static VisualElement AutoCloudRowElement(string title, params string[] lines)
+        {
+            var box = new VisualElement();
+            box.AddToClassList("bp-subcard");
+            box.style.marginTop = 6;
+
+            box.Add(new Label(title)
+            {
+                style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 11 }
+            });
+            foreach (var line in lines)
+            {
+                box.Add(new Label(line)
+                {
+                    style = { fontSize = 10, color = new Color(0.75f, 0.82f, 0.9f), whiteSpace = WhiteSpace.Normal }
+                });
+            }
+
+            return box;
+        }
+
+        /// <summary>Looks for save files in the folder declared for the OS the Editor is running on.</summary>
+        private static string ProbeAutoCloudFolder(SteamAutoCloudConfig ac)
+        {
+            SteamAutoCloudPlatform platform;
+            string configured;
+            switch (Application.platform)
+            {
+                case RuntimePlatform.OSXEditor:
+                case RuntimePlatform.OSXPlayer:
+                    platform = SteamAutoCloudPlatform.Mac;
+                    configured = SteamAutoCloudPlanner.Normalize(ac.macSubdirectory);
+                    break;
+                case RuntimePlatform.LinuxEditor:
+                case RuntimePlatform.LinuxPlayer:
+                    platform = SteamAutoCloudPlatform.Linux;
+                    configured = SteamAutoCloudPlanner.Normalize(ac.linuxSubdirectory);
+                    break;
+                default:
+                    platform = SteamAutoCloudPlatform.Windows;
+                    configured = SteamAutoCloudPlanner.Normalize(ac.windowsSubdirectory);
+                    break;
+            }
+
+            if (configured.Length == 0)
+                return "Folder for this OS is not declared.";
+
+            try
+            {
+                var folder = SteamAutoCloudPlanner.LocalFolder(ac, platform);
+                if (!Directory.Exists(folder))
+                    return $"⚠ Not found on this machine: {folder}";
+
+                var pattern = string.IsNullOrWhiteSpace(ac.filePattern) ? "*.sav" : ac.filePattern.Trim();
+                var option = ac.recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                var files = Directory.GetFiles(folder, pattern, option);
+                if (files.Length == 0)
+                    return $"⚠ Folder exists but has no '{pattern}' file: {folder}";
+
+                var names = string.Join(", ", files.Take(6).Select(Path.GetFileName));
+                return $"✔ {files.Length} file(s) in {folder}: {names}{(files.Length > 6 ? ", …" : "")}";
+            }
+            catch (Exception ex)
+            {
+                return "⚠ " + ex.Message;
+            }
+        }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
 

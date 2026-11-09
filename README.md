@@ -365,6 +365,90 @@ public class DiscordNotificationStep : IPostBuildStep
 
 ---
 
+## ☁️ Steam Auto-Cloud (cross-platform saves)
+
+Steam Auto-Cloud syncs files by **folder**, so a save is shared between Windows, macOS and Linux only when
+the game writes it to the **same relative folder** on every OS. Two things must line up:
+
+1. **The game** must build the save path itself (company + game folder), not rely on
+   `Application.persistentDataPath` — on macOS Unity alternates between
+   `~/Library/Application Support/unity.<company>.<game>` and `~/Library/Application Support/<company>/<game>`
+   (it uses the second one only when that folder already exists), so the *same player* can end up with two
+   different save folders and the cloud splits in two.
+2. **Steamworks** must be configured with **one Root Path + Root Overrides** — *not* three roots (each root is
+   its own cloud namespace; extra roots split the save instead of sharing it).
+
+### In the game (recommended pattern)
+
+```csharp
+// Same relative folder ("Company/Game") on all three OSes. Win: %APPDATA%, macOS: ~/Library/Application Support,
+// Linux: ~/.config/unity3d. The Steam variant can carry a suffix — the suffix is part of the relative path.
+var folder = Config.Publisher == Publisher.Steam ? "My Game (Steam)" : "My Game";
+
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+    var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Application Support");
+#elif UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
+    var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "unity3d");
+#else
+    var root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+#endif
+
+SaveFolder = Path.Combine(root, "Company", folder);
+```
+
+Migrate old saves once (copy when the new folder has no `save.sav`) so players coming from a build that used
+`persistentDataPath` keep their progress.
+
+### In the window: **Steam ▸ Steam Auto-Cloud**
+
+Declare the folder relative to each OS root (`%APPDATA%`, `~/Library/Application Support`, `~`) and the file
+pattern (`*.sav`). The card renders the exact Steamworks table for **this** game, with a **Copy** button, and
+checks the declared paths:
+
+| Check | Why |
+|---|---|
+| Empty folder | The Root Path is what Steam syncs — nothing is declared, nothing syncs. |
+| `unity.<company>.<game>` or a bundle id on macOS | Unity's `persistentDataPath` flip-flop: the same player may read/write two folders. |
+| macOS folder inside `~/Library/Caches` | macOS can purge it at any time. |
+| Pattern `*` / `*.*` | Syncs settings and caches along with the save. |
+| Characters Windows cannot create (`: < > " \| ? *`) in the Windows folder | The Windows subdirectory is the cloud namespace, so it must be valid on every OS. |
+| Different leaf per OS | Works with *Replace path*, but one name keeps the game code and Steamworks in sync. |
+| Steam integration off | The card/table only matter for a Steam build. |
+
+The checks also run in the pre-build gate (`ValidateProfilesStep`) and in `ValidateProfiles` — as **warnings**,
+never errors (a game may deliberately keep per-platform saves).
+
+### In Steamworks → App Admin → Steam Cloud → Auto-Cloud
+
+**Root Paths** (one row):
+
+| Root | Subdirectory | Pattern | Recursive | OS restriction | Cross-platform sync |
+|---|---|---|---|---|---|
+| `WinAppDataRoaming` | `Company/My Game (Steam)` | `*.sav` | ✔ | **Cross-Platform** (`Multiplataforma`) | **Yes** |
+
+**Root Overrides** (one per other OS):
+
+| Original root | OS | New root | Add/Replace path | Replace path |
+|---|---|---|---|---|
+| `WinAppDataRoaming` | macOS | `MacAppSupport` | `Company/My Game (Steam)` | ✔ |
+| `WinAppDataRoaming` | Linux + SteamOS | `LinuxHome` | `.config/unity3d/Company/My Game (Steam)` | ✔ |
+
+With *Replace path* enabled, the macOS/Linux physical folders are `~/Library/Application Support/<path>` and
+`~/<path>`, while the cloud keeps a single set of files (the Windows namespace). This is the same recipe as
+Valve's ["Configuring Auto-Cloud for Unity Applications"](https://partner.steamgames.com/doc/features/cloud).
+
+### Testing
+
+`steam://open/console` → `testappcloudpaths <AppID>` → `set_spew_level 4 4`, open the game, save and quit;
+the console shows the upload. Repeat on another machine/OS (or delete the local folder) to see the download.
+Finish with `testappcloudpaths 0` and `set_spew_level 0 0`.
+
+Two caveats: `steam_autocloud.vdf` is created by Steam in every configured folder (the narrow `*.sav` pattern
+keeps it out), and **don't sync machine settings** (resolution, video quality) — if the save file carries them,
+split them into a second, non-synced file.
+
+---
+
 ## 📄 License
 
 MIT License. Copyright (c) 2026 Cezar Wagenheimer.

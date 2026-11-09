@@ -84,6 +84,10 @@ namespace Wagenheimer.BuildPipeline.Editor
         [Header("Steam Upload")]
         public SteamUploadConfig steamUpload = new SteamUploadConfig();
 
+        [Header("Steam Auto-Cloud (cross-platform saves)")]
+        [Tooltip("Declares the save folder per OS. The Steam panel emits the exact Steamworks rows (Root Path + Root Overrides) and checks that the paths are deterministic.")]
+        public SteamAutoCloudConfig autoCloud = new SteamAutoCloudConfig();
+
         [Header("Languages")]
         [Tooltip("Default build language for single and Quick Builds. AutoDetect is recommended for modern multi-language games.")]
         public GameLanguage defaultLanguage = GameLanguage.AutoDetect;

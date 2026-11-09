@@ -94,6 +94,8 @@ namespace Wagenheimer.BuildPipeline.Editor
                     CheckRegistry(issues, config, profile, id, registry, stackFor ?? (p => DefineEnvironment.StackFor(config, p)));
             }
 
+            CheckAutoCloud(issues, config);
+
             if (registry != null)
             {
                 foreach (var conflict in registry.Conflicts)
@@ -324,6 +326,22 @@ namespace Wagenheimer.BuildPipeline.Editor
                 Add(issues, BuildProfileIssueSeverity.Warning, id, "steam-unflagged",
                     "O nome/publisher sugere Steam, mas o perfil não está marcado como Steam (sem define do NativeSocial nem limpeza Steam).");
             }
+        }
+
+        /// <summary>
+        /// Steam Auto-Cloud is opt-in: the checks below only report what would split the save in the cloud.
+        /// Always warnings — a game may legitimately keep saves per platform, and the pre-build gate must not
+        /// block a build for that.
+        /// </summary>
+        private static void CheckAutoCloud(List<BuildProfileIssue> issues, ProjectBuildConfig config)
+        {
+            var autoCloud = config?.autoCloud;
+            if (autoCloud == null || !autoCloud.enabled)
+                return;
+
+            var steamEnabled = config.steamUpload != null && config.steamUpload.steamEnabled;
+            foreach (var issue in SteamAutoCloudPlanner.Check(autoCloud, steamEnabled).Where(i => i.IsWarning))
+                Add(issues, BuildProfileIssueSeverity.Warning, "(autocloud)", issue.Code, issue.Message);
         }
 
         private static void CheckRegistry(
