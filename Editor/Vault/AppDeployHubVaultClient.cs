@@ -44,6 +44,25 @@ namespace Wagenheimer.BuildPipeline.Editor
         private const string KeystoreType = "AndroidKeystore";
         private static readonly JsonSerializerOptions Json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
+        /// <summary>
+        /// The vault shares AppDeployHub's API rate limit (60 requests per IP per minute on <c>/api/v1/*</c>), and a
+        /// build machine usually spends that budget on itself (Forge sync, dashboard, other API calls). A single
+        /// keystore fetch therefore dies with HTTP 429 even though nothing is wrong with the key. Retrying with
+        /// backoff rides out the one-minute window instead of failing the build.
+        /// </summary>
+        internal const int MaxAttempts = 4;
+
+        /// <summary>Delays before attempts 2, 3 and 4. A fixed one-minute window means the last one usually lands after it resets.</summary>
+        internal static readonly TimeSpan[] RetryDelays =
+        {
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(15),
+            TimeSpan.FromSeconds(35)
+        };
+
+        /// <summary>Retry-After is honored when the server sends one, but never for absurd waits.</summary>
+        internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
+
         public static string GetApiKey()
         {
             string env = Environment.GetEnvironmentVariable(KeyEnvVar);
@@ -235,28 +254,96 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (string.IsNullOrWhiteSpace(baseUrl))
                 return (false, "URL do AppDeployHub vazia.", "");
 
-            try
-            {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
-                var response = await client.GetAsync(baseUrl.Trim().TrimEnd('/') + path);
-                string body = await response.Content.ReadAsStringAsync();
+            string url = baseUrl.Trim().TrimEnd('/') + path;
 
-                if ((int)response.StatusCode == 401)
-                    return (false, "API key recusada (401). Confira a chave do cofre.", body);
-                if ((int)response.StatusCode == 403)
-                    return (false, "A chave não é do tipo 'vault' (403). Crie em AppDeployHub → Cofre → Conectar o Forge.", body);
-                if ((int)response.StatusCode == 409)
-                    return (false, "Credencial revogada no cofre (409).", body);
-                if (!response.IsSuccessStatusCode)
-                    return (false, $"Cofre respondeu HTTP {(int)response.StatusCode}.", body);
-
-                return (true, "", body);
-            }
-            catch (Exception ex)
+            for (int attempt = 1; ; attempt++)
             {
-                return (false, "Falha ao acessar o cofre: " + ex.Message, "");
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                    var response = await client.GetAsync(url);
+                    string body = await response.Content.ReadAsStringAsync();
+                    int status = (int)response.StatusCode;
+
+                    if (response.IsSuccessStatusCode)
+                        return (true, "", body);
+
+                    if (IsRetryableStatus(status) && attempt < MaxAttempts)
+                    {
+                        TimeSpan delay = RetryDelay(attempt, ReadRetryAfter(response));
+                        UnityEngine.Debug.LogWarning(
+                            $"[Vault] Cofre respondeu HTTP {status}; nova tentativa em {delay.TotalSeconds:0}s " +
+                            $"({attempt + 1}/{MaxAttempts}).");
+                        await Task.Delay(delay);
+                        continue;
+                    }
+
+                    switch (status)
+                    {
+                        case 401:
+                            return (false, "API key recusada (401). Confira a chave do cofre.", body);
+                        case 403:
+                            return (false, "A chave não é do tipo 'vault' (403). Crie em AppDeployHub → Cofre → Conectar o Forge.", body);
+                        case 409:
+                            return (false, "Credencial revogada no cofre (409).", body);
+                        case 429:
+                            return (false, "Cofre respondeu HTTP 429 (limite de 60 requisições por IP/min, compartilhado com a API do " +
+                                           "AppDeployHub). Aguarde um minuto e rode o build de novo.", body);
+                        default:
+                            return (false, $"Cofre respondeu HTTP {status}.", body);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (IsRetryableException(ex) && attempt < MaxAttempts)
+                    {
+                        TimeSpan delay = RetryDelay(attempt, null);
+                        UnityEngine.Debug.LogWarning(
+                            $"[Vault] Falha de rede ao acessar o cofre ({ex.Message}); nova tentativa em " +
+                            $"{delay.TotalSeconds:0}s ({attempt + 1}/{MaxAttempts}).");
+                        await Task.Delay(delay);
+                        continue;
+                    }
+
+                    return (false, "Falha ao acessar o cofre: " + ex.Message, "");
+                }
             }
+        }
+
+        /// <summary>Transient on the server side: throttling, request timeout and any 5xx.</summary>
+        internal static bool IsRetryableStatus(int statusCode) => statusCode == 408 || statusCode == 429 || statusCode >= 500;
+
+        /// <summary>Connection resets and client timeouts are worth another attempt; auth/format errors are not.</summary>
+        internal static bool IsRetryableException(Exception exception) =>
+            exception is HttpRequestException || exception is TaskCanceledException || exception is AggregateException;
+
+        /// <summary>
+        /// Delay before the next attempt. <paramref name="failedAttempt"/> is 1-based: after the first failure the
+        /// second attempt waits 5s, then 15s, then 35s. A server <c>Retry-After</c> wins, capped at one minute.
+        /// </summary>
+        internal static TimeSpan RetryDelay(int failedAttempt, TimeSpan? retryAfter)
+        {
+            if (retryAfter.HasValue && retryAfter.Value > TimeSpan.Zero)
+                return retryAfter.Value > MaxRetryDelay ? MaxRetryDelay : retryAfter.Value;
+
+            int index = Math.Max(0, Math.Min(failedAttempt - 1, RetryDelays.Length - 1));
+            return RetryDelays[index];
+        }
+
+        private static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+        {
+            var retryAfter = response.Headers.RetryAfter;
+            if (retryAfter == null) return null;
+
+            if (retryAfter.Delta.HasValue) return retryAfter.Delta;
+            if (retryAfter.Date.HasValue)
+            {
+                TimeSpan delta = retryAfter.Date.Value - DateTimeOffset.UtcNow;
+                return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
+            }
+
+            return null;
         }
 
         private static string Str(JsonElement element, string name) =>
