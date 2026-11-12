@@ -110,6 +110,22 @@ namespace Wagenheimer.BuildPipeline
             };
         }
 
+        /// <summary>
+        /// Name of the language in an I2 Localization source: the English name, except English and
+        /// Portuguese which I2 lists with their region ("English (United States)", "Portuguese (Brazil)").
+        /// Empty for <see cref="GameLanguage.AutoDetect"/>.
+        /// </summary>
+        public static string AsLocalizationName(this GameLanguage lang)
+        {
+            return lang switch
+            {
+                GameLanguage.AutoDetect => "",
+                GameLanguage.English => "English (United States)",
+                GameLanguage.Portuguese => "Portuguese (Brazil)",
+                _ => lang.AsLanguageName()
+            };
+        }
+
         public static string FolderNameLanguage(this GameLanguage language)
         {
             var code = language.AsLanguageCode().ToUpper();
