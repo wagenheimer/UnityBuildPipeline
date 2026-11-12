@@ -4,6 +4,11 @@ Thumbs.db
 *.orig
 *.swp
 *.log
+*.log.meta
+Logs/
+Logs.meta
+build.log
+build.log.meta
 
 # Git Bash crash dumps
 *.stackdump
