@@ -95,6 +95,7 @@ namespace Wagenheimer.BuildPipeline.Editor
             }
 
             CheckAutoCloud(issues, config);
+            CheckSteamProfilesPresent(issues, config);
 
             if (registry != null)
             {
@@ -373,8 +374,19 @@ namespace Wagenheimer.BuildPipeline.Editor
             if (undocumented.Count > 0)
             {
                 Add(issues, BuildProfileIssueSeverity.Warning, id, "define-undocumented",
-                    $"Define(s) sem documentação: {string.Join(", ", undocumented)}. Declare em Defines → Registro (jogo) ou no package.json do pacote dono.");
+                    $"Define(s) sem documentação: {string.Join(", ", undocumented)}. Sem declaração o pipeline não sabe para que servem nem em quais perfis são obrigatórios/proibidos, " +
+                    "então não avisa se um perfil novo esquecê-los. Abra Defines → Registro: há descrição e regras sugeridas a partir dos perfis e do código (ou declare no package.json do pacote dono).");
             }
+        }
+
+        /// <summary>The Steam tab is on but no profile is marked as Steam: nothing can be built or uploaded.</summary>
+        private static void CheckSteamProfilesPresent(List<BuildProfileIssue> issues, ProjectBuildConfig config)
+        {
+            if (config?.steamUpload == null || !config.steamUpload.steamEnabled)
+                return;
+
+            foreach (var gap in SteamProfileAdvisor.FindGaps(config))
+                Add(issues, BuildProfileIssueSeverity.Warning, "(steam)", "steam-profile-missing", gap.Title + ". " + gap.Why);
         }
 
         private static bool Contains(string value, string token) =>

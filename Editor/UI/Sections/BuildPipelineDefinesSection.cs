@@ -150,7 +150,10 @@ namespace Wagenheimer.BuildPipeline.Editor
                 else if (DefineUsageIndex.HasResult && row.Usages > 0 && !definedSomewhere && !builtIn)
                 {
                     row.Status = Status.Orphan;
-                    row.StatusText = "❓ órfão: usado, nunca definido";
+                    string near = DefineAdvisor.NearestSymbol(symbol, KnownDefinedSymbols(versionDefined));
+                    row.StatusText = near == null
+                        ? "❓ órfão: usado, nunca definido"
+                        : $"❓ órfão: usado, nunca definido — talvez você quis dizer {near}?";
                 }
                 else if (DefineUsageIndex.HasResult && row.Usages == 0 && (row.InProfileLayer || row.Declaration != null) && !builtIn)
                 {
@@ -188,6 +191,8 @@ namespace Wagenheimer.BuildPipeline.Editor
 
             if (!string.IsNullOrEmpty(_selection.selectedDefine))
                 box.Add(SymbolDetail(_selection.selectedDefine));
+
+            box.Add(HealthCard());
 
             var tools = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 6 } };
             var search = new ToolbarSearchField { value = _filter, style = { width = 260 } };
@@ -295,7 +300,15 @@ namespace Wagenheimer.BuildPipeline.Editor
                     DefineSymbols.IsUnityBuiltIn(symbol) ? "Símbolo do Unity." : "⚠ Ninguém documentou este define. Se é do jogo, documente aqui; se é de um pacote seu, declare no package.json dele (wagenheimer.defines).",
                     DefineSymbols.IsUnityBuiltIn(symbol) ? "info" : "warn"));
                 if (!DefineSymbols.IsUnityBuiltIn(symbol))
-                    card.Add(BuildPipelineBuildSection.SmallButton("＋ Documentar como define do jogo", () => AddGameDefine(symbol)));
+                {
+                    var suggestion = SuggestionFor(symbol);
+                    foreach (string reason in suggestion.Reasons)
+                        card.Add(new Label("• " + reason) { style = { fontSize = 11, color = Muted, whiteSpace = WhiteSpace.Normal } });
+                    card.Add(new Label("Descrição sugerida: " + suggestion.Declaration.description) { style = { whiteSpace = WhiteSpace.Normal, marginTop = 4 } });
+                    foreach (string evidence in suggestion.Evidence)
+                        card.Add(new Label("→ " + evidence) { style = { fontSize = 11, color = Muted, whiteSpace = WhiteSpace.Normal } });
+                    card.Add(BuildPipelineBuildSection.SmallButton("＋ Documentar com a sugestão", () => AddGameDefine(symbol, suggestion.Declaration)));
+                }
             }
 
             card.Add(ProfileMatrix(symbol));
@@ -347,22 +360,227 @@ namespace Wagenheimer.BuildPipeline.Editor
             return fold;
         }
 
-        private void AddGameDefine(string symbol)
+        private void AddGameDefine(string symbol, DefineDeclaration suggested = null)
         {
             _config.gameDefines ??= new List<DefineDeclaration>();
             if (_config.gameDefines.Any(d => d != null && d.symbol == symbol))
                 return;
 
-            _config.gameDefines.Add(new DefineDeclaration { symbol = symbol, description = "" });
+            _config.gameDefines.Add(suggested ?? new DefineDeclaration { symbol = symbol, description = "" });
             _selection.definesTab = "registry";
             _ctx.SaveSelection();
             _ctx.SaveConfig(false);
+        }
+
+        // ── Documentation advisor ────────────────────────────────────────────
+
+        private static string GroupOf(PlatformType platform) => DefineEnvironment.TargetGroupName(platform);
+
+        private List<DefineProfileFootprint> Footprints(string symbol) =>
+            _stacks.Select(pair => new DefineProfileFootprint
+            {
+                ProfileId = pair.Key.EffectiveId,
+                DisplayName = pair.Key.displayName,
+                PlatformGroup = GroupOf(pair.Key.platform),
+                Tags = ProfileTags.For(pair.Key),
+                Has = pair.Value.Has(symbol)
+            }).ToList();
+
+        private DefineSuggestion SuggestionFor(string symbol) =>
+            DefineAdvisor.Suggest(symbol, Footprints(symbol), DefineUsageIndex.Usages, DefineUsageIndex.VersionDefines());
+
+        private IEnumerable<string> KnownDefinedSymbols(HashSet<string> versionDefined)
+        {
+            foreach (var declaration in _registry.Declarations) yield return declaration.symbol;
+            foreach (var stack in _stacks.Values)
+                foreach (var entry in stack.Entries)
+                    if (!entry.removes) yield return entry.symbol;
+            foreach (string symbol in versionDefined) yield return symbol;
+        }
+
+        private List<string> UndocumentedSymbols()
+        {
+            return _config.publishers.Where(p => p != null)
+                .SelectMany(p => BuildDefineResolver.Resolve(_config, p))
+                .Select(d => d.TrimStart('!', '-').Trim())
+                .Where(d => d.Length > 0 && !DefineSymbols.IsUnityBuiltIn(d) && !_registry.IsDeclared(d))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(d => d, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private VisualElement SuggestionsCard()
+        {
+            var undocumented = UndocumentedSymbols();
+            var card = BuildPipelineUIStyle.CreateCard(
+                $"🧾 Defines usados e sem documentação ({undocumented.Count})",
+                "Documentar um define diz ao pipeline PARA QUE ele serve e QUANDO é obrigatório ou proibido. Com isso a validação avisa " +
+                "se um perfil novo esquece um define (ex.: build Free sem os anúncios) ou deixa vazar um que não deve (ex.: anúncios no Full). " +
+                "As descrições e regras abaixo são inferidas dos seus perfis e do código; revise e edite antes de adicionar.");
+
+            if (undocumented.Count == 0)
+            {
+                card.Add(BuildPipelineUIStyle.CreateCallout("Todos os defines usados pelos perfis estão documentados.", "ok"));
+                return card;
+            }
+
+            if (!DefineUsageIndex.HasResult)
+            {
+                card.Add(BuildPipelineUIStyle.CreateCallout(
+                    "A varredura do código ainda não terminou: as sugestões ficam mais pobres (sem contagem de usos). Aguarde ou rescaneie.", "warn"));
+                card.Add(BuildPipelineBuildSection.SmallButton("🔄 Escanear código agora", () => DefineUsageIndex.Scan(() => _ctx.RebuildSection())));
+            }
+
+            var drafts = new Dictionary<string, Func<DefineDeclaration>>();
+
+            foreach (string symbol in undocumented)
+            {
+                var suggestion = SuggestionFor(symbol);
+                var fold = new Foldout { text = $"{symbol}  —  {suggestion.UsageCount} uso(s) no código · {suggestion.Declaration.description}", value = false };
+                fold.style.marginBottom = 4;
+
+                foreach (string reason in suggestion.Reasons)
+                    fold.Add(new Label("• " + reason) { style = { fontSize = 11, color = Muted, whiteSpace = WhiteSpace.Normal } });
+
+                var description = new TextField("Descrição") { value = suggestion.Declaration.description, multiline = true };
+                description.style.whiteSpace = WhiteSpace.Normal;
+                fold.Add(description);
+
+                var required = new TextField("Obrigatório quando") { value = string.Join(", ", suggestion.Declaration.requiredWhen) };
+                required.tooltip = "Tags separadas por vírgula; '+' = E. Ex.: free, ios+free";
+                fold.Add(required);
+
+                var forbidden = new TextField("Proibido quando") { value = string.Join(", ", suggestion.Declaration.forbiddenWhen) };
+                fold.Add(forbidden);
+
+                foreach (string evidence in suggestion.Evidence)
+                    fold.Add(new Label("→ " + evidence) { style = { fontSize = 11, color = Muted, whiteSpace = WhiteSpace.Normal } });
+
+                Func<DefineDeclaration> draft = () =>
+                {
+                    var declaration = JsonUtility.FromJson<DefineDeclaration>(JsonUtility.ToJson(suggestion.Declaration));
+                    declaration.description = description.value?.Trim() ?? "";
+                    declaration.requiredWhen = SplitRules(required.value);
+                    declaration.forbiddenWhen = SplitRules(forbidden.value);
+                    return declaration;
+                };
+                drafts[symbol] = draft;
+
+                var buttons = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginTop = 4 } };
+                buttons.Add(BuildPipelineBuildSection.SmallButton("＋ Documentar este", () =>
+                {
+                    AddGameDefine(symbol, draft());
+                    _selection.definesTab = "registry";
+                    _ctx.RebuildSection();
+                }));
+
+                var usageHost = new VisualElement();
+                var usageButton = BuildPipelineBuildSection.SmallButton($"🔍 Ver usos no código ({suggestion.UsageCount})", () =>
+                {
+                    if (usageHost.childCount > 0) { usageHost.Clear(); return; }
+                    var usages = DefineUsageIndex.UsagesOf(symbol);
+                    usageHost.Add(usages.Count == 0
+                        ? new Label("Nenhum uso encontrado no código (só nos perfis).") { style = { color = Muted } }
+                        : DefineViews.UsageList(usages));
+                });
+                buttons.Add(usageButton);
+                buttons.Add(BuildPipelineBuildSection.SmallButton("🧬 Ver na central", () => { _selection.definesTab = ""; _selection.selectedDefine = symbol; _ctx.SaveSelection(); _ctx.RebuildSection(); }));
+                fold.Add(buttons);
+                fold.Add(usageHost);
+                card.Add(fold);
+            }
+
+            card.Add(BuildPipelineBuildSection.SmallButton($"＋ Adicionar todos ({undocumented.Count}) com as descrições acima", () =>
+            {
+                foreach (var pair in drafts)
+                    AddGameDefine(pair.Key, pair.Value());
+                _selection.definesTab = "registry";
+                _ctx.RebuildSection();
+            }));
+
+            return card;
+        }
+
+        private static List<string> SplitRules(string text) =>
+            (text ?? "").Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(r => r.Trim()).Where(r => r.Length > 0).ToList();
+
+        // ── Health ───────────────────────────────────────────────────────────
+
+        private VisualElement HealthCard()
+        {
+            var card = BuildPipelineUIStyle.CreateCard("🩺 Saúde dos defines",
+                "O que costuma dar erro ou ser esquecido: perfil sem um define obrigatório, define proibido que vazou, símbolo usado no código " +
+                "mas nunca definido (possível erro de digitação), define sem documentação ou sem nenhum uso.");
+
+            var problems = 0;
+
+            foreach (var violation in _violations)
+            {
+                problems++;
+                var row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+                row.Add(new Label("⛔ " + violation.Message) { style = { flexGrow = 1, flexShrink = 1, whiteSpace = WhiteSpace.Normal, fontSize = 11 } });
+                var captured = violation;
+                row.Add(BuildPipelineBuildSection.SmallButton(violation.Required ? "＋ Adicionar ao perfil" : "− Remover do perfil", () =>
+                {
+                    var list = captured.Profile.scriptingDefines ??= new List<string>();
+                    string symbol = captured.Declaration.symbol;
+                    list.RemoveAll(d => string.Equals(d.TrimStart('!', '-').Trim(), symbol, StringComparison.Ordinal));
+                    list.Add(captured.Required ? symbol : "!" + symbol);
+                    _ctx.SaveConfig(false);
+                    _ctx.RebuildSection();
+                }));
+                card.Add(row);
+            }
+
+            var rows = BuildRows();
+            foreach (var row in rows.Where(r => r.Status == Status.Orphan))
+            {
+                problems++;
+                var line = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+                line.Add(new Label($"❓ {row.Symbol}: {row.StatusText.Replace("❓ ", "")} ({row.Usages} uso(s))") { style = { flexGrow = 1, flexShrink = 1, whiteSpace = WhiteSpace.Normal, fontSize = 11 } });
+                string symbol = row.Symbol;
+                line.Add(BuildPipelineBuildSection.SmallButton("🔍 Ver usos", () => Select(symbol)));
+                card.Add(line);
+            }
+
+            int undocumented = UndocumentedSymbols().Count;
+            if (undocumented > 0)
+            {
+                problems++;
+                var line = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+                line.Add(new Label($"⚠ {undocumented} define(s) usados pelos perfis sem documentação (sem descrição nem regras).") { style = { flexGrow = 1, flexShrink = 1, whiteSpace = WhiteSpace.Normal, fontSize = 11 } });
+                line.Add(BuildPipelineBuildSection.SmallButton("🧾 Documentar", () =>
+                {
+                    _selection.definesTab = "registry";
+                    _ctx.SaveSelection();
+                    _ctx.RebuildSection();
+                }));
+                card.Add(line);
+            }
+
+            var dead = rows.Where(r => r.Status == Status.Dead).Select(r => r.Symbol).ToList();
+            if (dead.Count > 0)
+            {
+                problems++;
+                card.Add(new Label($"💤 {dead.Count} define(s) sem nenhum uso no código (remova do perfil/registro se não são mais necessários): {string.Join(", ", dead.Take(12))}{(dead.Count > 12 ? "…" : "")}")
+                { style = { fontSize = 11, whiteSpace = WhiteSpace.Normal, color = Muted } });
+            }
+
+            if (!DefineUsageIndex.HasResult)
+                card.Add(new Label("ℹ A varredura do código ainda está rodando: órfãos e defines sem uso aparecem quando terminar.") { style = { fontSize = 11, color = Muted } });
+
+            if (problems == 0)
+                card.Add(BuildPipelineUIStyle.CreateCallout("Tudo consistente: nada obrigatório faltando, nada órfão, nada sem documentação.", "ok"));
+
+            return card;
         }
 
         // ── Game registry ────────────────────────────────────────────────────
 
         private VisualElement RegistryTab()
         {
+            Prepare();
             var box = new VisualElement();
             var card = BuildPipelineUIStyle.CreateCard("📚 Defines do jogo",
                 "Documente aqui os defines que pertencem a ESTE jogo (ex.: ST2_ADS). Regras: requiredWhen/forbiddenWhen usam tags " +
@@ -374,26 +592,8 @@ namespace Wagenheimer.BuildPipeline.Editor
             card.Add(list);
             card.Bind(so);
 
-            var undocumented = _config.publishers.Where(p => p != null)
-                .SelectMany(p => BuildDefineResolver.Resolve(_config, p))
-                .Select(d => d.TrimStart('!', '-').Trim())
-                .Where(d => d.Length > 0)
-                .Distinct(StringComparer.Ordinal)
-                .Where(d => !DefineRegistry.Load(_config).IsDeclared(d))
-                .ToList();
-
-            if (undocumented.Count > 0)
-            {
-                card.Add(BuildPipelineUIStyle.CreateCallout($"Usados pelos perfis e sem documentação: {string.Join(", ", undocumented)}", "warn"));
-                card.Add(BuildPipelineBuildSection.SmallButton("＋ Adicionar todos aqui", () =>
-                {
-                    foreach (string symbol in undocumented)
-                        _config.gameDefines.Add(new DefineDeclaration { symbol = symbol });
-                    _ctx.SaveConfig(false);
-                }));
-            }
-
             box.Add(card);
+            box.Add(SuggestionsCard());
 
             var packages = BuildPipelineUIStyle.CreateCard("📦 Declarados pelos pacotes",
                 "Lidos do package.json de cada pacote instalado (bloco \"wagenheimer\": { \"defines\": [...] }). Para mudar, edite o pacote.");

@@ -638,12 +638,28 @@ namespace Wagenheimer.BuildPipeline.Editor
             var steamProfiles = (_config.publishers ?? new System.Collections.Generic.List<PublisherProfile>())
                 .Where(p => p != null && p.isSteam).ToList();
 
-            if (steamProfiles.Count == 0)
+            // Suggest (and offer to create) whatever profile the Steam tab is missing.
+            foreach (var gap in SteamProfileAdvisor.FindGaps(_config))
             {
-                card.Add(BuildPipelineUIStyle.CreateCallout(
-                    "No profile marked as Steam. Go to Profiles, select a profile and toggle 'Steam' on.", "warn"));
-                return card;
+                card.Add(BuildPipelineUIStyle.CreateCallout($"⚠ {gap.Title}. {gap.Why}", "warn"));
+                if (steamProfiles.Count == 0 || gap.Platform == PlatformType.Windows64)
+                {
+                    var create = new Button(() =>
+                    {
+                        var created = SteamProfileAdvisor.AddProfile(_config, gap.Platform);
+                        _steamProfile = created;
+                        _onConfigChanged?.Invoke();
+                        Rebuild();
+                    });
+                    BuildPipelineUIStyle.ApplyIconText(create, "➕ Criar perfil Steam automaticamente");
+                    create.AddToClassList("bp-btn");
+                    create.AddToClassList("bp-btn--primary");
+                    card.Add(create);
+                }
             }
+
+            if (steamProfiles.Count == 0)
+                return card;
 
             if (_steamProfile == null || !steamProfiles.Contains(_steamProfile))
                 _steamProfile = steamProfiles[0];
