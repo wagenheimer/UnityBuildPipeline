@@ -32,6 +32,17 @@ namespace Wagenheimer.BuildPipeline.Editor
     }
 
     /// <summary>
+    /// Outcome of a end-to-end vault probe (connection + keystore download). The signing section shows it inline and
+    /// the menu item shows it in a dialog, so both explain the same thing when a build would fail.
+    /// </summary>
+    public sealed class VaultProbeResult
+    {
+        public bool Success;
+        public string Message = "";
+        public string Report = "";
+    }
+
+    /// <summary>
     /// Reads Android keystores from the AppDeployHub vault (<c>/api/v1/vault</c>), the same single source the
     /// Forge uses. The API key (Purpose = vault, created in AppDeployHub → Cofre → Conectar o Forge) is per
     /// machine: <c>APPDEPLOYHUB_VAULT_KEY</c> or EditorPrefs, never the asset. Replaces the retired
@@ -242,6 +253,72 @@ namespace Wagenheimer.BuildPipeline.Editor
             string apiKey = GetApiKey();
             return Task.Run(() => FetchKeystoreAsync(baseUrl, credentialId, apiKey)).GetAwaiter().GetResult();
         }
+
+        /// <summary>
+        /// Diagnóstico de ponta a ponta do cofre: valida URL + API key listando as credenciais e depois baixa o keystore
+        /// escolhido para <c>Library/KeystoreCache</c>. É exatamente o caminho do <c>SetupKeystoreStep</c>, então se aqui
+        /// passa o build não falha por chave, rede ou keystore. Não grava segredo nenhum no projeto.
+        /// </summary>
+        public static async Task<VaultProbeResult> ProbeAsync(string baseUrl, string credentialId)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var list = await ListKeystoresAsync(baseUrl);
+            TimeSpan listTime = clock.Elapsed;
+
+            if (!list.Success)
+                return new VaultProbeResult { Message = "Conexão/chave falhou: " + list.Message };
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return new VaultProbeResult { Message = "URL do AppDeployHub vazia." };
+
+            if (string.IsNullOrWhiteSpace(credentialId))
+                return new VaultProbeResult
+                {
+                    Message = $"Conexão OK em {Milliseconds(listTime)} ({list.Credentials.Count} credencial(is)), mas nenhuma " +
+                              "credencial está escolhida — escolha uma em 'Listar keystores do cofre'."
+                };
+
+            var fetch = await FetchKeystoreAsync(baseUrl, credentialId);
+            TimeSpan downloadTime = clock.Elapsed - listTime;
+
+            if (!fetch.Success || fetch.Keystore == null)
+                return new VaultProbeResult
+                {
+                    Message = $"Conexão OK em {Milliseconds(listTime)}, mas o download do keystore falhou: {fetch.Message}"
+                };
+
+            long bytes = 0;
+            try { bytes = new FileInfo(fetch.Keystore.KeystorePath).Length; }
+            catch (IOException) { /* o cache pode ter sido limpo entre o fetch e a leitura */ }
+
+            return new VaultProbeResult
+            {
+                Success = true,
+                Message = $"Conexão e download OK em {Milliseconds(clock.Elapsed)}.",
+                Report = BuildProbeReport(fetch.Keystore.Label, fetch.Keystore.Alias, bytes, fetch.Keystore.KeystorePath,
+                    list.Credentials.Count, listTime, downloadTime)
+            };
+        }
+
+        /// <summary>Relatório legível do probe. Nunca inclui senha — só rótulo, alias, tamanho e caminho do cache.</summary>
+        internal static string BuildProbeReport(string label, string alias, long keystoreBytes, string cachePath,
+            int credentialCount, TimeSpan listTime, TimeSpan downloadTime)
+        {
+            var text = new System.Text.StringBuilder();
+            text.AppendLine($"Conexão: {credentialCount} credencial(is) listada(s) em {Milliseconds(listTime)}");
+            text.AppendLine($"Download: '{label}' (alias '{alias}', {FormatBytes(keystoreBytes)}) em {Milliseconds(downloadTime)}");
+            text.AppendLine($"Cache: {cachePath}");
+            text.Append("Senhas: recebidas (nunca são gravadas no asset).");
+            return text.ToString();
+        }
+
+        internal static string FormatBytes(long bytes) =>
+            bytes >= 1024 * 1024 ? (bytes / 1024.0 / 1024.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB" :
+            bytes >= 1024 ? (bytes / 1024.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " KB" :
+            bytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + " B";
+
+        private static string Milliseconds(TimeSpan value) =>
+            value.TotalMilliseconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " ms";
 
         private static Task<(bool Ok, string Message, string Body)> GetAsync(string baseUrl, string path) =>
             GetAsync(baseUrl, path, GetApiKey());

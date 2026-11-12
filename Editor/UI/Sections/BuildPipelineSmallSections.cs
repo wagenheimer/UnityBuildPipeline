@@ -402,11 +402,14 @@ namespace Wagenheimer.BuildPipeline.Editor
                     listHost.Add(row);
                 }
             }));
-            actions.Add(BuildPipelineBuildSection.SmallButton("⚡ Testar a escolhida", async () =>
+            actions.Add(BuildPipelineBuildSection.SmallButton("Testar conexão + baixar keystore", async () =>
             {
-                status.text = "Baixando keystore…";
-                var result = await AppDeployHubVaultClient.FetchKeystoreAsync(config.appDeployHubUrl, config.vaultKeystoreCredentialId);
-                status.text = result.Success ? "✔ " + result.Message + " (cache em Library/KeystoreCache)" : "✕ " + result.Message;
+                status.text = "Testando conexão e baixando o keystore…";
+                var probe = await AppDeployHubVaultClient.ProbeAsync(config.appDeployHubUrl, config.vaultKeystoreCredentialId);
+                status.text = (probe.Success ? "✅ " : "❌ ") + probe.Message +
+                              (string.IsNullOrEmpty(probe.Report) ? "" : "\n" + probe.Report);
+                if (probe.Success)
+                    Debug.Log("[BuildPipeline] " + probe.Message + "\n" + probe.Report);
             }));
             card.Add(actions);
             card.Add(status);
